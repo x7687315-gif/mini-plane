@@ -1,0 +1,6 @@
+# 全环境共有依赖（版本随 Sprint 锁定，见 BACKEND_PLAN §1.1）
+Django==5.2.17
+djangorestframework==3.18.1
+psycopg[binary]==3.3.5
+django-environ==0.14.0
+drf-spectacular==0.30.0
