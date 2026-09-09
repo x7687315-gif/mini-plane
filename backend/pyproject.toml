@@ -1,6 +1,8 @@
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# 迁移文件由 Django 自动生成（长行/机械 import），不参与 lint
+extend-exclude = ["**/migrations/*"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "DJ"]

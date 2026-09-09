@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     # 第三方
     "rest_framework",
     "drf_spectacular",
+    "corsheaders",
     # 业务（Mini Plane）
     "apps.users",
     "apps.workspaces",
@@ -49,6 +50,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # CORS 要尽量靠前：必须在任何可能生成响应的中间件之前
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -92,6 +95,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# 自定义用户模型（Sprint 1 起；UUID 主键见 apps/users/models.py）
+AUTH_USER_MODEL = "users.User"
+
 # Internationalization
 # 时区策略（BACKEND_PLAN 决策 D8）：数据库统一存 UTC（USE_TZ=True），展示层用上海时区。
 
@@ -112,10 +118,20 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Django REST Framework
 
 REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    # 默认拒绝：匿名接口（health/csrf/register/login）在各视图中显式声明 AllowAny
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.StandardPagination",
+    "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
-    # Sprint 1 起补充：认证类、统一分页器、统一异常处理器
 }
+
+# CORS / CSRF：前后端跨端口联调用；同源部署时保持配置也无害
+CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 # API 文档（drf-spectacular）：/api/schema/ 与 /api/docs/
 
