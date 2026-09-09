@@ -16,6 +16,15 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class UserLiteSerializer(serializers.ModelSerializer):
+    """成员列表里内嵌的用户摘要（不含 email，避免泄露给非管理员）。"""
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "avatar"]
+        read_only_fields = fields
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     """注册请求体；username/email 的唯一性校验由 ModelSerializer 自动生成。"""
 
