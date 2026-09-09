@@ -395,7 +395,7 @@ Project 级：ADMIN(20) 管理项目设置与项目成员；MEMBER(15) 读写 Is
 
 - [ ] 同学或陌生环境按 README + `.env.example` 能在 30 分钟内跑通后端
 - [ ] `/api/v1/health/` 200 且 database=ok；数据库停止时返回 503
-- [ ] `python manage.py test` 通过（health 探测 2 用例）
+- [ ] `python manage.py test --settings=config.settings.test --noinput` 通过（health 探测 2 用例）
 - [ ] `ruff check .` 与 `ruff format --check .` 零告警
 - [ ] Swagger 页面可访问且无警告
 
@@ -429,7 +429,7 @@ Project 级：ADMIN(20) 管理项目设置与项目成员；MEMBER(15) 读写 Is
 
 **验收标准**
 
-- [ ] 上述测试全绿；`python manage.py test` 整体全绿
+- [ ] 上述测试全绿；`python manage.py test --settings=config.settings.test --noinput` 整体全绿
 - [ ] curl 走通：register → login → me → logout → me(401)
 - [ ] 前端同学按联调说明，10 分钟内完成前端 login + me 对接（CORS/CSRF 一次配通是本 Sprint 的硬指标）
 - [ ] schema/docs 无警告
@@ -674,7 +674,7 @@ Project 级：ADMIN(20) 管理项目设置与项目成员；MEMBER(15) 读写 Is
 ### 6.9 通用 Definition of Done（每个 Sprint 结束逐条勾）
 
 - [ ] 契约文档与实现一致（drf-spectacular 无警告，docs/api/*.md 无过期段落）
-- [ ] `python manage.py test` 全绿；`ruff check` / `ruff format --check` 零告警
+- [ ] `python manage.py test --settings=config.settings.test --noinput` 全绿；`ruff check` / `ruff format --check` 零告警
 - [ ] 正常 / 非法 / 未登录 / 无权限 / 不存在 / 边界 六类测试齐备
 - [ ] 迁移可从零重放（删库重建 + migrate 成功）
 - [ ] PR 描述按模板填写，同学已 Review，我的 Review 意见全部闭环

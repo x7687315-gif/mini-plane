@@ -47,7 +47,7 @@ python manage.py runserver
 ## 运行测试
 
 ```powershell
-python manage.py test --settings=config.settings.test
+python manage.py test --settings=config.settings.test --noinput
 ```
 
 ## 协作约定
