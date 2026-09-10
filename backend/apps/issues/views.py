@@ -13,7 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.issues import services
-from apps.issues.filters import apply_ordering
+from apps.issues.filters import apply_issue_filters, apply_issue_ordering
 from apps.issues.serializers import (
     CommentSerializer,
     CommentWriteSerializer,
@@ -47,11 +47,14 @@ def _issue_queryset(project):
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def issue_list_create(request, workspace_slug: str, project_id):
-    """GET：项目成员可读（支持 page/per_page/ordering）；POST：生效角色 ≥ Member。"""
+    """GET：项目成员可读（过滤 / 搜索 / 排序 / 分页，见 04 契约）；POST：生效角色 ≥ Member。"""
     project, role = resolve_project(request.user, workspace_slug, project_id)
 
     if request.method == "GET":
-        queryset = apply_ordering(_issue_queryset(project), request.query_params.get("ordering"))
+        queryset = apply_issue_filters(
+            _issue_queryset(project), request.query_params, user=request.user
+        )
+        queryset = apply_issue_ordering(queryset, request.query_params.get("ordering"))
         paginator = StandardPagination()
         page = paginator.paginate_queryset(queryset, request)
         return paginator.get_paginated_response(IssueSerializer(page, many=True).data)

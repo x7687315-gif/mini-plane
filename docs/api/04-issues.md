@@ -108,22 +108,58 @@
 - **400**：与创建同一套文案（`title` 空串同样是 400）。
 - `sequence_id` / `created_by` / `project` 等只读字段传入即忽略，不报错。
 
-## GET `…/issues/` — 列表
+## GET `…/issues/` — 列表（查询引擎）
 
-**Sprint 3 已支持**
+所有参数可任意组合，彼此之间是 **AND** 关系。
 
-| 参数 | 说明 |
-|------|------|
-| `page` / `per_page` | 分页；`per_page` 默认 50、上限 100 |
-| `ordering` | 白名单：`sequence_id` / `-sequence_id` / `created_at` / `-created_at` / `priority` / `-priority`；缺省 `-sequence_id`（新的在前）。可逗号分隔多字段。非法值 → **400** |
+| 参数 | 取值 | 说明 |
+|------|------|------|
+| `state` | 状态 id，逗号分隔多值 | 命中**任一**即入选（OR） |
+| `priority` | `none`/`urgent`/`high`/`medium`/`low`，逗号分隔多值 | OR；枚举之外的值 → **400** |
+| `assignee` | 用户 id，或 `me` | `me` = 当前登录用户；指向不存在或非项目成员的用户 → **空结果**（不报错） |
+| `labels` | 标签 id，逗号分隔多值 | **OR（并集）**：命中任一标签即入选。**这是本 Sprint 冻结的语义**（Sprint 5 冻结） |
+| `search` | 关键词 | `title` 或 `description` 模糊包含（`icontains`）；纯空白视为未传 |
+| `ordering` | 见下「ordering 白名单」 | 非法值 → **400** |
+| `page` / `per_page` | 分页 | `per_page` 默认 50、上限 100（超过**收敛**为 100，不报错）；`page` 越界 → **200 + `results: []`**；`page` 非整数 → **400** |
+
+多值参数写法：`?state=<uuid1>,<uuid2>&priority=high,urgent`（逗号两侧空白会被裁掉）。
+
+### 参数校验文案（400）
 
 ```json
 { "ordering": ["不支持的排序字段：title。"] }
+{ "priority": ["不支持的优先级：urgentt。"] }
+{ "state": ["state 参数必须是逗号分隔的 UUID。"] }
+{ "labels": ["labels 参数必须是逗号分隔的 UUID。"] }
+{ "assignee": ["assignee 参数必须是 UUID 或 me。"] }
+{ "page": ["页码必须是整数。"] }
 ```
 
-**Sprint 5 补齐（本 Sprint 不实现）**：`state` / `priority`（多值）/ `assignee`（id 或 `me`）/ `labels` / `search`。多值语义与标签交并集在 Sprint 5 冻结。
+### ordering 白名单与语义
 
-分页响应体见 00-conventions。
+| 取值 | 实际排序键 | 说明 |
+|------|-----------|------|
+| `-created_at`（**缺省**） | `-created_at, -sequence_id` | 缺省排序在 Sprint 5 由 `-sequence_id` 改为 `-created_at`，见变更记录 |
+| `created_at` | `created_at, sequence_id` | |
+| `sequence_id` / `-sequence_id` | 同值 | 项目内唯一，无需次级键 |
+| `priority` | 严重度：`urgent → high → medium → low → none` | **按严重度，不是字母序**；字母序会得到 high/low/medium/none/urgent，没有意义 |
+| `-priority` | 上表倒序 | |
+
+可逗号分隔多字段（如 `ordering=-priority,sequence_id`）；白名单之外一律 400。
+
+**稳定排序（前端请注意）**：每个排序都会在末位追加 `sequence_id`（项目内唯一）作为次级键。
+原因：`created_at` 的时间精度受系统时钟粒度限制（Windows 约 15ms），同一批创建的 Issue 时间戳可能完全相同；
+没有唯一次级键时，**翻页会出现同一条记录重复出现或被跳过**。
+
+**分页边界**：`page` 越界（比如筛选后结果变少、页码还停在旧值）返回 `200` + 空 `results`，
+`count` 仍是真实总数，方便前端判断"是筛没了还是要回退页码"——不会给 404。
+
+### 明确不做（二期）
+
+- **全文检索**：当前 `search` 是 `icontains`（`LIKE '%x%'`），用不上普通 B-tree 索引；
+  5000 条量级可接受，二期上 `pg_trgm` 或外部检索引擎。
+- **跨项目搜索**：所有查询都在单项目作用域内。
+- **保存筛选视图 / 复杂布尔组合**（`(A AND B) OR C`）：本期只支持同层 AND + 单字段 OR。
 
 ## Label 接口
 
@@ -147,3 +183,4 @@
 | 日期 | 变更 | 状态 |
 |------|------|------|
 | 2026-09-10 | 初稿（后端起草，Sprint 3）：端点、Issue/Label 结构、priority 枚举、发号规则、assignee 必须为项目成员、ordering 白名单 | 待前端确认 |
+| 2026-09-10 | Sprint 5：补齐 `state`/`priority`/`assignee`/`labels`/`search`；**labels 定为 OR（并集）**；**缺省 ordering 由 `-sequence_id` 改为 `-created_at`**；`priority` 排序改为按严重度；所有排序追加 `sequence_id` 次级键保证翻页稳定；`page` 越界改为 200 + 空 results、非整数 400 | 待前端确认 |

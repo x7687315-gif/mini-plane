@@ -149,75 +149,29 @@ class IssueCreateAPITests(IssueAPITestCase):
 
 
 class IssueListAPITests(IssueAPITestCase):
+    """列表接口的**契约形状**测试。
+
+    排序 / 过滤 / 搜索的逐项语义在 tests/test_filters.py，
+    分页边界在 tests/test_pagination.py —— 这里只留"响应形状与查询次数"这类横切关注点。
+    """
+
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
         for index in range(1, 6):
             services.create_issue(cls.project, cls.owner, title=f"t{index}")
 
-    def test_default_ordering_is_newest_first(self):
+    def test_response_envelope_shape(self):
         self.auth(self.owner)
         body = self.client.get(self.issues_url).json()
+        self.assertEqual(set(body), {"count", "next", "previous", "results"})
         self.assertEqual(body["count"], 5)
-        self.assertEqual([item["sequence_id"] for item in body["results"]], [5, 4, 3, 2, 1])
-
-    def test_ordering_ascending(self):
-        self.auth(self.owner)
-        body = self.client.get(f"{self.issues_url}?ordering=sequence_id").json()
-        self.assertEqual([item["sequence_id"] for item in body["results"]], [1, 2, 3, 4, 5])
-
-    def test_ordering_multiple_fields(self):
-        self.auth(self.owner)
-        resp = self.client.get(f"{self.issues_url}?ordering=-priority,sequence_id")
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()["count"], 5)
-
-    def test_ordering_invalid_value_400(self):
-        self.auth(self.owner)
-        resp = self.client.get(f"{self.issues_url}?ordering=title")
-        self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.json()["ordering"], ["不支持的排序字段：title。"])
-
-    def test_ordering_injection_attempt_400(self):
-        """白名单之外一律 400，避免被当作 order_by 注入面（BACKEND_PLAN §Sprint 5 学习要点）。"""
-        self.auth(self.owner)
-        resp = self.client.get(f"{self.issues_url}?ordering=-created_by__password")
-        self.assertEqual(resp.status_code, 400)
 
     def test_list_query_count_has_no_n_plus_one(self):
         """resolve_project 2 次 + 分页 count 1 次 + 取页 1 次 + prefetch labels 1 次 = 5。"""
         self.auth(self.owner)
         with self.assertNumQueries(5):
             self.client.get(self.issues_url)
-
-
-class IssuePaginationAPITests(IssueAPITestCase):
-    @classmethod
-    def setUpTestData(cls):
-        super().setUpTestData()
-        for index in range(1, 52):
-            services.create_issue(cls.project, cls.owner, title=f"bulk-{index}")
-
-    def test_count_and_next_page(self):
-        self.auth(self.owner)
-        body = self.client.get(f"{self.issues_url}?per_page=10").json()
-        self.assertEqual(body["count"], 51)
-        self.assertEqual(len(body["results"]), 10)
-        self.assertIsNotNone(body["next"])
-        self.assertIsNone(body["previous"])
-
-    def test_per_page_over_max_is_capped_at_100(self):
-        """per_page=1000 被 max_page_size 收敛到 100（请求合法，不报错）。"""
-        self.auth(self.owner)
-        body = self.client.get(f"{self.issues_url}?per_page=1000").json()
-        self.assertEqual(body["count"], 51)
-        self.assertEqual(len(body["results"]), 51)
-
-    def test_second_page_returns_remainder(self):
-        self.auth(self.owner)
-        body = self.client.get(f"{self.issues_url}?per_page=50&page=2").json()
-        self.assertEqual(len(body["results"]), 1)
-        self.assertIsNotNone(body["previous"])
 
 
 class IssueDetailAPITests(IssueAPITestCase):

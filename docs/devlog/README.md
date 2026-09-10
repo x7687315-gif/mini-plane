@@ -12,8 +12,8 @@
 | 2 | Workspace / Project | ✅ 已完成 | [sprint-2-backend.md](sprint-2-backend.md) | `0db06f6` → merge `d697462` |
 | 3 | Issue 核心 | ✅ 已完成 | [sprint-3-backend.md](sprint-3-backend.md) | 本 Sprint 提交 |
 | 4 | Comment + Activity | ✅ 已完成 | [sprint-4-backend.md](sprint-4-backend.md) | 本 Sprint 提交 |
-| 5 | Search / Filter / Sort | ⬜ 下一个 | — | — |
-| 6 | Redis Cache + Celery | ⬜ 待开始 | — | — |
+| 5 | Search / Filter / Sort | ✅ 已完成 | [sprint-5-backend.md](sprint-5-backend.md) | 本 Sprint 提交 |
+| 6 | Redis Cache + Celery | ⬜ 下一个 | — | — |
 | 7 | WebSocket Realtime | ⬜ 待开始 | — | — |
 | 8 | Docker / CI / 收尾 | ⬜ 待开始 | — | — |
 
@@ -33,3 +33,7 @@
 - `docs/devlog/` 目前靠本文件人工维护索引，暂不引入自动生成。
 - `ActivityLog` 比计划 §3.2 多一个 `issue` 上下文外键（SET_NULL），理由见 [sprint-4-backend.md](sprint-4-backend.md) §2.1。
 - Label 的增删改、Comment 编辑暂不产生活动记录（06 契约「有意不记录的事件」，二期再议）。
+- Issue 索引在 Sprint 5 被实测修正：`(project, -created_at)` → `(project, -created_at, -sequence_id)`，
+  理由见 [sprint-5-backend.md](sprint-5-backend.md) §2.2。
+- `search` 仍是 `icontains` 顺序扫描；二期上 `pg_trgm`（5000 条实测 2.37ms，暂可接受）。
+- 筛选不支持"未指派（assignee=none）"，二期补。

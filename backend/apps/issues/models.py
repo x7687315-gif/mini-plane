@@ -153,10 +153,14 @@ class Issue(BaseModel):
             ),
         ]
         indexes = [
-            # Sprint 5 用 EXPLAIN 验证的查询路径（§7.5 索引验证）
+            # Sprint 5 用 EXPLAIN 实测后修正：排序键是 (-created_at, -sequence_id) 两列，
+            # 索引必须**完整覆盖排序键**，否则规划器只能"取全部行再 top-N 排序"
+            # （实测：只有 (project, -created_at) 时走的是 project_id 单列索引 + Sort，
+            # 见 docs/devlog/sprint-5-backend.md 的索引验证）。
+            # 该索引同时覆盖 (project, -created_at) 的前缀查询，故旧索引已移除。
+            models.Index(fields=["project", "-created_at", "-sequence_id"]),
             models.Index(fields=["project", "state"]),
             models.Index(fields=["project", "priority"]),
-            models.Index(fields=["project", "-created_at"]),
         ]
         ordering = ["-sequence_id"]
 

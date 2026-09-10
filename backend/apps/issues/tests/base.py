@@ -15,6 +15,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
+from apps.issues import services
+from apps.issues.models import Issue
 from apps.projects.models import ProjectMember, ProjectRoles
 from apps.projects.services import create_project
 from apps.workspaces.models import WorkspaceMember, WorkspaceRoles
@@ -117,3 +119,53 @@ class IssueAPITestCase(IssueScenarioMixin, APITestCase):
     @classmethod
     def setUpTestData(cls):
         cls.build_scenario()
+
+
+class IssueListAPITestCase(IssueAPITestCase):
+    """列表查询类测试（过滤 / 搜索 / 排序 / 分页）的基类。
+
+    提供两个助手：
+    - `make_issue(...)`：建单并可**显式指定 created_at**——Windows 墙钟粒度约 15ms，
+      连续创建的 Issue 会拿到相同时间戳，排序断言不能依赖自然时间戳；
+    - `query(params)`：带查询串请求列表并返回 (状态码, body)。
+    """
+
+    def make_issue(
+        self,
+        *,
+        title: str,
+        state=None,
+        priority: str = "none",
+        assignee=None,
+        labels=None,
+        description: str = "",
+        created_at=None,
+    ):
+        issue = services.create_issue(
+            self.project,
+            self.owner,
+            title=title,
+            description=description,
+            priority=priority,
+            state=state,
+            assignee=assignee,
+            labels=labels,
+        )
+        if created_at is not None:
+            Issue.objects.filter(pk=issue.pk).update(created_at=created_at, updated_at=created_at)
+            issue.refresh_from_db()
+        return issue
+
+    def ids_of(self, body) -> list[str]:
+        return [item["id"] for item in body["results"]]
+
+    def query(self, params: str = ""):
+        self.auth(self.owner)
+        url = f"{self.issues_url}?{params}" if params else self.issues_url
+        response = self.client.get(url)
+        if response.status_code == 200:
+            return response.status_code, response.json()
+        try:
+            return response.status_code, response.json()
+        except ValueError:  # pragma: no cover - 非 JSON 响应（如 405）
+            return response.status_code, None
