@@ -154,7 +154,9 @@ def main(base: str) -> int:
     check("10. ordering 升序", [i["sequence_id"] for i in listing["results"]], [1, 2])
 
     status, error = a.request("GET", f"{project_root}/issues/?ordering=title")
-    check("11. 非法 ordering → 400", (status, error["ordering"]), (400, ["不支持的排序字段：title。"]))
+    check(
+        "11. 非法 ordering → 400", (status, error["ordering"]), (400, ["不支持的排序字段：title。"])
+    )
 
     status, patched = a.request(
         "PATCH", f"{project_root}/issues/{issue1['id']}/", {"state_id": done_state["id"]}

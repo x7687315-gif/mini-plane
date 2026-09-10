@@ -37,9 +37,7 @@ class IssuePermissionMatrixTests(IssueAPITestCase):
         for name in self.WRITERS:
             with self.subTest(role=name):
                 self.auth(getattr(self, name))
-                created = self.client.post(
-                    self.issues_url, {"title": f"by-{name}"}, format="json"
-                )
+                created = self.client.post(self.issues_url, {"title": f"by-{name}"}, format="json")
                 self.assertEqual(created.status_code, 201)
                 target = f"{self.issues_url}{created.json()['id']}/"
                 self.assertEqual(
