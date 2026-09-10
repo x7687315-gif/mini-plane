@@ -5,3 +5,7 @@ psycopg[binary]==3.3.5
 django-environ==0.14.0
 drf-spectacular==0.30.0
 django-cors-headers==4.9.0
+
+# Sprint 6：缓存与异步任务（迭代时以 pip 安装到的最新稳定版为准）
+django-redis==7.0.0
+celery==5.6.3

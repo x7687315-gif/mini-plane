@@ -40,12 +40,16 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "corsheaders",
+    # 本项目基础设施（views/permissions/pagination/filtering/cache；无 models）
+    # Sprint 6 加入：manage.py 命令只从 INSTALLED_APPS 里发现，不登记就拿不到 check_cache
+    "core",
     # 业务（Mini Plane）
     "apps.users",
     "apps.workspaces",
     "apps.projects",
     "apps.issues",
     "apps.activity",
+    "apps.jobs",
 ]
 
 MIDDLEWARE = [
@@ -132,6 +136,51 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+
+# ── 缓存（Sprint 6）────────────────────────────────────────────
+# CACHE_URL 不配 → LocMem（单进程内存缓存，重启即清空，够本地开发用）
+# CACHE_URL=redis://127.0.0.1:6379/0 → django-redis（本地需要 Redis，见 docker-compose.yml）
+# 注意 django-environ 的 scheme 是 locmemcache（不是 locmem）
+CACHES = {"default": env.cache_url("CACHE_URL", default="locmemcache://")}
+if "RedisCache" in CACHES["default"]["BACKEND"]:
+    # 显式用 JSON 序列化：缓存里存的必须和 HTTP 响应体长得一样（见 07 契约的一致性保证），
+    # 用 pickle 会把 Python 对象（UUID/datetime）原样吞进去，排查时不可读。
+    CACHES["default"].setdefault("OPTIONS", {}).update(
+        {"SERIALIZER": "django_redis.serializers.json.JSONSerializer"}
+    )
+
+# ── 异步任务（Sprint 6）────────────────────────────────────────
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://127.0.0.1:6379/1")
+CELERY_RESULT_BACKEND = env(
+    "CELERY_RESULT_BACKEND",
+    default="cache+memory://" if CELERY_BROKER_URL.startswith("filesystem://") else None,
+)
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+# eager 模式下把任务异常原样抛出：否则测试里"任务失败"会被静默吞掉
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TIME_LIMIT = 300
+# 长任务先确认再 ack（worker 崩溃时任务不丢），配合 prefetch=1 避免单 worker 囤积
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+
+if CELERY_BROKER_URL.startswith("filesystem://"):
+    # 无 Docker 的本地通道：filesystem broker 可跨进程（producer 与 worker 各一个进程），
+    # 不像 memory:// 只在自己进程内有效。
+    # 注意 data_folder_in 和 data_folder_out 必须是**同一个目录**（生产者写、消费者读同一处）。
+    # store_processed 必须关掉：它靠 os.rename 把消息挪进 processed 目录，Windows 上会
+    # 因文件被占用而失败（实测 ChannelError: Cannot read file ... from queue）。
+    # 用法见 docs/devlog/sprint-6-backend.md。
+    _celery_data_dir = BASE_DIR / ".celery"
+    _celery_data_dir.mkdir(parents=True, exist_ok=True)
+    CELERY_BROKER_TRANSPORT_OPTIONS = {
+        "data_folder_in": str(_celery_data_dir),
+        "data_folder_out": str(_celery_data_dir),
+        "store_processed": False,
+        "processing_interval": 1,
+    }
 
 # API 文档（drf-spectacular）：/api/schema/ 与 /api/docs/
 

@@ -1,0 +1,25 @@
+# Mini Plane 本地开发编排（Sprint 6 起）
+#
+# 当前只需要 Redis（缓存 + Celery broker）：
+#     docker compose up -d redis
+#     docker compose exec redis redis-cli ping        # → PONG
+#
+# Sprint 8 会在这里补齐 web / worker / db（PostgreSQL）三个服务，
+# 让"陌生机器一条命令起全套"。现在刻意只放 Redis，避免半成品的编排误导人。
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: miniplane-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

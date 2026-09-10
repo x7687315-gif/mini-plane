@@ -12,6 +12,10 @@ db.sqlite3
 staticfiles/
 media/
 
+# Sprint 6：无 Docker 的本地 Celery 通道（filesystem broker 的落盘队列）
+.celery/
+celerybeat-schedule*
+
 # IDE & OS
 .idea/
 .vscode/

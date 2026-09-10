@@ -9,6 +9,7 @@ from rest_framework.exceptions import ValidationError
 from apps.activity import services as activity_services
 from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import create_default_states
+from apps.projects import cache as project_cache
 from apps.projects.models import Project, ProjectMember, ProjectRoles
 from apps.users.models import User
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
@@ -77,6 +78,8 @@ def update_project(
             old_value=old_value,
             new_value=new_value,
         )
+    # 失效放在最后且**无条件**执行：宁多失效一次（只是版本号 +1），也不要漏掉描述变更等分支
+    project_cache.invalidate(project.id, workspace_slug=project.workspace.slug)
     return project
 
 
@@ -90,12 +93,15 @@ def add_member(workspace: Workspace, project: Project, user_id, role: int) -> Pr
         raise ValidationError({"user_id": ["该用户不是工作区成员，请先添加到工作区。"]})
     if ProjectMember.objects.filter(project=project, user=user).exists():
         raise ValidationError({"user_id": ["该用户已是项目成员。"]})
-    return ProjectMember.objects.create(project=project, user=user, role=role)
+    member = ProjectMember.objects.create(project=project, user=user, role=role)
+    _invalidate_project_cache(project)
+    return member
 
 
-def change_role(member: ProjectMember, role: int) -> ProjectMember:
+def change_role(project: Project, member: ProjectMember, role: int) -> ProjectMember:
     member.role = role
     member.save(update_fields=["role", "updated_at"])
+    _invalidate_project_cache(project)
     return member
 
 
@@ -105,6 +111,17 @@ def remove_member(project: Project, member: ProjectMember) -> None:
     if member.role == ProjectRoles.ADMIN and admin_count <= 1:
         raise ValidationError({"detail": "至少保留一位项目管理员。"})
     member.delete()
+    _invalidate_project_cache(project)
+
+
+def _invalidate_project_cache(project: Project) -> None:
+    """成员变更后作废详情缓存。
+
+    **防御性失效**：当前缓存体里没有成员字段，所以严格说成员变更不影响缓存内容；
+    但一旦详情体加入成员数/成员列表（二期很可能），这里就必须失效。
+    计划 §Sprint 6 把 member_change_invalidates 列为验收项，故按防御性失效实现并标注。
+    """
+    project_cache.invalidate(project.id, workspace_slug=project.workspace.slug)
 
 
 def require_workspace_write_role(workspace: Workspace, role: int) -> None:

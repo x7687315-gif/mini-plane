@@ -146,3 +146,38 @@ class CommentWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ["content"]
+
+
+class IssueBulkLabelsSerializer(serializers.Serializer):
+    """批量改标签请求体（Sprint 6，**覆盖式**：把选中 Issue 的标签整体替换）。
+
+    只做跨作用域校验；真正的执行在异步任务里（apps/jobs/tasks.py），
+    所以这里刻意不碰数据库写入。
+    """
+
+    issue_ids = serializers.ListField(
+        child=serializers.UUIDField(), allow_empty=False, help_text="要批量修改的 Issue id 列表"
+    )
+    label_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        default=list,
+        help_text="目标标签 id 列表；空数组表示清空这些 Issue 的标签",
+    )
+
+    def validate(self, attrs):
+        project = self.context["project"]
+        unique_issues = set(attrs["issue_ids"])
+        unique_labels = set(attrs["label_ids"])
+
+        found_issues = Issue.objects.filter(project=project, id__in=unique_issues).count()
+        if found_issues != len(unique_issues):
+            raise serializers.ValidationError({"issue_ids": ["所选 Issue 不属于该项目。"]})
+
+        found_labels = Label.objects.filter(project=project, id__in=unique_labels).count()
+        if found_labels != len(unique_labels):
+            raise serializers.ValidationError({"label_ids": ["所选标签不属于该项目。"]})
+
+        attrs["issue_ids"] = sorted(unique_issues, key=str)
+        attrs["label_ids"] = sorted(unique_labels, key=str)
+        return attrs

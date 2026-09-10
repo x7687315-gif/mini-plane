@@ -90,7 +90,8 @@ def change_role(workspace: Workspace, member: WorkspaceMember, role: int) -> Wor
 def remove_member(workspace: Workspace, member: WorkspaceMember) -> None:
     """移除成员；双守卫：所有者不可移除 + 至少保留一位管理员（02 契约）。
 
-    同步清除其项目成员身份，维持 §4.1 不变量「ProjectMember 必是 WorkspaceMember」。
+    同步清除其项目成员身份，维持 §4.1 不变量「ProjectMember 必是 WorkspaceMember」；
+    项目成员身份被清掉会改变生效角色，因此项目详情缓存必须一并作废（Sprint 6）。
     """
     if member.user_id == workspace.owner_id:
         raise ValidationError({"detail": "工作区所有者不可移除。"})
@@ -101,3 +102,11 @@ def remove_member(workspace: Workspace, member: WorkspaceMember) -> None:
         raise ValidationError({"detail": "至少保留一位管理员。"})
     ProjectMember.objects.filter(project__workspace=workspace, user=member.user).delete()
     member.delete()
+    # 被移除者可能不再是任何项目的成员 → 它能看到的所有项目详情缓存都要作废
+    _invalidate_projects_of(workspace)
+
+
+def _invalidate_projects_of(workspace: Workspace) -> int:
+    from apps.projects import cache as project_cache
+
+    return project_cache.invalidate_workspace(workspace)

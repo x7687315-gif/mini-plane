@@ -13,8 +13,8 @@
 | 3 | Issue 核心 | ✅ 已完成 | [sprint-3-backend.md](sprint-3-backend.md) | 本 Sprint 提交 |
 | 4 | Comment + Activity | ✅ 已完成 | [sprint-4-backend.md](sprint-4-backend.md) | 本 Sprint 提交 |
 | 5 | Search / Filter / Sort | ✅ 已完成 | [sprint-5-backend.md](sprint-5-backend.md) | 本 Sprint 提交 |
-| 6 | Redis Cache + Celery | ⬜ 下一个 | — | — |
-| 7 | WebSocket Realtime | ⬜ 待开始 | — | — |
+| 6 | Redis Cache + Celery | ✅ 已完成 | [sprint-6-backend.md](sprint-6-backend.md) | 本 Sprint 提交 |
+| 7 | WebSocket Realtime | ⬜ 下一个 | — | — |
 | 8 | Docker / CI / 收尾 | ⬜ 待开始 | — | — |
 
 ## 交付物形态（每个 Sprint 收尾时的固定动作）
@@ -37,3 +37,7 @@
   理由见 [sprint-5-backend.md](sprint-5-backend.md) §2.2。
 - `search` 仍是 `icontains` 顺序扫描；二期上 `pg_trgm`（5000 条实测 2.37ms，暂可接受）。
 - 筛选不支持"未指派（assignee=none）"，二期补。
+- Project 详情缓存**收益有限**（瓶颈在鉴权查询，不在项目行），详见
+  [sprint-6-backend.md](sprint-6-backend.md) §2.1 与 [07 契约](../api/07-cache-and-tasks.md) §1.5；
+  二期该缓存的是 Issue 列表的 `COUNT(*)` 与详情体统计聚合。
+- 通知只落库（`Notification` 表占位），邮件/推送二期；Label 变更暂不产生活动记录。

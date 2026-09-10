@@ -322,6 +322,47 @@ def main(base: str) -> int:
     status, _ = b.request("GET", activities_root)
     check("非成员访问活动流 → 404", status, 404)
 
+    # ── Sprint 6：缓存一致性 + 异步任务 ────────────────────────
+    status, _ = a.request("GET", f"{project_root}/")
+    check("项目详情（冷读，写入缓存）", status, 200)
+
+    status, _ = a.request("PATCH", f"{project_root}/", {"name": "改名后的项目"})
+    check("PATCH 改项目名", status, 200)
+
+    status, after = a.request("GET", f"{project_root}/")
+    check(
+        "缓存一致性：改完立即读拿到新值（无陈旧窗口）",
+        (status, after["name"], after["current_user_role"]),
+        (200, "改名后的项目", 20),
+    )
+
+    status, perf = m.request("POST", f"{project_root}/labels/", {"name": "perf"})
+    check("M 创建标签 perf", status, 201)
+
+    status, run = m.request(
+        "POST",
+        f"{project_root}/issues/bulk/labels/",
+        {"issue_ids": [body_of(issue2, "id")], "label_ids": [body_of(perf, "id")]},
+    )
+    check("批量任务受理 → 202", (status, body_of(run, "kind")), (202, "bulk_assign_labels"))
+
+    status, done = m.request("GET", f"{project_root}/tasks/{body_of(run, 'id')}/")
+    check(
+        "任务状态流转到 success",
+        (status, body_of(done, "status"), body_of(done, "result", "issues")),
+        (200, "success", 1),
+    )
+
+    status, detail = m.request("GET", f"{issues_root}{body_of(issue2, 'id')}/")
+    check(
+        "批量结果生效（标签被覆盖成 perf）",
+        [item["name"] for item in body_of(detail, "labels")],
+        ["perf"],
+    )
+
+    status, _ = b.request("GET", f"{project_root}/tasks/00000000-0000-0000-0000-000000000000/")
+    check("非成员查任务状态 → 404", status, 404)
+
     # ── 删除与清理 ─────────────────────────────────────────────
     status, _ = m.request("DELETE", f"{comment_root}/{body_of(comment_by_owner, 'id')}/")
     check("非作者 Member 删他人评论 → 403", status, 403)

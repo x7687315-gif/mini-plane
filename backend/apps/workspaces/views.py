@@ -13,6 +13,7 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.projects import cache as project_cache
 from apps.workspaces import services
 from apps.workspaces.models import WorkspaceMember, WorkspaceRoles
 from apps.workspaces.serializers import (
@@ -85,6 +86,8 @@ def workspace_detail(request, workspace_slug: str):
         workspace = services.update_workspace(workspace, **serializer.validated_data)
         return Response(WorkspaceSerializer(workspace, context={"role": role}).data)
 
+    # 工作区删除会级联删掉所有项目，先把它们的详情缓存作废（Sprint 6）
+    project_cache.invalidate_workspace(workspace)
     workspace.delete()  # 级联删除项目/成员/状态（D7：MVP 无软删除，契约已注明）
     return Response(status=status.HTTP_204_NO_CONTENT)
 

@@ -1,2 +1,4 @@
 -r base.txt
 ruff==0.16.6
+# Windows 下用 filesystem broker（无 Docker 的本地 Celery 通道）需要 pywin32 做文件锁
+pywin32==312; sys_platform == "win32"

@@ -4,6 +4,7 @@
 WS Admin 视同 > 其他 WS 成员只读 > 非 WS 成员 404）。
 """
 
+from django.http import Http404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -11,6 +12,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.projects import cache as project_cache
 from apps.projects import services
 from apps.projects.models import ProjectMember, ProjectRoles
 from apps.projects.serializers import (
@@ -23,7 +25,11 @@ from apps.projects.serializers import (
 )
 from apps.workspaces.models import WorkspaceRoles
 from core.pagination import StandardPagination
-from core.permissions import resolve_project, resolve_workspace
+from core.permissions import (
+    get_effective_project_role_by_ids,
+    resolve_project,
+    resolve_workspace,
+)
 
 
 def _require_role(role: int, threshold: int) -> None:
@@ -82,11 +88,25 @@ def project_list_create(request, workspace_slug: str):
 @api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def project_detail(request, workspace_slug: str, project_id):
-    """GET：WS 成员；PATCH / DELETE：生效角色 ≥ Admin（WS Admin 视同）。"""
+    """GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。"""
+    # 命中缓存的快路径：不加载 Project 行，但**鉴权仍然实时执行**
+    # （成员被移除后缓存不能继续放行）。详见 apps/projects/cache.py 的模块说明。
+    if request.method == "GET":
+        cached = project_cache.get_detail(workspace_slug, project_id)
+        if cached is not None:
+            role = get_effective_project_role_by_ids(
+                request.user, workspace_id=cached["workspace"], project_id=project_id
+            )
+            if role is None:
+                raise Http404  # 与冷路径一致：非成员一律 404（防枚举）
+            return Response({**cached, "current_user_role": role})
+
     project, role = resolve_project(request.user, workspace_slug, project_id)
 
     if request.method == "GET":
-        return Response(ProjectSerializer(project, context={"role": role}).data)
+        payload = project_cache.build_payload(project)
+        project_cache.set_detail(workspace_slug, project.id, payload)
+        return Response({**payload, "current_user_role": role})
 
     _require_role(role, ProjectRoles.ADMIN)
 
@@ -96,7 +116,9 @@ def project_detail(request, workspace_slug: str, project_id):
         project = services.update_project(project, actor=request.user, **serializer.validated_data)
         return Response(ProjectSerializer(project, context={"role": role}).data)
 
-    project.delete()  # 级联删除成员/状态/（后续）Issue
+    # 先失效再删：删完就拿不到 workspace slug 了
+    project_cache.invalidate(project.id, workspace_slug=workspace_slug)
+    project.delete()  # 级联删除成员/状态/Issue
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -143,7 +165,7 @@ def project_member_detail(request, workspace_slug: str, project_id, member_id):
     if request.method == "PATCH":
         serializer = ProjectMemberRoleSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        member = services.change_role(member, serializer.validated_data["role"])
+        member = services.change_role(project, member, serializer.validated_data["role"])
         return Response(ProjectMemberSerializer(member).data)
 
     services.remove_member(project, member)

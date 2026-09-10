@@ -17,11 +17,14 @@ from apps.issues.filters import apply_issue_filters, apply_issue_ordering
 from apps.issues.serializers import (
     CommentSerializer,
     CommentWriteSerializer,
+    IssueBulkLabelsSerializer,
     IssueSerializer,
     IssueWriteSerializer,
     LabelSerializer,
     LabelWriteSerializer,
 )
+from apps.jobs import services as job_services
+from apps.jobs.serializers import TaskRunSerializer
 from apps.projects.models import ProjectRoles
 from core.pagination import StandardPagination
 from core.permissions import resolve_project
@@ -195,3 +198,23 @@ def comment_detail(request, workspace_slug: str, project_id, issue_id, comment_i
 
     services.delete_comment(comment, actor=request.user)
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    summary="批量修改 Issue 标签（异步）",
+    request=IssueBulkLabelsSerializer,
+    responses={202: TaskRunSerializer},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def issue_bulk_labels(request, workspace_slug: str, project_id):
+    """生效角色 ≥ Member。立即返回 **202 + task_id**，进度查 `GET …/tasks/{task_id}/`。
+
+    请求体 `{"issue_ids": [...], "label_ids": [...]}`（覆盖式：label_ids 为空数组表示清空）。
+    """
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    _require_role(role, ProjectRoles.MEMBER)
+    serializer = IssueBulkLabelsSerializer(data=request.data, context={"project": project})
+    serializer.is_valid(raise_exception=True)
+    run = job_services.start_bulk_assign_labels(project, request.user, **serializer.validated_data)
+    return Response(TaskRunSerializer(run).data, status=status.HTTP_202_ACCEPTED)

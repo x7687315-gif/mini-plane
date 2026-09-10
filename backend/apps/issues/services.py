@@ -16,6 +16,7 @@ from rest_framework.exceptions import ValidationError
 from apps.activity import services as activity_services
 from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import Comment, Issue, IssuePriorities, Label, State, StateGroups
+from apps.jobs.tasks import notify_comment_created
 from apps.projects.models import Project
 
 # 哨兵：区分「未提交该字段」与「显式提交 null / 空列表」
@@ -149,12 +150,14 @@ def delete_issue(issue: Issue, *, actor) -> None:
 
 @transaction.atomic
 def create_comment(issue: Issue, author, *, content: str) -> Comment:
-    """创建评论并写 `comment.created` 留痕（05 / 06 契约）。"""
+    """创建评论，写 `comment.created` 留痕（05 / 06 契约），并投递通知任务（Sprint 6）。"""
     content = (content or "").strip()
     if not content:
         raise ValidationError({"content": ["该字段是必填项。"]})
     comment = Comment.objects.create(issue=issue, author=author, content=content)
     activity_services.record_comment_event(comment, actor=author, action=ActivityActions.CREATED)
+    # 投递必须等到事务提交：否则 worker 可能抢在提交前读这条评论（读不到 → 通知丢失）
+    transaction.on_commit(lambda: notify_comment_created.delay(str(comment.id)))
     return comment
 
 

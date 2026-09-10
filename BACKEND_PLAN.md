@@ -371,8 +371,9 @@ Project 级：ADMIN(20) 管理项目设置与项目成员；MEMBER(15) 读写 Is
 | 3 Issue 核心 | ✅ 已完成 | [sprint-3-backend.md](docs/devlog/sprint-3-backend.md) |
 | 4 Comment + Activity | ✅ 已完成 | [sprint-4-backend.md](docs/devlog/sprint-4-backend.md) |
 | 5 Search / Filter / Sort | ✅ 已完成 | [sprint-5-backend.md](docs/devlog/sprint-5-backend.md) |
-| 6 Redis Cache + Celery | ⬜ 下一个 | — |
-| 7–8 | ⬜ 待开始 | — |
+| 6 Redis Cache + Celery | ✅ 已完成 | [sprint-6-backend.md](docs/devlog/sprint-6-backend.md) |
+| 7 WebSocket Realtime | ⬜ 下一个 | — |
+| 8 Docker / CI / 收尾 | ⬜ 待开始 | — |
 
 进入 Sprint 9/10（阅读真实 Plane 源码、开源贡献）的条件见 §10。
 
