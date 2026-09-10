@@ -9,3 +9,8 @@ django-cors-headers==4.9.0
 # Sprint 6：缓存与异步任务（迭代时以 pip 安装到的最新稳定版为准）
 django-redis==7.0.0
 celery==5.6.3
+
+# Sprint 7：WebSocket 实时推送
+channels==4.3.2
+daphne==4.2.3
+channels-redis==4.3.0

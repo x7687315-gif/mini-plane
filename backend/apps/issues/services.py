@@ -18,6 +18,7 @@ from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import Comment, Issue, IssuePriorities, Label, State, StateGroups
 from apps.jobs.tasks import notify_comment_created
 from apps.projects.models import Project
+from apps.realtime import broadcast as realtime
 
 # 哨兵：区分「未提交该字段」与「显式提交 null / 空列表」
 _UNSET = object()
@@ -126,6 +127,13 @@ def update_issue(issue: Issue, *, actor, **fields) -> Issue:
             old_value=old_value,
             new_value=new_value,
         )
+        # 实时推送（Sprint 7）：payload 与活动 diff 同构，同样只在真有变化时发
+        realtime.defer_issue_updated(
+            project_id=issue.project_id,
+            issue=issue,
+            old_value=old_value,
+            new_value=new_value,
+        )
     return issue
 
 
@@ -156,6 +164,10 @@ def create_comment(issue: Issue, author, *, content: str) -> Comment:
         raise ValidationError({"content": ["该字段是必填项。"]})
     comment = Comment.objects.create(issue=issue, author=author, content=content)
     activity_services.record_comment_event(comment, actor=author, action=ActivityActions.CREATED)
+    # 实时推送（Sprint 7）：带正文与作者摘要，前端不需要二次请求
+    realtime.defer_comment_created(
+        project_id=issue.project_id, issue=issue, comment=comment, author=author
+    )
     # 投递必须等到事务提交：否则 worker 可能抢在提交前读这条评论（读不到 → 通知丢失）
     transaction.on_commit(lambda: notify_comment_created.delay(str(comment.id)))
     return comment

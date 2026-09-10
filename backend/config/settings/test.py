@@ -21,3 +21,7 @@ CACHES = {
 # 任务同步执行：不需要 broker / worker
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# WebSocket 的 channel layer 用进程内实现：测试不依赖 Redis
+# （消费者鉴权、组广播、事件包体都能完整验证；跨进程广播只有真 Redis 才能测）
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}

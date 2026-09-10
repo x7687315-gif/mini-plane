@@ -14,8 +14,8 @@
 | 4 | Comment + Activity | ✅ 已完成 | [sprint-4-backend.md](sprint-4-backend.md) | 本 Sprint 提交 |
 | 5 | Search / Filter / Sort | ✅ 已完成 | [sprint-5-backend.md](sprint-5-backend.md) | 本 Sprint 提交 |
 | 6 | Redis Cache + Celery | ✅ 已完成 | [sprint-6-backend.md](sprint-6-backend.md) | 本 Sprint 提交 |
-| 7 | WebSocket Realtime | ⬜ 下一个 | — | — |
-| 8 | Docker / CI / 收尾 | ⬜ 待开始 | — | — |
+| 7 | WebSocket Realtime | ✅ 已完成 | [sprint-7-backend.md](sprint-7-backend.md) | 本 Sprint 提交 |
+| 8 | Docker / CI / 收尾 | ⬜ 下一个 | — | — |
 
 ## 交付物形态（每个 Sprint 收尾时的固定动作）
 
@@ -41,3 +41,5 @@
   [sprint-6-backend.md](sprint-6-backend.md) §2.1 与 [07 契约](../api/07-cache-and-tasks.md) §1.5；
   二期该缓存的是 Issue 列表的 `COUNT(*)` 与详情体统计聚合。
 - 通知只落库（`Notification` 表占位），邮件/推送二期；Label 变更暂不产生活动记录。
+- 实时推送只定义了 `issue.updated` / `comment.created` 两个事件（08 契约）；
+  Redis channel layer 未在本机实测（无 Docker），多进程部署前必须配 `CHANNEL_REDIS_URL`。

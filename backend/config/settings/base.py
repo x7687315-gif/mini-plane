@@ -30,6 +30,8 @@ ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 # Application definition
 
 INSTALLED_APPS = [
+    # daphne 必须放最上面：它接管 runserver，让本地开发直接跑 ASGI（Sprint 7）
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -40,6 +42,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "corsheaders",
+    "channels",
     # 本项目基础设施（views/permissions/pagination/filtering/cache；无 models）
     # Sprint 6 加入：manage.py 命令只从 INSTALLED_APPS 里发现，不登记就拿不到 check_cache
     "core",
@@ -50,6 +53,7 @@ INSTALLED_APPS = [
     "apps.issues",
     "apps.activity",
     "apps.jobs",
+    "apps.realtime",
 ]
 
 MIDDLEWARE = [
@@ -82,6 +86,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+# Sprint 7：ASGI 才能同时服务 HTTP 与 WebSocket（runserver 由 daphne 接管）
+ASGI_APPLICATION = "config.asgi.application"
 
 # Database
 # 通过 DATABASE_URL 注入，如 postgres://user:password@127.0.0.1:5432/miniplane
@@ -181,6 +187,20 @@ if CELERY_BROKER_URL.startswith("filesystem://"):
         "store_processed": False,
         "processing_interval": 1,
     }
+
+# ── 实时推送（Sprint 7）────────────────────────────────────────
+# 不配 CHANNEL_REDIS_URL → InMemory（单进程，本地开发与测试够用，重启即清空）
+# 配了 → Redis channel layer（多进程/多实例广播时必须用这个，见 docker-compose.yml 的 redis）
+CHANNEL_REDIS_URL = env("CHANNEL_REDIS_URL", default="")
+if CHANNEL_REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [CHANNEL_REDIS_URL]},
+        }
+    }
+else:
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 # API 文档（drf-spectacular）：/api/schema/ 与 /api/docs/
 
