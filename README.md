@@ -3,7 +3,8 @@
 仿 [Plane](https://github.com/makeplane/plane) 的迷你项目管理软件（双人学习项目）：从 0 实现用户、工作区、项目、任务（Issue）管理的完整业务链路，最终目标是具备阅读并贡献真实 Plane 源码的能力。
 
 - 开发路线与后端执行计划：[BACKEND_PLAN.md](BACKEND_PLAN.md)
-- 开发日志（每个阶段做了什么、怎么做的）：[docs/devlog/](docs/devlog/)
+- 开发日志进度索引：[docs/devlog/README.md](docs/devlog/README.md)（进度总览 + 每 Sprint 一篇：做了什么、怎么做的）
+- 接口契约（前后端唯一事实来源）：[docs/api/](docs/api/)
 
 ## 技术栈
 
