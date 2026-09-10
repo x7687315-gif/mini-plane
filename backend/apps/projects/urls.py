@@ -1,9 +1,10 @@
 """Project 接口子路由：挂在 /api/v1/workspaces/<slug>/projects/ 之下。
 
-Issue / Label 子路由由 apps.issues 提供（同属项目作用域，04 契约）。
+- Issue / Label / Comment 子路由由 apps.issues 提供（同属项目作用域，04/05 契约）；
+- 活动流子路由由 apps.activity 提供（06 契约）。
 """
 
-from django.urls import path
+from django.urls import include, path
 
 from apps.issues import views as issue_views
 from apps.projects import views
@@ -20,4 +21,12 @@ urlpatterns = [
     # ── Label（Sprint 3）─────────────────────────────────────────
     path("<uuid:project_id>/labels/", issue_views.label_list_create),
     path("<uuid:project_id>/labels/<uuid:label_id>/", issue_views.label_detail),
+    # ── Comment（Sprint 4）──────────────────────────────────────
+    path("<uuid:project_id>/issues/<uuid:issue_id>/comments/", issue_views.comment_list_create),
+    path(
+        "<uuid:project_id>/issues/<uuid:issue_id>/comments/<uuid:comment_id>/",
+        issue_views.comment_detail,
+    ),
+    # ── Activity（Sprint 4）：项目级活动流 + Issue 时间线 ──────────
+    path("", include("apps.activity.urls")),
 ]

@@ -1,4 +1,4 @@
-"""Issue / Label 序列化器（契约 docs/api/04-issues.md）。
+"""Issue / Label / Comment 序列化器（契约 docs/api/04-issues.md、05-comments.md）。
 
 分工（BACKEND_PLAN §4.3 第 2 条）：
 - 本文件负责**字段级跨作用域校验**（state/assignee/labels 是否真属于这个项目），
@@ -9,7 +9,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from apps.issues.models import Issue, IssuePriorities, Label, State
+from apps.issues.models import Comment, Issue, IssuePriorities, Label, State
 from apps.projects.models import ProjectMember
 from apps.projects.serializers import StateSerializer
 from apps.users.serializers import UserLiteSerializer
@@ -127,3 +127,22 @@ class IssueWriteSerializer(serializers.Serializer):
             attrs["labels"] = labels
 
         return attrs
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    """评论只读响应体（05 契约）；author 复用成员摘要，不含 email。"""
+
+    author = UserLiteSerializer(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ["id", "issue", "author", "content", "created_at", "updated_at"]
+        read_only_fields = fields
+
+
+class CommentWriteSerializer(serializers.ModelSerializer):
+    """评论创建 / 更新请求体；content 非空（纯空白也会被 CharField 裁掉后判空）。"""
+
+    class Meta:
+        model = Comment
+        fields = ["content"]

@@ -93,7 +93,7 @@ def project_detail(request, workspace_slug: str, project_id):
     if request.method == "PATCH":
         serializer = ProjectWriteSerializer(project, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        project = services.update_project(project, **serializer.validated_data)
+        project = services.update_project(project, actor=request.user, **serializer.validated_data)
         return Response(ProjectSerializer(project, context={"role": role}).data)
 
     project.delete()  # 级联删除成员/状态/（后续）Issue

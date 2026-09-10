@@ -1,4 +1,4 @@
-"""Issue 域模型（Sprint 2 建 State；Sprint 3 补 Label / Issue；Comment 在 Sprint 4）。"""
+"""Issue 域模型（Sprint 2 建 State；Sprint 3 补 Label / Issue；Sprint 4 补 Comment）。"""
 
 from django.conf import settings
 from django.db import models
@@ -162,3 +162,37 @@ class Issue(BaseModel):
 
     def __str__(self):
         return f"#{self.sequence_id} {self.title}"
+
+
+class Comment(BaseModel):
+    """Issue 下的评论（契约 docs/api/05-comments.md）。
+
+    设计要点：
+    - `author` 用 PROTECT：评论是审计信息，作者账号不允许被删除；
+    - `(issue, created_at)` 组合索引：评论区恒定按"某 Issue + 时间正序"读取；
+    - 正文不做长度限制（TextField），但**活动流不存正文**（见 06 契约）。
+    """
+
+    issue = models.ForeignKey(
+        Issue,
+        verbose_name="任务",
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="作者",
+        on_delete=models.PROTECT,
+        related_name="comments",
+    )
+    content = models.TextField("内容")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["issue", "created_at"]),
+        ]
+        # 评论区是对话：旧的在前（与 Issue 列表的倒序相反，见 05 契约）
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"{self.author_id} on #{self.issue_id}"

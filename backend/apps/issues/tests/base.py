@@ -38,6 +38,7 @@ class IssueScenarioMixin:
         cls.owner = make_user("owner")
         cls.ws_admin = make_user("wsadmin")
         cls.project_member = make_user("pm")
+        cls.project_member2 = make_user("pm2")
         cls.project_viewer = make_user("pv")
         cls.ws_viewer = make_user("wsv")
         cls.outsider = make_user("outsider")
@@ -47,6 +48,7 @@ class IssueScenarioMixin:
         for user, role in (
             (cls.ws_admin, WorkspaceRoles.ADMIN),
             (cls.project_member, WorkspaceRoles.MEMBER),
+            (cls.project_member2, WorkspaceRoles.MEMBER),
             (cls.project_viewer, WorkspaceRoles.MEMBER),
             (cls.ws_viewer, WorkspaceRoles.VIEWER),
         ):
@@ -56,12 +58,12 @@ class IssueScenarioMixin:
         cls.project = create_project(
             cls.workspace, cls.owner, name="Amiya Project", identifier=identifier
         )
-        ProjectMember.objects.create(
-            project=cls.project, user=cls.project_member, role=ProjectRoles.MEMBER
-        )
-        ProjectMember.objects.create(
-            project=cls.project, user=cls.project_viewer, role=ProjectRoles.VIEWER
-        )
+        for user, role in (
+            (cls.project_member, ProjectRoles.MEMBER),
+            (cls.project_member2, ProjectRoles.MEMBER),
+            (cls.project_viewer, ProjectRoles.VIEWER),
+        ):
+            ProjectMember.objects.create(project=cls.project, user=user, role=role)
 
         # 同工作区的另一个项目（跨项目校验用）
         cls.other_project = create_project(
@@ -86,6 +88,19 @@ class IssueScenarioMixin:
 
     def label_url(self, label) -> str:
         return f"{self.labels_url}{label.id}/"
+
+    def comments_url(self, issue) -> str:
+        return f"{self.issue_url(issue)}comments/"
+
+    def comment_url(self, issue, comment) -> str:
+        return f"{self.comments_url(issue)}{comment.id}/"
+
+    def issue_activities_url(self, issue) -> str:
+        return f"{self.issue_url(issue)}activities/"
+
+    @property
+    def project_activities_url(self) -> str:
+        return f"{self.project_root}/activities/"
 
     @property
     def other_issues_url(self) -> str:

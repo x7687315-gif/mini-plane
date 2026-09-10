@@ -1,8 +1,13 @@
-"""项目业务逻辑（契约 docs/api/03-projects.md）。"""
+"""项目业务逻辑（契约 docs/api/03-projects.md）。
+
+Sprint 4 起，创建/修改项目会写活动留痕（06 契约），与业务同事务。
+"""
 
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
+from apps.activity import services as activity_services
+from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import create_default_states
 from apps.projects.models import Project, ProjectMember, ProjectRoles
 from apps.users.models import User
@@ -28,22 +33,50 @@ def create_project(
     )
     ProjectMember.objects.create(project=project, user=creator, role=ProjectRoles.ADMIN)
     create_default_states(project)
+
+    activity_services.record_project_event(
+        project,
+        actor=creator,
+        action=ActivityActions.CREATED,
+        new_value={"name": project.name},
+    )
     return project
 
 
-def update_project(project: Project, *, name=None, identifier=None, description=None) -> Project:
-    """PATCH：改 name / identifier / description；identifier 工作区内唯一。"""
+@transaction.atomic
+def update_project(
+    project: Project, *, actor, name=None, identifier=None, description=None
+) -> Project:
+    """PATCH：改 name / identifier / description；identifier 工作区内唯一。
+
+    留痕只记 name / identifier（描述与 Issue 的处理一致：不把长文本塞进时间线）。
+    """
+    old_value, new_value = {}, {}
+
     if name is not None:
         if not name.strip():
             raise ValidationError({"name": ["该字段是必填项。"]})
-        project.name = name.strip()
+        new_name = name.strip()
+        if new_name != project.name:
+            old_value["name"], new_value["name"] = project.name, new_name
+            project.name = new_name
     if identifier is not None and identifier != project.identifier:
         if Project.objects.filter(workspace=project.workspace, identifier=identifier).exists():
             raise ValidationError({"identifier": ["此字段必须唯一。"]})
+        old_value["identifier"], new_value["identifier"] = project.identifier, identifier
         project.identifier = identifier
     if description is not None:
         project.description = description
     project.save()
+
+    if old_value:
+        activity_services.record_project_event(
+            project,
+            actor=actor,
+            action=ActivityActions.UPDATED,
+            old_value=old_value,
+            new_value=new_value,
+        )
     return project
 
 

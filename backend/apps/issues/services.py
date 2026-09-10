@@ -1,14 +1,21 @@
-"""Issue 域业务逻辑（契约 docs/api/04-issues.md）。
+"""Issue / Label / Comment 业务逻辑（契约 docs/api/04-issues.md、05-comments.md）。
 
-本模块承载 Sprint 3 最核心的一件事（决策 D9）：
-**sequence_id 的发号必须在事务内对 Project 行加锁**，否则并发创建会重号
-（见 tests/test_concurrency.py）。
+本模块承载两件事：
+1. Sprint 3 决策 D9：**sequence_id 的发号必须在事务内对 Project 行加锁**，
+   否则并发创建会重号（见 tests/test_concurrency.py）。
+2. Sprint 4：本模块是 Issue / Comment 的**唯一写入口**，活动留痕（06 契约）
+   全部挂在这里——视图层只负责权限与序列化，不直接写库。
+
+留痕与业务同事务：这些函数带 @transaction.atomic，record_activity 刻意不带，
+所以写留痕失败会让业务变更一起回滚（计划 §Sprint 4 测试清单）。
 """
 
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from apps.issues.models import Issue, IssuePriorities, Label, State, StateGroups
+from apps.activity import services as activity_services
+from apps.activity.models import Actions as ActivityActions
+from apps.issues.models import Comment, Issue, IssuePriorities, Label, State, StateGroups
 from apps.projects.models import Project
 
 # 哨兵：区分「未提交该字段」与「显式提交 null / 空列表」
@@ -30,6 +37,9 @@ def get_default_state(project: Project) -> State:
     return state
 
 
+# ── Issue ──────────────────────────────────────────────────────
+
+
 @transaction.atomic
 def create_issue(
     project: Project,
@@ -42,7 +52,7 @@ def create_issue(
     assignee=None,
     labels=None,
 ) -> Issue:
-    """创建 Issue 并发放项目内序号（决策 D9）。
+    """创建 Issue 并发放项目内序号（决策 D9），写一条 `issue.created` 留痕。
 
     `select_for_update()` 锁住 Project 行 → 同一项目的并发创建被串行化 →
     `issue_sequence` 自增与 Issue 落库在同一事务里，不会出现重号。
@@ -64,17 +74,30 @@ def create_issue(
     )
     if labels:
         issue.labels.set(labels)
+
+    activity_services.record_issue_event(
+        issue,
+        actor=actor,
+        action=ActivityActions.CREATED,
+        new_value=activity_services.capture_issue_snapshot(
+            issue, labels=[label.name for label in labels or []]
+        ),
+    )
     return issue
 
 
 @transaction.atomic
-def update_issue(issue: Issue, **fields) -> Issue:
+def update_issue(issue: Issue, *, actor, **fields) -> Issue:
     """部分更新：只处理调用方提交的字段（serializer 已做跨作用域校验）。
 
     可改字段白名单 = title / description / priority / state / assignee / labels；
     `sequence_id`、`created_by`、`project` 不在白名单内，天然不可改（04 契约）。
+
+    留痕规则（06 契约）：取更新前后的快照做 diff，**只记录真正变化的字段**；
+    全部没变则不产生活动记录。
     """
     labels = fields.pop("labels", _UNSET)
+    before = activity_services.capture_issue_snapshot(issue)
 
     if "title" in fields:
         title = fields["title"]
@@ -90,12 +113,70 @@ def update_issue(issue: Issue, **fields) -> Issue:
 
     if labels is not _UNSET:
         issue.labels.set(labels)
+
+    old_value, new_value = activity_services.diff_snapshots(
+        before, activity_services.capture_issue_snapshot(issue)
+    )
+    if old_value or new_value:
+        activity_services.record_issue_event(
+            issue,
+            actor=actor,
+            action=ActivityActions.UPDATED,
+            old_value=old_value,
+            new_value=new_value,
+        )
     return issue
 
 
-def delete_issue(issue: Issue) -> None:
-    """删除 Issue（Sprint 4 将在此挂接 Activity 记录）。"""
+@transaction.atomic
+def delete_issue(issue: Issue, *, actor) -> None:
+    """删除 Issue，并留下 `issue.deleted` 留痕。
+
+    必须在 `issue.delete()` **之前**写：Django 删除后会把主键置空，
+    那时再写留痕就拿不到 entity_id 了。
+    """
+    activity_services.record_issue_event(
+        issue,
+        actor=actor,
+        action=ActivityActions.DELETED,
+        old_value=activity_services.capture_issue_snapshot(issue),
+    )
     issue.delete()
+
+
+# ── Comment ────────────────────────────────────────────────────
+
+
+@transaction.atomic
+def create_comment(issue: Issue, author, *, content: str) -> Comment:
+    """创建评论并写 `comment.created` 留痕（05 / 06 契约）。"""
+    content = (content or "").strip()
+    if not content:
+        raise ValidationError({"content": ["该字段是必填项。"]})
+    comment = Comment.objects.create(issue=issue, author=author, content=content)
+    activity_services.record_comment_event(comment, actor=author, action=ActivityActions.CREATED)
+    return comment
+
+
+@transaction.atomic
+def update_comment(comment: Comment, *, content: str) -> Comment:
+    """编辑评论内容。**不产生活动记录**（06 契约「有意不记录的事件」）。"""
+    content = (content or "").strip()
+    if not content:
+        raise ValidationError({"content": ["该字段是必填项。"]})
+    comment.content = content
+    comment.save(update_fields=["content", "updated_at"])
+    return comment
+
+
+@transaction.atomic
+def delete_comment(comment: Comment, *, actor) -> None:
+    """删除评论并写 `comment.deleted` 留痕（同样要在 delete 之前写）。"""
+    activity_services.record_comment_event(comment, actor=actor, action=ActivityActions.DELETED)
+    comment.delete()
+
+
+# ── Label（Sprint 4 范围：不产生活动记录，见 06 契约）────────────
 
 
 def create_label(project: Project, *, name: str, color: str = "#64748b") -> Label:

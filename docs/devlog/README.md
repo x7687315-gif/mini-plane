@@ -11,8 +11,8 @@
 | 1 | User / Auth | ✅ 已完成 | [sprint-1-backend.md](sprint-1-backend.md) | `4d79dff` → merge `a4971b7` |
 | 2 | Workspace / Project | ✅ 已完成 | [sprint-2-backend.md](sprint-2-backend.md) | `0db06f6` → merge `d697462` |
 | 3 | Issue 核心 | ✅ 已完成 | [sprint-3-backend.md](sprint-3-backend.md) | 本 Sprint 提交 |
-| 4 | Comment + Activity | ⬜ 下一个 | — | — |
-| 5 | Search / Filter / Sort | ⬜ 待开始 | — | — |
+| 4 | Comment + Activity | ✅ 已完成 | [sprint-4-backend.md](sprint-4-backend.md) | 本 Sprint 提交 |
+| 5 | Search / Filter / Sort | ⬜ 下一个 | — | — |
 | 6 | Redis Cache + Celery | ⬜ 待开始 | — | — |
 | 7 | WebSocket Realtime | ⬜ 待开始 | — | — |
 | 8 | Docker / CI / 收尾 | ⬜ 待开始 | — | — |
@@ -29,5 +29,7 @@
 
 ## 现存待办（技术债，非阻塞）
 
-- 除 `apps/issues` 外，其余 app 的测试仍是单文件 `tests.py`；待统一为 `tests/` 包（计划 §8）。
+- 除 `apps/issues`、`apps/activity` 外，其余 app 的测试仍是单文件 `tests.py`；待统一为 `tests/` 包（计划 §8）。
 - `docs/devlog/` 目前靠本文件人工维护索引，暂不引入自动生成。
+- `ActivityLog` 比计划 §3.2 多一个 `issue` 上下文外键（SET_NULL），理由见 [sprint-4-backend.md](sprint-4-backend.md) §2.1。
+- Label 的增删改、Comment 编辑暂不产生活动记录（06 契约「有意不记录的事件」，二期再议）。

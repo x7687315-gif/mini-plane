@@ -1,7 +1,7 @@
-"""Issue / Label 接口（docs/api/04-issues.md）。
+"""Issue / Label / Comment 接口（docs/api/04-issues.md、05-comments.md）。
 
 权限：先 resolve_project 拿「生效角色」（非 WS 成员 → 404 防枚举），
-再按 04 契约的门槛判断——读 ≥ Viewer，写 ≥ Member。
+再按契约的门槛判断——读 ≥ Viewer，写 ≥ Member，评论改删仅作者或 Admin。
 """
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -15,6 +15,8 @@ from rest_framework.response import Response
 from apps.issues import services
 from apps.issues.filters import apply_ordering
 from apps.issues.serializers import (
+    CommentSerializer,
+    CommentWriteSerializer,
     IssueSerializer,
     IssueWriteSerializer,
     LabelSerializer,
@@ -85,10 +87,10 @@ def issue_detail(request, workspace_slug: str, project_id, issue_id):
             issue, data=request.data, partial=True, context={"project": project}
         )
         serializer.is_valid(raise_exception=True)
-        issue = services.update_issue(issue, **serializer.validated_data)
+        issue = services.update_issue(issue, actor=request.user, **serializer.validated_data)
         return Response(IssueSerializer(issue).data)
 
-    services.delete_issue(issue)
+    services.delete_issue(issue, actor=request.user)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -136,4 +138,57 @@ def label_detail(request, workspace_slug: str, project_id, label_id):
         return Response(LabelSerializer(label).data)
 
     services.delete_label(label)
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    summary="评论列表 / 创建",
+    request=CommentWriteSerializer,
+    responses={200: CommentSerializer(many=True), 201: CommentSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def comment_list_create(request, workspace_slug: str, project_id, issue_id):
+    """GET：项目成员可读（**时间正序**，评论区是对话）；POST：生效角色 ≥ Member。"""
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    issue = get_object_or_404(project.issues.all(), id=issue_id)
+
+    if request.method == "GET":
+        queryset = issue.comments.select_related("author").all()
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        return paginator.get_paginated_response(CommentSerializer(page, many=True).data)
+
+    _require_role(role, ProjectRoles.MEMBER)
+    serializer = CommentWriteSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    comment = services.create_comment(issue, request.user, **serializer.validated_data)
+    return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改评论", request=CommentWriteSerializer, responses={200: CommentSerializer}
+    ),
+    delete=extend_schema(summary="删除评论", responses={204: None}),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def comment_detail(request, workspace_slug: str, project_id, issue_id, comment_id):
+    """作者本人，或生效角色 = Admin（可管理他人评论）；其余 403（05 契约）。"""
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    issue = get_object_or_404(project.issues.all(), id=issue_id)
+    comment = get_object_or_404(issue.comments.select_related("author"), id=comment_id)
+
+    if comment.author_id != request.user.id:
+        _require_role(role, ProjectRoles.ADMIN)
+
+    if request.method == "PATCH":
+        # content 在编辑时同样是必填项（05 契约），因此不走 partial
+        serializer = CommentWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = services.update_comment(comment, **serializer.validated_data)
+        return Response(CommentSerializer(comment).data)
+
+    services.delete_comment(comment, actor=request.user)
     return Response(status=status.HTTP_204_NO_CONTENT)
