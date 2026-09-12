@@ -46,9 +46,6 @@
 - Dockerfile / compose 编排通过结构校验 + container 配置本机 daphne 实测，
   但**未在真实 Docker 里构建启动**（无 Docker）；有 Docker 的机器先跑
   `docker compose up --build` 验收，见 [sprint-8-backend.md](sprint-8-backend.md) §2.6。
-- CI workflow 已就位，仓库尚无远端：首次 push 后确认首跑全绿，再配 main 的
-  branch protection，并创建 `v0.1.0` 的 GitHub Release（notes 在
-  [docs/releases/v0.1.0.md](../releases/v0.1.0.md)）。
 - `seed_issues` 用伪随机造基准数据（安全扫描提示低危，已评审接受：可复现基准
   是伪随机+种子的正确用途，无安全语义，见 sprint-8 devlog §2.8）。
 - 容器内 TLS/HSTS 等 `check --deploy` 加固项留到有真实域名的二期。

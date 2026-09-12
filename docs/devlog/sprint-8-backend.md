@@ -136,7 +136,7 @@ devlog 里的旧哈希引用全部保持有效。
 | schema | 零警告且与快照一致 | ✅ `--validate --fail-on-warn` 通过；生成两次 diff 一致（local/test 配置下确定） |
 | Dockerfile | 多阶段 / 非 root / gunicorn / healthcheck | ✅ 代码就位；⚠️ 未构建实测（无 Docker） |
 | compose | db/redis/init/web/asgi/worker + healthcheck 串联 | ✅ 结构校验通过（check_compose.py）；⚠️ 未 up 实测 |
-| CI | ruff → migrate 检查 → test（PG+Redis 服务） | ✅ workflow 就位 + 结构校验；⚠️ 首跑待 push |
+| CI | ruff → migrate 检查 → test（PG+Redis 服务） | ✅ **首跑全绿**（run 34709948419，见补记） |
 | 文档 | README 四问 / API.md / ARCHITECTURE.md | ✅ 三份齐；API 契约索引补 API.md 入口 |
 | PR 模板 | What/Why/How/Testing/Breaking | ✅ .github/PULL_REQUEST_TEMPLATE.md |
 
@@ -155,8 +155,7 @@ compose 服务：6 个（db/redis/init/web/asgi/worker），Redis 四个库号�
 
 1. 有 Docker 的机器上跑 `docker compose up --build`，验收"陌生机器一条命令"；
    把结果补进本文档。
-2. 推送 GitHub：建远端 → push → 确认 CI 首跑全绿 → main 开 branch protection
-   （CI 必绿 + 至少 1 个 approve）→ `gh release create v0.1.0 --notes-file docs/releases/v0.1.0.md`。
+2. ~~推送 GitHub → 确认 CI 首跑全绿 → branch protection → Release~~ ✅ 已完成（见补记）。
 3. 过一遍 [BACKEND_PLAN §10 自检清单](../../BACKEND_PLAN.md)，全绿再启动源码阅读
    （从 issues app 的 Model/ViewSet 入手，对着自己写的 Issue 模块找差距）。
 
@@ -167,7 +166,22 @@ compose 服务：6 个（db/redis/init/web/asgi/worker），Redis 四个库号�
 - **前端容器化**：建议照 `ci.yml` 的模式加 `frontend` job（lint + test），
   compose 里加一个 `frontend` 服务（build 前端目录、端口 3000、`depends_on: web`）。
 - **CI 即合并门槛**：PR 描述按模板填；`docs/api/openapi.yaml` 记得随接口变更重新生成，
-  CI 的 diff 会拦住忘改的。
+  CI 的 diff 会拦住忘改的。main 已开 branch protection（strict：合并前必须基于最新 main
+  且 CI 绿；enforce_admins 未开，维护者直推仍可行——要不要收紧由两人商定）。
 - **契约索引**：接口长什么样看 `docs/api/openapi.yaml` / Swagger，行为语义看 docs/api/00–08，
   缓存与推送的"坑"都写在手写契约里。
 - WS 的 4401/4404 关闭码、断线全量刷新兜底等约定不变（08 契约）。
+
+## 六、补记（2026-09-13，推送后）
+
+1. **推送**：本地 `.git` 丢失后的工作树以三笔提交接到远端 `main`（快进，未强推）：
+   `44a05b8` 补入库漂移 → `9dc173b` 密码字面量移出源码 → `c93b55a` 本 Sprint，
+   `v0.1.0` tag 打在收尾提交上。devlog 里引用的旧哈希全部保持有效。
+2. **CI 首跑全绿**（run 34709948419）：lint / 迁移无漂移 / schema 快照 diff /
+   277 测试（PG 服务容器）/ check_cache 实测 Redis 后端——**Redis 的 delete_pattern
+   第一次被自动验证**。CI 装的是 local.txt：test.txt 已随本 Sprint 补入 ruff。
+3. **分支保护生效**：main 要求 check `backend（lint + 静态检查 + 测试）` 通过且分支最新
+   （strict）才可合并；force push 与删除被禁。
+4. **GitHub Release**：<https://github.com/x7687315-gif/mini-plane/releases/tag/v0.1.0>
+   （notes 即 docs/releases/v0.1.0.md）。
+5. 仍未验证：真实 Docker 里的构建与 `compose up`（本机无 Docker，见 §2.6）。
