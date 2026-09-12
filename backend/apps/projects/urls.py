@@ -27,6 +27,10 @@ urlpatterns = [
         "<uuid:project_id>/issues/<uuid:issue_id>/comments/<uuid:comment_id>/",
         issue_views.comment_detail,
     ),
+    # ── 批量操作（Sprint 6）：异步任务，返回 202 + task_id ────────
+    path("<uuid:project_id>/issues/bulk/labels/", issue_views.issue_bulk_labels),
     # ── Activity（Sprint 4）：项目级活动流 + Issue 时间线 ──────────
     path("", include("apps.activity.urls")),
+    # ── 任务状态（Sprint 6）──────────────────────────────────────
+    path("", include("apps.jobs.urls")),
 ]

@@ -28,24 +28,46 @@ def get_workspace_role(user, workspace) -> int | None:
     )
 
 
-def get_effective_project_role(user, project) -> int | None:
-    """项目「生效角色」——权限矩阵的单一实现点（03 契约表格）。"""
+def effective_role(user, *, workspace_id, project_id) -> int | None:
+    """生效角色规则的**唯一实现**（03 契约表格）。
+
+    刻意只依赖两个 id 而不是模型实例：这样"已经拿到 Project 对象"的写路径
+    （`get_effective_project_role`）与"命中缓存、不想再查一次项目行"的读路径
+    （`get_effective_project_role_by_ids`）能共用同一段判定逻辑，不会各写一份而漂移。
+    """
     if not user.is_authenticated:
         return None
     project_role = (
-        ProjectMember.objects.filter(project=project, user=user)
+        ProjectMember.objects.filter(project_id=project_id, user=user)
         .values_list("role", flat=True)
         .first()
     )
     if project_role is not None:
         return project_role
 
-    workspace_role = get_workspace_role(user, project.workspace)
+    workspace_role = (
+        WorkspaceMember.objects.filter(workspace_id=workspace_id, user=user)
+        .values_list("role", flat=True)
+        .first()
+    )
     if workspace_role == WorkspaceRoles.ADMIN:
         return ProjectRoles.ADMIN
     if workspace_role is None:
         return None
     return ProjectRoles.VIEWER
+
+
+def get_effective_project_role(user, project) -> int | None:
+    """项目「生效角色」——权限矩阵的单一实现点（03 契约表格）。"""
+    return effective_role(user, workspace_id=project.workspace_id, project_id=project.id)
+
+
+def get_effective_project_role_by_ids(user, *, workspace_id, project_id) -> int | None:
+    """同上，但只用 id 不加载 Project 行（缓存命中路径用）。
+
+    非成员依旧返回 None → 上层转 404，防枚举规则不受影响。
+    """
+    return effective_role(user, workspace_id=workspace_id, project_id=project_id)
 
 
 def resolve_workspace(user, slug: str) -> tuple[Workspace, int]:
