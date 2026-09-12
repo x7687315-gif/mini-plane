@@ -1,0 +1,2292 @@
+openapi: 3.0.3
+info:
+  title: Mini Plane API
+  version: 0.1.0
+  description: 仿 Plane 的迷你项目管理软件（学习项目）REST API。
+paths:
+  /api/v1/auth/csrf/:
+    get:
+      operationId: v1_auth_csrf_retrieve
+      description: 写操作（POST/PATCH/DELETE）前调用：服务端种下 csrftoken cookie，前端读取后以 X-CSRFToken
+        请求头回传。
+      summary: 获取 CSRF Cookie
+      tags:
+      - v1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: CSRF cookie 已设置。
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: v1_auth_login_create
+      description: 会话登录。失败不区分"用户不存在/密码错误"，并按用户名做失败锁定。
+      summary: 登录
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: v1_auth_logout_create
+      description: 销毁 session；需要 X-CSRFToken 头（SessionAuthentication 强制校验）。
+      summary: 登出
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: v1_auth_me_retrieve
+      description: 返回当前登录用户；未登录由统一异常处理转为 401。
+      summary: 当前用户
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: v1_auth_register_create
+      description: 注册即登录：创建用户后种下 session，省一次登录往返。
+      summary: 注册（成功后自动登录）
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/health/:
+    get:
+      operationId: health_check
+      description: 探测服务、数据库与缓存状态；数据库或缓存不可达时返回 503。供本地验证与后续容器编排使用。
+      summary: 健康检查
+      tags:
+      - v1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ok
+                    - error
+                  database:
+                    type: string
+                    enum:
+                    - ok
+                    - error
+                  cache:
+                    type: string
+                    enum:
+                    - ok
+                    - error
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ok
+                    - error
+                  database:
+                    type: string
+                    enum:
+                    - ok
+                    - error
+                  cache:
+                    type: string
+                    enum:
+                    - ok
+                    - error
+          description: ''
+  /api/v1/workspaces/:
+    get:
+      operationId: v1_workspaces_list
+      description: GET：仅返回我是成员的工作区；POST：创建并成为 ADMIN（02 契约）。
+      summary: 工作区列表 / 创建
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+    post:
+      operationId: v1_workspaces_create
+      description: GET：仅返回我是成员的工作区；POST：创建并成为 ADMIN（02 契约）。
+      summary: 工作区列表 / 创建
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WorkspaceWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WorkspaceWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/:
+    get:
+      operationId: v1_workspaces_retrieve
+      description: GET：成员可读；PATCH / DELETE：仅 Admin（非成员一律 404）。
+      summary: 工作区详情
+      parameters:
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+    patch:
+      operationId: v1_workspaces_partial_update
+      description: GET：成员可读；PATCH / DELETE：仅 Admin（非成员一律 404）。
+      summary: 修改工作区
+      parameters:
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+    delete:
+      operationId: v1_workspaces_destroy
+      description: GET：成员可读；PATCH / DELETE：仅 Admin（非成员一律 404）。
+      summary: 删除工作区
+      parameters:
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_slug}/members/:
+    get:
+      operationId: v1_workspaces_members_list
+      description: GET：成员可读；POST：按 email 添加，仅 Admin（02 契约）。
+      summary: 工作区成员列表 / 添加
+      parameters:
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceMember'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMember'
+          description: ''
+    post:
+      operationId: v1_workspaces_members_create
+      description: GET：成员可读；POST：按 email 添加，仅 Admin（02 契约）。
+      summary: 工作区成员列表 / 添加
+      parameters:
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberAdd'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberAdd'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberAdd'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceMember'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMember'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/members/{member_id}/:
+    patch:
+      operationId: v1_workspaces_members_partial_update
+      description: 改角色 / 移除成员；仅 Admin。owner 不可动 + 至少保留一位 Admin。
+      summary: 修改成员角色
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceMemberRole'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceMemberRole'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceMemberRole'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMember'
+          description: ''
+    delete:
+      operationId: v1_workspaces_members_destroy
+      description: 改角色 / 移除成员；仅 Admin。owner 不可动 + 至少保留一位 Admin。
+      summary: 移除成员
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_slug}/projects/:
+    get:
+      operationId: v1_workspaces_projects_list
+      description: GET：WS 成员可见全部项目（批量算生效角色防 N+1）；POST：WS Member+ 可创建。
+      summary: 项目列表 / 创建
+      parameters:
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    post:
+      operationId: v1_workspaces_projects_create
+      description: GET：WS 成员可见全部项目（批量算生效角色防 N+1）；POST：WS Member+ 可创建。
+      summary: 项目列表 / 创建
+      parameters:
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/:
+    get:
+      operationId: v1_workspaces_projects_retrieve
+      description: GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。
+      summary: 项目详情
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    patch:
+      operationId: v1_workspaces_projects_partial_update
+      description: GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。
+      summary: 修改项目
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    delete:
+      operationId: v1_workspaces_projects_destroy
+      description: GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。
+      summary: 删除项目
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/activities/:
+    get:
+      operationId: v1_workspaces_projects_activities_list
+      description: 跨 Issue 的项目级活动流，倒序分页。
+      summary: 项目活动流（倒序）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityLog'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/:
+    get:
+      operationId: v1_workspaces_projects_issues_list
+      description: GET：项目成员可读（过滤 / 搜索 / 排序 / 分页，见 04 契约）；POST：生效角色 ≥ Member。
+      summary: Issue 列表 / 创建
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Issue'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+    post:
+      operationId: v1_workspaces_projects_issues_create
+      description: GET：项目成员可读（过滤 / 搜索 / 排序 / 分页，见 04 契约）；POST：生效角色 ≥ Member。
+      summary: Issue 列表 / 创建
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IssueWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IssueWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Issue'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/:
+    get:
+      operationId: v1_workspaces_projects_issues_retrieve
+      description: GET：项目成员；PATCH / DELETE：生效角色 ≥ Member。
+      summary: Issue 详情
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+    patch:
+      operationId: v1_workspaces_projects_issues_partial_update
+      description: GET：项目成员；PATCH / DELETE：生效角色 ≥ Member。
+      summary: 修改 Issue
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedIssueWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedIssueWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedIssueWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+    delete:
+      operationId: v1_workspaces_projects_issues_destroy
+      description: GET：项目成员；PATCH / DELETE：生效角色 ≥ Member。
+      summary: 删除 Issue
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/activities/:
+    get:
+      operationId: v1_workspaces_projects_issues_activities_list
+      description: 该 Issue 自身的变更 + 挂在其下的评论事件，倒序分页。
+      summary: Issue 时间线（倒序）
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityLog'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/comments/:
+    get:
+      operationId: v1_workspaces_projects_issues_comments_list
+      description: GET：项目成员可读（**时间正序**，评论区是对话）；POST：生效角色 ≥ Member。
+      summary: 评论列表 / 创建
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+    post:
+      operationId: v1_workspaces_projects_issues_comments_create
+      description: GET：项目成员可读（**时间正序**，评论区是对话）；POST：生效角色 ≥ Member。
+      summary: 评论列表 / 创建
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CommentWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommentWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/comments/{comment_id}/:
+    patch:
+      operationId: v1_workspaces_projects_issues_comments_partial_update
+      description: 作者本人，或生效角色 = Admin（可管理他人评论）；其余 403（05 契约）。
+      summary: 修改评论
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+    delete:
+      operationId: v1_workspaces_projects_issues_comments_destroy
+      description: 作者本人，或生效角色 = Admin（可管理他人评论）；其余 403（05 契约）。
+      summary: 删除评论
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/bulk/labels/:
+    post:
+      operationId: v1_workspaces_projects_issues_bulk_labels_create
+      description: |-
+        生效角色 ≥ Member。立即返回 **202 + task_id**，进度查 `GET …/tasks/{task_id}/`。
+
+        请求体 `{"issue_ids": [...], "label_ids": [...]}`（覆盖式：label_ids 为空数组表示清空）。
+      summary: 批量修改 Issue 标签（异步）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueBulkLabels'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IssueBulkLabels'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IssueBulkLabels'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskRun'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/labels/:
+    get:
+      operationId: v1_workspaces_projects_labels_list
+      description: GET：项目成员可读；POST：生效角色 ≥ Member。
+      summary: Label 列表 / 创建
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Label'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+          description: ''
+    post:
+      operationId: v1_workspaces_projects_labels_create
+      description: GET：项目成员可读；POST：生效角色 ≥ Member。
+      summary: Label 列表 / 创建
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabelWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LabelWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LabelWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Label'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/labels/{label_id}/:
+    patch:
+      operationId: v1_workspaces_projects_labels_partial_update
+      description: 改 name / color 或删除；生效角色 ≥ Member。删除标签不影响已引用它的 Issue。
+      summary: 修改标签
+      parameters:
+      - in: path
+        name: label_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLabelWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLabelWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLabelWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+          description: ''
+    delete:
+      operationId: v1_workspaces_projects_labels_destroy
+      description: 改 name / color 或删除；生效角色 ≥ Member。删除标签不影响已引用它的 Issue。
+      summary: 删除标签
+      parameters:
+      - in: path
+        name: label_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/members/:
+    get:
+      operationId: v1_workspaces_projects_members_list
+      description: GET：WS 成员可读；POST：仅项目 Admin（WS Admin 视同），被添加者须是 WS 成员。
+      summary: 项目成员列表 / 添加
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectMember'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+          description: ''
+    post:
+      operationId: v1_workspaces_projects_members_create
+      description: GET：WS 成员可读；POST：仅项目 Admin（WS Admin 视同），被添加者须是 WS 成员。
+      summary: 项目成员列表 / 添加
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberAdd'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberAdd'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberAdd'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectMember'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/members/{member_id}/:
+    patch:
+      operationId: v1_workspaces_projects_members_partial_update
+      description: 仅项目 Admin；移除后至少保留一位项目 Admin。
+      summary: 修改项目成员角色
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectMemberRole'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectMemberRole'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectMemberRole'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+          description: ''
+    delete:
+      operationId: v1_workspaces_projects_members_destroy
+      description: 仅项目 Admin；移除后至少保留一位项目 Admin。
+      summary: 移除项目成员
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/states/:
+    get:
+      operationId: v1_workspaces_projects_states_list
+      summary: 状态列表（预置五态，只读）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/State'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/tasks/{task_id}/:
+    get:
+      operationId: v1_workspaces_projects_tasks_retrieve
+      description: 查询一个 TaskRun 的当前状态（pending / running / success / failure）。
+      summary: 异步任务状态
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskRun'
+          description: ''
+components:
+  schemas:
+    ActionEnum:
+      enum:
+      - created
+      - updated
+      - deleted
+      type: string
+      description: |-
+        * `created` - 创建
+        * `updated` - 修改
+        * `deleted` - 删除
+    ActivityLog:
+      type: object
+      description: |-
+        一条留痕的展示形态。
+
+        `old_value` / `new_value` 里的值在写入时已翻译成可直接展示的形态
+        （见 activity.services.capture_issue_snapshot），前端拼句子即可。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        actor:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        entity_type:
+          allOf:
+          - $ref: '#/components/schemas/EntityTypeEnum'
+          readOnly: true
+          title: 对象类型
+        entity_id:
+          type: string
+          format: uuid
+          readOnly: true
+          title: 对象 id
+        issue:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+          title: 任务
+        action:
+          allOf:
+          - $ref: '#/components/schemas/ActionEnum'
+          readOnly: true
+          title: 动作
+        old_value:
+          readOnly: true
+          nullable: true
+          title: 变更前
+        new_value:
+          readOnly: true
+          nullable: true
+          title: 变更后
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor
+      - created_at
+      - entity_id
+      - entity_type
+      - id
+      - issue
+      - new_value
+      - old_value
+    Comment:
+      type: object
+      description: 评论只读响应体（05 契约）；author 复用成员摘要，不含 email。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        issue:
+          type: string
+          format: uuid
+          readOnly: true
+          title: 任务
+        author:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        content:
+          type: string
+          readOnly: true
+          title: 内容
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - content
+      - created_at
+      - id
+      - issue
+      - updated_at
+    CommentWrite:
+      type: object
+      description: 评论创建 / 更新请求体；content 非空（纯空白也会被 CharField 裁掉后判空）。
+      properties:
+        content:
+          type: string
+          title: 内容
+      required:
+      - content
+    EntityTypeEnum:
+      enum:
+      - issue
+      - comment
+      - state
+      - label
+      - project
+      - workspace
+      - member
+      type: string
+      description: |-
+        * `issue` - 任务
+        * `comment` - 评论
+        * `state` - 状态
+        * `label` - 标签
+        * `project` - 项目
+        * `workspace` - 工作区
+        * `member` - 成员
+    GroupEnum:
+      enum:
+      - backlog
+      - unstarted
+      - started
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `backlog` - 待规划
+        * `unstarted` - 未开始
+        * `started` - 进行中
+        * `completed` - 已完成
+        * `cancelled` - 已取消
+    Issue:
+      type: object
+      description: Issue 只读响应体。调用方需 select_related(state/assignee/created_by) + prefetch(labels)。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sequence_id:
+          type: integer
+          readOnly: true
+          title: 项目内序号
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+          title: 项目
+        title:
+          type: string
+          readOnly: true
+          title: 标题
+        description:
+          type: string
+          readOnly: true
+          title: 描述
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          readOnly: true
+          title: 优先级
+        state:
+          allOf:
+          - $ref: '#/components/schemas/State'
+          readOnly: true
+        assignee:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Label'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - assignee
+      - created_at
+      - created_by
+      - description
+      - id
+      - labels
+      - priority
+      - project
+      - sequence_id
+      - state
+      - title
+      - updated_at
+    IssueBulkLabels:
+      type: object
+      description: |-
+        批量改标签请求体（Sprint 6，**覆盖式**：把选中 Issue 的标签整体替换）。
+
+        只做跨作用域校验；真正的执行在异步任务里（apps/jobs/tasks.py），
+        所以这里刻意不碰数据库写入。
+      properties:
+        issue_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 要批量修改的 Issue id 列表
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 目标标签 id 列表；空数组表示清空这些 Issue 的标签
+      required:
+      - issue_ids
+    IssueWrite:
+      type: object
+      description: |-
+        Issue 创建 / 部分更新请求体。
+
+        产出约定：`*_id` 入参在校验后会被**替换**成对应的模型实例
+        （`state_id` → `state`、`assignee_id` → `assignee`、`label_ids` → `labels`），
+        视图可以直接 `services.create_issue(project, user, **serializer.validated_data)`。
+
+        只读字段（sequence_id / created_by / project）不在此列，客户端传入即被忽略。
+      properties:
+        title:
+          type: string
+          description: 标题，必填
+          maxLength: 255
+        description:
+          type: string
+          default: ''
+          description: 描述，可省略
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          default: none
+          description: |-
+            优先级：none/urgent/high/medium/low
+
+            * `none` - 无
+            * `urgent` - 紧急
+            * `high` - 高
+            * `medium` - 中
+            * `low` - 低
+        state_id:
+          type: string
+          format: uuid
+          description: 状态 id；省略则创建时取项目 Backlog
+        assignee_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: 被指派人 id；必须是该项目成员，null 表示清空
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 标签 id 列表；空数组表示清空标签
+      required:
+      - title
+    KindEnum:
+      enum:
+      - bulk_assign_labels
+      type: string
+      description: '* `bulk_assign_labels` - 批量修改标签'
+    Label:
+      type: object
+      description: 标签只读响应体（同时内嵌在 Issue.labels 里）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+          title: 名称
+        color:
+          type: string
+          readOnly: true
+          title: 颜色
+          description: '#RRGGBB'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - color
+      - created_at
+      - id
+      - name
+    LabelWrite:
+      type: object
+      description: 标签创建 / 更新请求体；项目内 name 唯一由 service 显式校验。
+      properties:
+        name:
+          type: string
+          title: 名称
+          maxLength: 60
+        color:
+          type: string
+          title: 颜色
+          description: '#RRGGBB'
+          maxLength: 9
+      required:
+      - name
+    Login:
+      type: object
+      description: 登录请求体。失败文案统一为"用户名或密码错误"，防用户名探测。
+      properties:
+        username:
+          type: string
+          description: 用户名
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - password
+      - username
+    PatchedCommentWrite:
+      type: object
+      description: 评论创建 / 更新请求体；content 非空（纯空白也会被 CharField 裁掉后判空）。
+      properties:
+        content:
+          type: string
+          title: 内容
+    PatchedIssueWrite:
+      type: object
+      description: |-
+        Issue 创建 / 部分更新请求体。
+
+        产出约定：`*_id` 入参在校验后会被**替换**成对应的模型实例
+        （`state_id` → `state`、`assignee_id` → `assignee`、`label_ids` → `labels`），
+        视图可以直接 `services.create_issue(project, user, **serializer.validated_data)`。
+
+        只读字段（sequence_id / created_by / project）不在此列，客户端传入即被忽略。
+      properties:
+        title:
+          type: string
+          description: 标题，必填
+          maxLength: 255
+        description:
+          type: string
+          default: ''
+          description: 描述，可省略
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          default: none
+          description: |-
+            优先级：none/urgent/high/medium/low
+
+            * `none` - 无
+            * `urgent` - 紧急
+            * `high` - 高
+            * `medium` - 中
+            * `low` - 低
+        state_id:
+          type: string
+          format: uuid
+          description: 状态 id；省略则创建时取项目 Backlog
+        assignee_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: 被指派人 id；必须是该项目成员，null 表示清空
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 标签 id 列表；空数组表示清空标签
+    PatchedLabelWrite:
+      type: object
+      description: 标签创建 / 更新请求体；项目内 name 唯一由 service 显式校验。
+      properties:
+        name:
+          type: string
+          title: 名称
+          maxLength: 60
+        color:
+          type: string
+          title: 颜色
+          description: '#RRGGBB'
+          maxLength: 9
+    PatchedProjectMemberRole:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+    PatchedProjectWrite:
+      type: object
+      description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。
+      properties:
+        name:
+          type: string
+          title: 名称
+          maxLength: 120
+        identifier:
+          type: string
+          description: 2-5 位大写字母数字，Issue 前缀
+          pattern: ^[A-Z][A-Z0-9]{1,4}$
+          maxLength: 5
+        description:
+          type: string
+          title: 描述
+    PatchedWorkspaceMemberRole:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+    PatchedWorkspaceWrite:
+      type: object
+      description: 创建 / 更新请求体。slug 可省略；唯一性冲突由 service 层做自动后缀。
+      properties:
+        name:
+          type: string
+          title: 名称
+          maxLength: 80
+        slug:
+          type: string
+          description: 可省略；缺省由 name 生成，冲突自动追加 -2/-3…
+          pattern: ^[a-z0-9-]{2,32}$
+    PriorityEnum:
+      enum:
+      - none
+      - urgent
+      - high
+      - medium
+      - low
+      type: string
+      description: |-
+        * `none` - 无
+        * `urgent` - 紧急
+        * `high` - 高
+        * `medium` - 中
+        * `low` - 低
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        workspace:
+          type: string
+          format: uuid
+          readOnly: true
+          title: 工作区
+        name:
+          type: string
+          readOnly: true
+          title: 名称
+        identifier:
+          type: string
+          readOnly: true
+          title: 标识符
+          description: 2-5 位大写字母数字，用于 Issue 前缀（如 AMI-1），工作区内唯一
+        description:
+          type: string
+          readOnly: true
+          title: 描述
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+        current_user_role:
+          type: integer
+          nullable: true
+          readOnly: true
+          description: 当前请求用户的生效角色（20/15/5）
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - current_user_role
+      - description
+      - id
+      - identifier
+      - name
+      - updated_at
+      - workspace
+    ProjectMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+          title: 角色
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - role
+      - user
+    ProjectMemberAdd:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: 被添加用户；必须已是工作区成员
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          default: 15
+      required:
+      - user_id
+    ProjectWrite:
+      type: object
+      description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。
+      properties:
+        name:
+          type: string
+          title: 名称
+          maxLength: 120
+        identifier:
+          type: string
+          description: 2-5 位大写字母数字，Issue 前缀
+          pattern: ^[A-Z][A-Z0-9]{1,4}$
+          maxLength: 5
+        description:
+          type: string
+          title: 描述
+      required:
+      - identifier
+      - name
+    Register:
+      type: object
+      description: 注册请求体；username/email 的唯一性校验由 ModelSerializer 自动生成。
+      properties:
+        username:
+          type: string
+          title: 用户名
+          description: 必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: 电子邮件地址
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+      - username
+    RoleEnum:
+      enum:
+      - 20
+      - 15
+      - 5
+      type: integer
+      description: |-
+        * `20` - 管理员
+        * `15` - 成员
+        * `5` - 只读成员
+    State:
+      type: object
+      description: 状态只读响应体（预置五态）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+          title: 名称
+        group:
+          allOf:
+          - $ref: '#/components/schemas/GroupEnum'
+          readOnly: true
+          title: 分组
+        color:
+          type: string
+          readOnly: true
+          title: 颜色
+          description: '#RRGGBB'
+        sort_order:
+          type: integer
+          readOnly: true
+          title: 排序
+      required:
+      - color
+      - group
+      - id
+      - name
+      - sort_order
+    StatusEnum:
+      enum:
+      - pending
+      - running
+      - success
+      - failure
+      type: string
+      description: |-
+        * `pending` - 排队中
+        * `running` - 执行中
+        * `success` - 已完成
+        * `failure` - 失败
+    TaskRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/KindEnum'
+          readOnly: true
+          title: 任务类型
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+          title: 状态
+        params:
+          readOnly: true
+          title: 入参
+        result:
+          readOnly: true
+          nullable: true
+          title: 结果摘要
+        error:
+          type: string
+          readOnly: true
+          title: 失败原因
+        actor:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - actor
+      - created_at
+      - error
+      - id
+      - kind
+      - params
+      - result
+      - status
+      - updated_at
+    User:
+      type: object
+      description: 用户公开信息（register / login / me 的响应体，绝不包含密码）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          title: 用户名
+          description: 必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: 电子邮件地址
+        avatar:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+          title: 头像 URL
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - avatar
+      - created_at
+      - email
+      - id
+      - username
+    UserLite:
+      type: object
+      description: 成员列表里内嵌的用户摘要（不含 email，避免泄露给非管理员）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          title: 用户名
+          description: 必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。
+        avatar:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+          title: 头像 URL
+      required:
+      - avatar
+      - id
+      - username
+    Workspace:
+      type: object
+      description: 工作区响应体；current_role 由视图按请求用户注入。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+          title: 名称
+        slug:
+          type: string
+          readOnly: true
+          title: 标识
+          description: URL 中的租户标识，全局唯一
+          pattern: ^[-a-zA-Z0-9_]+$
+        owner:
+          type: string
+          format: uuid
+          readOnly: true
+        current_role:
+          type: integer
+          nullable: true
+          readOnly: true
+          description: 当前请求用户的角色（20/15/5）
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - current_role
+      - id
+      - name
+      - owner
+      - slug
+      - updated_at
+    WorkspaceMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+          title: 角色
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - role
+      - user
+    WorkspaceMemberAdd:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: 被邀请用户的注册邮箱
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          default: 15
+      required:
+      - email
+    WorkspaceWrite:
+      type: object
+      description: 创建 / 更新请求体。slug 可省略；唯一性冲突由 service 层做自动后缀。
+      properties:
+        name:
+          type: string
+          title: 名称
+          maxLength: 80
+        slug:
+          type: string
+          description: 可省略；缺省由 name 生成，冲突自动追加 -2/-3…
+          pattern: ^[a-z0-9-]{2,32}$
+      required:
+      - name
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

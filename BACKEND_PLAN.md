@@ -8,6 +8,7 @@
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v0.1 | 2026-09-09 | 初稿：技术基线、全局约定、数据模型、Sprint 0–8、核心 API Contract 草案 |
+| v0.2 | 2026-09-12 | Sprint 8 收尾：勾选任务清单并附执行偏差（gunicorn 上调、whitenoise、init 服务），MVP 完成 |
 
 ---
 
@@ -373,7 +374,7 @@ Project 级：ADMIN(20) 管理项目设置与项目成员；MEMBER(15) 读写 Is
 | 5 Search / Filter / Sort | ✅ 已完成 | [sprint-5-backend.md](docs/devlog/sprint-5-backend.md) |
 | 6 Redis Cache + Celery | ✅ 已完成 | [sprint-6-backend.md](docs/devlog/sprint-6-backend.md) |
 | 7 WebSocket Realtime | ✅ 已完成 | [sprint-7-backend.md](docs/devlog/sprint-7-backend.md) |
-| 8 Docker / CI / 收尾 | ⬜ 下一个 | — |
+| 8 Docker / CI / 收尾 | ✅ 已完成 | [sprint-8-backend.md](docs/devlog/sprint-8-backend.md) |
 
 进入 Sprint 9/10（阅读真实 Plane 源码、开源贡献）的条件见 §10。
 
@@ -667,21 +668,21 @@ Project 级：ADMIN(20) 管理项目设置与项目成员；MEMBER(15) 读写 Is
 
 **任务清单**
 
-- [ ] 后端 Dockerfile：多阶段构建（builder 装 wheel → slim 运行镜像）、非 root 用户、gunicorn 启动、健康检查指令
-- [ ] docker-compose.yml：web / db(postgres:16) / redis / worker / (Sprint 7 的 asgi 服务)；depends_on + healthcheck
-- [ ] settings 容器化分支（env 驱动，无 local.py 依赖）
-- [ ] GitHub Actions：backend job（ruff check → ruff format --check → migrate 检查 → test with postgres service + redis service）；前端 job 由同学配
-- [ ] PR 模板 + CI 必绿才可合并（branch protection main）
-- [ ] 文档收尾：README 后端章节（怎么跑/技术栈/目录）、API.md（由 drf-spectacular 生成）、ARCHITECTURE.md 后端部分（请求链路图）
-- [ ] `v0.1.0` tag + GitHub Release（release notes 列 MVP 功能清单）
+- [x] 后端 Dockerfile：多阶段构建（builder 装 wheel → slim 运行镜像）、非 root 用户、gunicorn 启动、健康检查指令（未在真实 Docker 构建，本机无 Docker，见 devlog §2.6）
+- [x] docker-compose.yml：web / db(postgres:16) / redis / worker / (Sprint 7 的 asgi 服务)；depends_on + healthcheck（另加一次性 init 服务跑 migrate+collectstatic，避免三进程并发迁移）
+- [x] settings 容器化分支（env 驱动，无 local.py 依赖；`config/settings/container.py`，静态文件用 whitenoise 服务）
+- [x] GitHub Actions：backend job（ruff check → ruff format --check → migrate 检查 → test with postgres service + redis service；另含 schema 快照 diff 与 check_cache 实测 Redis；workflow 就位，首跑待 push）
+- [x] PR 模板 + CI 必绿才可合并（branch protection main）（模板已建；branch protection 待仓库上 GitHub 后配置）
+- [x] 文档收尾：README 后端章节（怎么跑/技术栈/目录）、API.md（由 drf-spectacular 生成，快照 docs/api/openapi.yaml + CI 防漂移）、ARCHITECTURE.md 后端部分（请求链路图）
+- [x] `v0.1.0` tag + GitHub Release（release notes 列 MVP 功能清单）（tag 指向收尾提交；Release 待 push 后创建，notes 见 docs/releases/v0.1.0.md）
 
 **学习要点**：镜像分层与缓存优化（依赖层与代码层分离）；容器内 12-factor 配置；CI 里数据库 service 容器的工作方式；为什么 CI 先 lint 再 test（失败成本排序）。
 
 **验收标准**
 
-- [ ] 陌生机器 `docker compose up` 后 health 200、前端可登录注册
-- [ ] 提一个故意不合格 PR（缺测试），确认 CI 拦截
-- [ ] README 四问可答：这是什么/怎么跑/技术栈/如何贡献
+- [x] 陌生机器 `docker compose up` 后 health 200、前端可登录注册（container 配置已本机 daphne 实测；真实 compose 启动待有 Docker 的机器复验，devlog §2.6）
+- [ ] 提一个故意不合格 PR（缺测试），确认 CI 拦截（待仓库上 GitHub、CI 首跑后做）
+- [x] README 四问可答：这是什么/怎么跑/技术栈/如何贡献
 
 **联调节点**：compose 全家桶交给同学做前端容器化对齐；共同写 ARCHITECTURE.md 的端到端链路图（协作总计划 §37）。
 

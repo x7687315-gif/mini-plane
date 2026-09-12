@@ -1,0 +1,97 @@
+# Mini Plane CI（Sprint 8）。
+#
+# 后端 job 按协作计划 §Sprint 8 的失败成本排序：先 lint（最快最便宜），
+# 再格式检查，再"迁移无漂移 / schema 一致性"两个静态检查，最后才跑测试
+# （最慢，且需要数据库）。
+#
+# 前端 job 由同学按同一模式添加（建议也放本文件，共享 concurrency）；
+# 合并门槛：main 开 branch protection，两个 job 全绿才允许 merge。
+# 仓库还没有远端时，本 workflow 首次推送 GitHub 后才真正执行（见 sprint-8 devlog）。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend（lint + 静态检查 + 测试）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: miniplane_test
+          POSTGRES_USER: miniplane
+          POSTGRES_PASSWORD: ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U miniplane -d miniplane_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      SECRET_KEY: ci-not-a-secret
+      DATABASE_URL: postgres://miniplane:ci-password@127.0.0.1:5432/miniplane_test
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements/*.txt
+
+      - name: 安装依赖
+        run: python -m pip install -r requirements/test.txt
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format --check
+        run: ruff format --check .
+
+      # 模型改了却没生成迁移 → 在这里红，而不是等同学 pull 代码后本地炸
+      - name: 迁移无漂移（makemigrations --check）
+        run: python manage.py makemigrations --check --settings=config.settings.test
+
+      - name: OpenAPI schema 校验（spectacular 零警告）
+        run: python manage.py spectacular --settings=config.settings.test --validate --fail-on-warn --file /tmp/openapi.yaml
+
+      # 仓库内的 schema 快照必须与代码一致（改了 API 不重新生成 → diff 红）
+      - name: OpenAPI schema 与 docs/api/openapi.yaml 一致
+        run: diff -u ../docs/api/openapi.yaml /tmp/openapi.yaml
+
+      # 测试建库本身就是"迁移从零重放"的验证（Django 会先跑完全部迁移）
+      - name: 全量测试
+        run: python manage.py test --settings=config.settings.test --noinput
+
+      # Redis 服务容器不是摆设：用 Sprint 6 的 check_cache 实测 Redis 缓存后端
+      # （单测固定 LocMem，Redis 后端的 delete_pattern 只有这里能真实执行）
+      - name: Redis 缓存后端实测（check_cache）
+        run: python manage.py check_cache --settings=config.settings.local
+        env:
+          CACHE_URL: redis://127.0.0.1:6379/0

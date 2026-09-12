@@ -1,1 +1,3 @@
 -r base.txt
+# Sprint 8：CI 的 lint / format 两步直接调用 ruff，必须随测试依赖一起装
+ruff==0.16.6

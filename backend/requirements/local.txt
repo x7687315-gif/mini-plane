@@ -2,3 +2,5 @@
 ruff==0.16.6
 # Windows 下用 filesystem broker（无 Docker 的本地 Celery 通道）需要 pywin32 做文件锁
 pywin32==312; sys_platform == "win32"
+# Sprint 8：scripts/check_compose.py 用它在本机（无 Docker）校验 compose/CI 的 YAML 结构
+pyyaml==6.0.3

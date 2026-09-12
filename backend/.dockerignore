@@ -1,0 +1,11 @@
+# 构建上下文瘦身：本机状态与敏感文件绝不进镜像（.env 与 .venv 是硬红线）
+.venv/
+.celery/
+.ruff_cache/
+**/__pycache__/
+*.py[cod]
+.env
+db.sqlite3
+control/
+staticfiles/
+.git/

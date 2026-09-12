@@ -1,12 +1,54 @@
-# Mini Plane 本地开发编排（Sprint 6 起）
+# Mini Plane 全套编排（Sprint 8）。
 #
-# 当前只需要 Redis（缓存 + Celery broker）：
+# 一条命令起全套（仓库根目录，需要 Docker Desktop / Docker Engine）：
+#     docker compose up --build -d
+# 起来之后：
+#     健康检查    http://127.0.0.1:8000/api/v1/health/   （gunicorn，HTTP API）
+#     Swagger     http://127.0.0.1:8000/api/docs/
+#     WebSocket   ws://127.0.0.1:8001/ws/...             （daphne，与 HTTP 分开的端口，见下）
+#
+# 想只起 Redis 给"无 Docker 的本地开发流程"用（Sprint 6 老用法，仍然有效）：
 #     docker compose up -d redis
-#     docker compose exec redis redis-cli ping        # → PONG
 #
-# Sprint 8 会在这里补齐 web / worker / db（PostgreSQL）三个服务，
-# 让"陌生机器一条命令起全套"。现在刻意只放 Redis，避免半成品的编排误导人。
+# 设计约定：
+# - db 端口刻意不映射到宿主机：容器间走 compose 内网；本地开发请用机器上自装的
+#   PostgreSQL。要临时调试可给 db 加 "127.0.0.1:5432:5432"（本机 PG 在跑会端口冲突）。
+# - redis 端口保留映射：无 Docker 才被迫装本地 Redis 的场景已不存在，但本地调试
+#   （check_cache / 真 worker 演示）可以直接打 127.0.0.1:6379，方便。
+# - SECRET_KEY / POSTGRES_PASSWORD 可在仓库根目录建 .env 覆盖（compose 自动读取
+#   用于插值），默认值仅供本地开发，**不要**带着默认值部署到公网。
+# - Redis 库号分配：0=缓存 1=Celery broker 2=Celery result 3=channel layer。
+
+# 后端容器共用的一组环境变量（YAML 锚点，init/web/asgi/worker 引用同一份）
+x-backend-env: &backend-env
+  SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
+  ALLOWED_HOSTS: localhost,127.0.0.1,web,asgi
+  DATABASE_URL: postgres://miniplane:${POSTGRES_PASSWORD:-miniplane-dev}@db:5432/miniplane
+  CACHE_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  CHANNEL_REDIS_URL: redis://redis:6379/3
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
+
 services:
+  # ── 基础设施 ─────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: miniplane-db
+    environment:
+      POSTGRES_DB: miniplane
+      POSTGRES_USER: miniplane
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-miniplane-dev}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miniplane -d miniplane"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: miniplane-redis
@@ -20,6 +62,88 @@ services:
       retries: 10
     volumes:
       - redis-data:/data
+    restart: unless-stopped
+
+  # ── 后端（共用同一镜像；配置见 backend/config/settings/container.py）──
+  # 一次性初始化：迁移 + 收集静态文件。
+  # 单独成服务而不是塞进 web 的 entrypoint——web/asgi/worker 三个进程同时起时
+  # 各自跑 migrate 会互相抢锁甚至读到半套 schema；它们统一等本服务成功退出后再启动。
+  init:
+    build: ./backend
+    image: miniplane-backend:latest
+    container_name: miniplane-init
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  web:
+    build: ./backend
+    image: miniplane-backend:latest
+    container_name: miniplane-web
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      <<: *backend-env
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # WebSocket 与 HTTP 分成两个端口是刻意的：gunicorn(WSGI) 服务 HTTP API，
+  # daphne(ASGI) 服务 WS 长连接；重启互不影响对方已建立的连接。
+  asgi:
+    build: ./backend
+    image: miniplane-backend:latest
+    container_name: miniplane-asgi
+    command: ["daphne", "-b", "0.0.0.0", "-p", "8001", "config.asgi:application"]
+    ports:
+      - "127.0.0.1:8001:8001"
+    environment:
+      <<: *backend-env
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/health/', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    image: miniplane-backend:latest
+    container_name: miniplane-worker
+    command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency", "2"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    # worker 不监听 HTTP，镜像自带的探活指令对它无意义，显式关掉；
+    # 真要探活可用 `celery inspect ping`（二期再议）
+    healthcheck:
+      disable: true
+    restart: unless-stopped
 
 volumes:
+  pg-data:
   redis-data:
