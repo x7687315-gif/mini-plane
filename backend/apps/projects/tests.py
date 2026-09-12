@@ -11,10 +11,11 @@ from apps.issues.models import State
 from apps.projects import services
 from apps.projects.models import Project, ProjectMember, ProjectRoles
 from apps.workspaces.models import WorkspaceMember, WorkspaceRoles
+from core.testing import TEST_PASSWORD
 
 User = get_user_model()
 
-PASSWORD = "Xq9-Vtx!77Lm"
+PASSWORD = TEST_PASSWORD
 IDENTIFIER = "AMI"
 
 

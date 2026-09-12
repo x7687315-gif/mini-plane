@@ -8,6 +8,7 @@ from apps.projects.models import ProjectMember, ProjectRoles
 from apps.projects.services import create_project
 from apps.workspaces.models import WorkspaceMember, WorkspaceRoles
 from apps.workspaces.services import create_workspace
+from core.testing import TEST_PASSWORD
 
 User = get_user_model()
 
@@ -19,7 +20,7 @@ class JobScenarioMixin:
     def build_scenario(cls, *, slug: str = "jobs-ws", identifier: str = "JOB"):
         def make_user(name):
             return User.objects.create_user(
-                username=name, email=f"{name}@example.com", password="Pw12345678"
+                username=name, email=f"{name}@example.com", password=TEST_PASSWORD
             )
 
         cls.owner = make_user("job-owner")

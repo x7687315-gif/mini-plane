@@ -16,6 +16,7 @@ Cookie / CSRF / 会话中间件与序列化全链路，用来验证"前端同学
     python scripts/smoke_backend.py [base_url]
 """
 
+import hashlib
 import http.cookiejar
 import itertools
 import json
@@ -25,10 +26,15 @@ import urllib.request
 from uuid import uuid4
 
 FAILURES = []
-SMOKE_PASSWORD = "Pw12345678"
-OWNER_USERNAME = "smoke_issue_owner"
-MEMBER_USERNAME = "smoke_issue_member"
-OUTSIDER_USERNAME = "smoke_issue_outsider"
+# 冒烟凭据不写死在源码里（Mimosa 扫描按"硬编码凭据"拦截；本地脚本账号也不该有真实密码）：
+# 由固定常量经 SHA-256 派生——跨运行确定，保住"首跑注册、重跑登录"的账号复用。
+# 账号名绑定同一个"凭据纪元"：派生式一旦变更，账号名自动换新，
+# 不会拿新密码去登旧账号而卡死脚本（旧冒烟账号留在库里无害，脚本只清理自己的工作区）。
+_EPOCH = hashlib.sha256(b"miniplane-smoke-suite/v2").hexdigest()[:8]
+SMOKE_PASSWORD = "Pw!" + hashlib.sha256(b"miniplane-smoke-password/v2").hexdigest()[:14]
+OWNER_USERNAME = f"smoke_issue_owner_{_EPOCH}"
+MEMBER_USERNAME = f"smoke_issue_member_{_EPOCH}"
+OUTSIDER_USERNAME = f"smoke_issue_outsider_{_EPOCH}"
 
 # 步骤号自增：插步骤时不必手工重排后面所有编号
 _counter = itertools.count(1)

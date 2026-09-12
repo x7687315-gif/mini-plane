@@ -10,10 +10,11 @@ from rest_framework.test import APIClient, APITestCase
 from apps.projects.models import Project
 from apps.workspaces import services
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
+from core.testing import TEST_PASSWORD
 
 User = get_user_model()
 
-PASSWORD = "Xq9-Vtx!77Lm"
+PASSWORD = TEST_PASSWORD
 LIST_URL = "/api/v1/workspaces/"
 
 

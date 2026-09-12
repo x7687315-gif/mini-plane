@@ -17,11 +17,12 @@ from apps.projects.services import add_member, create_project
 from apps.users.models import User
 from apps.workspaces.services import create_workspace
 from core import cache as cache_primitives
+from core.testing import TEST_PASSWORD
 
 
 def make_user(name: str) -> User:
     return User.objects.create_user(
-        username=name, email=f"{name}@example.com", password="Pw12345678"
+        username=name, email=f"{name}@example.com", password=TEST_PASSWORD
     )
 
 

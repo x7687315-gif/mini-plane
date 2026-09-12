@@ -20,6 +20,7 @@ from apps.projects.services import create_project
 from apps.users.models import User
 from apps.workspaces.models import WorkspaceMember, WorkspaceRoles
 from apps.workspaces.services import create_workspace
+from core.testing import TEST_PASSWORD
 
 CONNECT_TIMEOUT = 10  # 默认 1s 对"握手 + 两次 DB 查询"太紧张
 
@@ -30,7 +31,7 @@ class RealtimeScenarioMixin:
     def build_scenario(self, *, slug: str = "rt-ws", identifier: str = "RT"):
         def make_user(name):
             return User.objects.create_user(
-                username=name, email=f"{name}@example.com", password="Pw12345678"
+                username=name, email=f"{name}@example.com", password=TEST_PASSWORD
             )
 
         self.owner = make_user("rt-owner")

@@ -21,10 +21,11 @@ from apps.projects.models import ProjectMember, ProjectRoles
 from apps.projects.services import create_project
 from apps.workspaces.models import WorkspaceMember, WorkspaceRoles
 from apps.workspaces.services import create_workspace
+from core.testing import TEST_PASSWORD
 
 User = get_user_model()
 
-DEFAULT_PASSWORD = "Pw12345678"
+DEFAULT_PASSWORD = TEST_PASSWORD
 
 
 class IssueScenarioMixin:
