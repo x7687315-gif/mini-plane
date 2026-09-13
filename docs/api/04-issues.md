@@ -165,8 +165,11 @@
 
 - **POST** `…/labels/`：`{"name": "bug", "color": "#ef4444"}`；`color` 省略 → `#64748b`。
   - **400**：`{"name": ["该项目下已存在同名标签。"]}`（项目内 name 唯一）。
+  - **400**：`color` 必须匹配 `#RRGGBB`（大小写均可），否则 `{"color": […字段级错误…]}`。
 - **PATCH** `…/labels/{label_id}/`：可改 `name` / `color`，唯一性同上。
 - **DELETE** `…/labels/{label_id}/`：204。**已挂该标签的 Issue 不受影响**，只是标签从它们的 `labels` 数组里消失——前端删除标签后请刷新列表。
+- 创建 / 更新 Issue 时 `label_ids` 最多 **50** 个（超限 400）；批量接口的 `issue_ids` /
+  `label_ids` 上限见 07 契约 §2.1。
 
 ## 错误与权限速查
 

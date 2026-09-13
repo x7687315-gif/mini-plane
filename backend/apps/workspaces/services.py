@@ -7,7 +7,7 @@
 
 import secrets
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
 
@@ -37,20 +37,32 @@ def _unique_slug(base: str) -> str:
 
 
 def update_workspace(workspace: Workspace, *, name=None, slug=None) -> Workspace:
-    """PATCH：改 name / slug；新 slug 以提供值为基准做唯一性自动后缀。"""
+    """PATCH：改 name / slug；新 slug 以提供值为基准做唯一性自动后缀。
+
+    slug 唯一性以数据库约束兜底：并发改到同一个 slug 时（先查后写的竞态窗口）
+    IntegrityError 转成 400，而不是裸 500。
+    """
     if name is not None:
         if not name.strip():
             raise ValidationError({"name": ["该字段是必填项。"]})
         workspace.name = name.strip()
     if slug is not None and slug != workspace.slug:
         workspace.slug = _unique_slug(slug)
-    workspace.save()
+    try:
+        workspace.save()
+    except IntegrityError:
+        raise ValidationError({"slug": ["该 slug 已被占用。"]}) from None
     return workspace
 
 
 @transaction.atomic
 def create_workspace(owner: User, name: str, slug: str | None = None) -> Workspace:
-    """创建工作区 + 所有者的 ADMIN 成员记录（必须同事务，决策见 §2.5 Sprint 2）。"""
+    """创建工作区 + 所有者的 ADMIN 成员记录（必须同事务，决策见 §2.5 Sprint 2）。
+
+    slug 生成的"查重 → 写入"存在竞态窗口（前端双击会并发提交两个同名请求），
+    撞上唯一约束时用 SAVEPOINT 回滚本次 INSERT，重新生成后缀再试；
+    重试耗尽才把错误交给上层（500 由统一异常处理器兜底并记日志）。
+    """
     if not name or not name.strip():
         raise ValidationError({"name": ["该字段是必填项。"]})
     final_slug = slug.strip() if slug else None
@@ -61,21 +73,37 @@ def create_workspace(owner: User, name: str, slug: str | None = None) -> Workspa
         # 显式 slug 冲突：以提供的值为基准做 -2/-3… 后缀（02 契约）
         if Workspace.objects.filter(slug=final_slug).exists():
             final_slug = _unique_slug(final_slug)
-    workspace = Workspace.objects.create(
-        name=name.strip(), slug=final_slug or generate_slug(name), owner=owner
-    )
+    workspace = None
+    candidate = final_slug or generate_slug(name)
+    for _attempt in range(3):
+        try:
+            # SAVEPOINT：约束冲突只回滚这条 INSERT，外层事务（成员记录）继续可用
+            with transaction.atomic():
+                workspace = Workspace.objects.create(name=name.strip(), slug=candidate, owner=owner)
+            break
+        except IntegrityError:
+            candidate = _unique_slug(candidate)
+    if workspace is None:
+        raise ValidationError({"slug": ["slug 生成冲突，请重试。"]})
     WorkspaceMember.objects.create(workspace=workspace, user=owner, role=WorkspaceRoles.ADMIN)
     return workspace
 
 
 def add_member(workspace: Workspace, email: str, role: int) -> WorkspaceMember:
-    """按 email 添加成员；email 未注册 / 已是成员 → 400。"""
+    """按 email 添加成员；email 未注册 / 已是成员 → 400。
+
+    已是成员的判断存在竞态（双击/并发添加）：数据库唯一约束兜底，
+    IntegrityError 转成与预检查一致的 400 文案。
+    """
     user = User.objects.filter(email=email).first()
     if user is None:
         raise ValidationError({"email": ["该邮箱尚未注册。"]})
     if WorkspaceMember.objects.filter(workspace=workspace, user=user).exists():
         raise ValidationError({"email": ["该用户已是工作区成员。"]})
-    return WorkspaceMember.objects.create(workspace=workspace, user=user, role=role)
+    try:
+        return WorkspaceMember.objects.create(workspace=workspace, user=user, role=role)
+    except IntegrityError:
+        raise ValidationError({"email": ["该用户已是工作区成员。"]}) from None
 
 
 def change_role(workspace: Workspace, member: WorkspaceMember, role: int) -> WorkspaceMember:

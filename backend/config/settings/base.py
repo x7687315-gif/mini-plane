@@ -143,6 +143,15 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
+# ── 会话 / CSRF Cookie 属性 ──────────────────────────────────
+# SameSite 显式声明 Lax：跨站请求（含跨站 WebSocket 握手）不带会话 cookie；
+# localhost 跨端口（3000 → 8000）属于同站，Lax 不影响联调。
+# Secure 走 env：本地与 compose 都是 http，默认 False；上 HTTPS 部署时置 True。
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=False)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=False)
+
 # ── 缓存（Sprint 6）────────────────────────────────────────────
 # CACHE_URL 不配 → LocMem（单进程内存缓存，重启即清空，够本地开发用）
 # CACHE_URL=redis://127.0.0.1:6379/0 → django-redis（本地需要 Redis，见 docker-compose.yml）

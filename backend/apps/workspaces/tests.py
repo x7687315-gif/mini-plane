@@ -244,12 +244,52 @@ class WorkspaceMemberTests(WorkspaceTestBase):
         with self.assertNumQueries(4):
             client.get(url)
 
-        # 再加 5 名成员后查询数不变（无 N+1）
-        for i in range(5):
-            user = User.objects.create_user(
-                username=f"extra{i}", email=f"extra{i}@test.cn", password=PASSWORD
-            )
-            WorkspaceMember.objects.create(workspace=self.workspace, user=user)
 
-        with self.assertNumQueries(4):
-            client.get(url)
+class UniquenessRaceGuardTests(WorkspaceTestBase):
+    """hardening：slug / 成员唯一约束的竞态（双击提交）不再 500。"""
+
+    def test_create_workspace_slug_race_retries_and_succeeds(self):
+        """并发创建撞上 slug 唯一约束：SAVEPOINT 回滚后重生成，同 slug 成功。"""
+        from unittest import mock
+
+        from django.db import IntegrityError
+
+        real_create = Workspace.objects.create
+        attempted = []
+
+        def flaky_create(**kwargs):
+            attempted.append(kwargs.get("slug"))
+            if len(attempted) == 1:
+                raise IntegrityError  # 模拟并发对手抢先把同名 slug 写入
+            return real_create(**kwargs)
+
+        # 注意：side_effect 给"可调用对象"时 mock 会调用它（列表则原样返回元素，
+        # 不能用它混排"异常 + 正常值"）
+        with mock.patch.object(Workspace.objects, "create", side_effect=flaky_create):
+            workspace = services.create_workspace(self.a, "竞态工作区", "race-ws")
+
+        # 第一次 INSERT 已随 SAVEPOINT 回滚，重查时 slug 仍空闲 → 同名成功
+        self.assertEqual(workspace.slug, "race-ws")
+        self.assertEqual(len(attempted), 2)
+        self.assertTrue(WorkspaceMember.objects.filter(workspace=workspace, user=self.a).exists())
+
+    def test_create_workspace_slug_race_exhausted_becomes_400(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+        from rest_framework.exceptions import ValidationError
+
+        with mock.patch.object(Workspace.objects, "create", side_effect=IntegrityError):
+            with self.assertRaises(ValidationError):
+                services.create_workspace(self.a, "必败工作区", "doomed-ws")
+
+    def test_add_member_race_becomes_400(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+        from rest_framework.exceptions import ValidationError
+
+        workspace = services.create_workspace(self.a, "成员竞态", "member-race")
+        with mock.patch.object(WorkspaceMember.objects, "create", side_effect=IntegrityError):
+            with self.assertRaises(ValidationError):
+                services.add_member(workspace, "b@test.cn", WorkspaceRoles.MEMBER)

@@ -29,6 +29,12 @@ class LabelSerializer(serializers.ModelSerializer):
 class LabelWriteSerializer(serializers.ModelSerializer):
     """标签创建 / 更新请求体；项目内 name 唯一由 service 显式校验。"""
 
+    color = serializers.RegexField(
+        regex=r"^#[0-9a-fA-F]{6}$",
+        required=False,
+        help_text="#RRGGBB 十六进制颜色",
+    )
+
     class Meta:
         model = Label
         fields = ["name", "color"]
@@ -94,7 +100,8 @@ class IssueWriteSerializer(serializers.Serializer):
         child=serializers.UUIDField(),
         required=False,
         default=list,
-        help_text="标签 id 列表；空数组表示清空标签",
+        max_length=50,
+        help_text="标签 id 列表（最多 50 个）；空数组表示清空标签",
     )
 
     def validate(self, attrs):
@@ -156,13 +163,17 @@ class IssueBulkLabelsSerializer(serializers.Serializer):
     """
 
     issue_ids = serializers.ListField(
-        child=serializers.UUIDField(), allow_empty=False, help_text="要批量修改的 Issue id 列表"
+        child=serializers.UUIDField(),
+        allow_empty=False,
+        max_length=200,
+        help_text="要批量修改的 Issue id 列表（最多 200 个）",
     )
     label_ids = serializers.ListField(
         child=serializers.UUIDField(),
         required=False,
         default=list,
-        help_text="目标标签 id 列表；空数组表示清空这些 Issue 的标签",
+        max_length=50,
+        help_text="目标标签 id 列表（最多 50 个）；空数组表示清空这些 Issue 的标签",
     )
 
     def validate(self, attrs):

@@ -1664,13 +1664,15 @@ components:
           items:
             type: string
             format: uuid
-          description: 要批量修改的 Issue id 列表
+          description: 要批量修改的 Issue id 列表（最多 200 个）
+          maxItems: 200
         label_ids:
           type: array
           items:
             type: string
             format: uuid
-          description: 目标标签 id 列表；空数组表示清空这些 Issue 的标签
+          description: 目标标签 id 列表（最多 50 个）；空数组表示清空这些 Issue 的标签
+          maxItems: 50
       required:
       - issue_ids
     IssueWrite:
@@ -1718,7 +1720,8 @@ components:
           items:
             type: string
             format: uuid
-          description: 标签 id 列表；空数组表示清空标签
+          description: 标签 id 列表（最多 50 个）；空数组表示清空标签
+          maxItems: 50
       required:
       - title
     KindEnum:
@@ -1762,21 +1765,26 @@ components:
           maxLength: 60
         color:
           type: string
-          title: 颜色
-          description: '#RRGGBB'
-          maxLength: 9
+          description: '#RRGGBB 十六进制颜色'
+          pattern: ^#[0-9a-fA-F]{6}$
       required:
       - name
     Login:
       type: object
-      description: 登录请求体。失败文案统一为"用户名或密码错误"，防用户名探测。
+      description: |-
+        登录请求体。失败文案统一为"用户名或密码错误"，防用户名探测。
+
+        max_length 与 User 模型对齐：在校验层拦下超长输入，
+        不给"巨型字符串打进密码哈希器"这类资源浪费留口子。
       properties:
         username:
           type: string
           description: 用户名
+          maxLength: 150
         password:
           type: string
           writeOnly: true
+          maxLength: 128
       required:
       - password
       - username
@@ -1832,7 +1840,8 @@ components:
           items:
             type: string
             format: uuid
-          description: 标签 id 列表；空数组表示清空标签
+          description: 标签 id 列表（最多 50 个）；空数组表示清空标签
+          maxItems: 50
     PatchedLabelWrite:
       type: object
       description: 标签创建 / 更新请求体；项目内 name 唯一由 service 显式校验。
@@ -1843,9 +1852,8 @@ components:
           maxLength: 60
         color:
           type: string
-          title: 颜色
-          description: '#RRGGBB'
-          maxLength: 9
+          description: '#RRGGBB 十六进制颜色'
+          pattern: ^#[0-9a-fA-F]{6}$
     PatchedProjectMemberRole:
       type: object
       properties:

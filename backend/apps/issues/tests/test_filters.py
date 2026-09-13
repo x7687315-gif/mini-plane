@@ -279,3 +279,33 @@ class StableOrderingTests(IssueListAPITestCase):
         ids = self.ids_of(first) + self.ids_of(second)
         self.assertEqual(len(ids), 3)
         self.assertEqual(len(set(ids)), 3)
+
+
+class SearchWildcardEscapingTests(IssueListAPITestCase):
+    """回归守卫：search 里的 LIKE 通配符（% _）按字面量匹配。
+
+    这是 Django `prep_for_like_query` 的内置行为（\\ % _ 自动转义）——
+    审查时曾误判"未转义"而加过手工转义，结果双重转义（hardening devlog §F6）。
+    这三个用例钉住正确行为，防止未来有人再"优化"坏它。
+    """
+
+    def setUp(self):
+        self.percent = self.make_issue(title="进度 100%")
+        self.thousand = self.make_issue(title="已更换 1000 个组件")
+        self.underscore = self.make_issue(title="fix a_b step")
+        self.plain = self.make_issue(title="fix axb step")
+
+    def test_percent_is_literal(self):
+        status, body = self.query("search=100%25")  # URL 解码后为 100%
+        self.assertEqual(status, 200)
+        self.assertEqual(self.ids_of(body), [str(self.percent.id)])
+
+    def test_underscore_is_literal(self):
+        status, body = self.query("search=a_b")
+        self.assertEqual(status, 200)
+        self.assertEqual(self.ids_of(body), [str(self.underscore.id)])
+
+    def test_plain_keyword_still_matches(self):
+        status, body = self.query("search=fix")
+        self.assertEqual(status, 200)
+        self.assertEqual(set(self.ids_of(body)), {str(self.underscore.id), str(self.plain.id)})

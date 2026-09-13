@@ -100,7 +100,11 @@ def _filter_by_labels(queryset, raw):
 
 
 def _search(queryset, raw):
-    """title / description 模糊包含；纯空白视为未传。"""
+    """title / description 模糊包含；纯空白视为未传。
+
+    LIKE 通配符（% _ \\）由 Django 的 `prep_for_like_query` 自动转义为字面量，
+    这里**不要再做一层手工转义**（会双重转义，搜 "100%" 反而什么都搜不到）。
+    """
     keyword = (raw or "").strip()
     if not keyword:
         return queryset

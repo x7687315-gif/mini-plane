@@ -126,6 +126,35 @@ class BulkLabelsEndpointTests(JobAPITestCase):
         response = self.client.post(self.bulk_url, {"issue_ids": []}, format="json")
         self.assertEqual(response.status_code, 400)
 
+    def test_bulk_issue_ids_over_limit_400(self):
+        """数量上限（契约 07）：防止一次性投递超大批量拖垮 worker。"""
+        from uuid import uuid4
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            self.bulk_url,
+            {"issue_ids": [str(uuid4()) for _ in range(201)]},  # 上限 200
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        # 字段级错误体（上限文案由 DRF 翻译提供，不逐字断言）
+        self.assertIn("issue_ids", response.json())
+
+    def test_bulk_label_ids_over_limit_400(self):
+        from uuid import uuid4
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            self.bulk_url,
+            {
+                "issue_ids": [str(self.issues[0].id)],
+                "label_ids": [str(uuid4()) for _ in range(51)],  # 上限 50
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("label_ids", response.json())
+
     def test_issue_objects_are_untouched_before_task_runs(self):
         """202 只是"已受理"，标签在任务执行时才变 —— eager 模式下事务提交后立即变。"""
         self.client.force_authenticate(user=self.member)

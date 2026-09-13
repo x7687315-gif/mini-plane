@@ -17,6 +17,13 @@
 | 7 | WebSocket Realtime | ✅ 已完成 | [sprint-7-backend.md](sprint-7-backend.md) | 本 Sprint 提交 |
 | 8 | Docker / CI / 收尾 | ✅ 已完成 | [sprint-8-backend.md](sprint-8-backend.md) | 本 Sprint 提交 |
 
+## MVP 后加固（Hardening）
+
+| 篇 | 主题 | 日志 |
+|----|------|------|
+| 01 | 全面代码审查与修复（404 语义 / 限流内存上界 / Cookie 安全属性 / 批量操作一致性 / 唯一约束竞态 / 输入校验；277→299 测试） | [hardening-01-audit-and-fixes.md](hardening-01-audit-and-fixes.md) |
+| 02 | 前端接入准备（09 契约：环境地址 / 认证与 CSRF / 错误与分页 / WS 接入 / 自检清单） | [hardening-02-frontend-onboarding.md](hardening-02-frontend-onboarding.md) |
+
 ## 交付物形态（每个 Sprint 收尾时的固定动作）
 
 1. 契约文件 `docs/api/0x-*.md` 更新并冻结；

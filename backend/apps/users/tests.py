@@ -1,6 +1,7 @@
 """Sprint 1 验收测试：Auth 全链路（契约 docs/api/01-auth.md）。"""
 
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
@@ -117,6 +118,47 @@ class LoginTests(APITestCase):
             LOGIN_URL, {"username": "amiya", "password": PAYLOAD["password"]}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_login_rejects_oversized_credentials(self):
+        """超长凭据在校验层拦下（与 User 模型对齐），不进密码哈希器。"""
+        response = self.client.post(
+            LOGIN_URL, {"username": "x" * 151, "password": "p" * 129}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", response.json())
+
+
+class RateLimiterMemoryTests(TestCase):
+    """限流计数器的内存有界性（hardening）：过期清理 + 容量上限。"""
+
+    def setUp(self):
+        services.clear_all()
+        self.addCleanup(services.clear_all)
+
+    def test_expired_entries_are_pruned_on_write(self):
+        """窗口外的失败记录在下次写入时被清掉，不会永久滞留。"""
+        import time as time_module
+
+        stale = time_module.monotonic() - services.WINDOW_SECONDS - 1
+        services._FAILURES["ghost-user"] = [stale, stale]
+
+        services.record_failure("fresh-user")
+
+        self.assertNotIn("ghost-user", services._FAILURES)
+        self.assertIn("fresh-user", services._FAILURES)
+
+    def test_tracked_usernames_are_capped(self):
+        """键总数超过上限时按最旧插入序驱逐，内存有界。"""
+        from unittest.mock import patch
+
+        with patch.object(services, "MAX_TRACKED_USERNAMES", 3):
+            for index in range(5):
+                services.record_failure(f"user-{index}")
+
+        self.assertEqual(len(services._FAILURES), 3)
+        # 最旧的 user-0 / user-1 被驱逐
+        self.assertNotIn("user-0", services._FAILURES)
+        self.assertIn("user-4", services._FAILURES)
 
 
 class MeLogoutTests(APITestCase):

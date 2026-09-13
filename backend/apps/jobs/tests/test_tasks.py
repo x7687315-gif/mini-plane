@@ -152,9 +152,45 @@ class BulkAssignLabelsTaskTests(JobScenarioMixin, TestCase):
 
         self.assertEqual(run.status, TaskStatus.SUCCESS)
         self.assertEqual(run.error, "")
-        self.assertEqual(result, {"issues": 3, "labels": 1, "label_ids": [str(self.bug_label.id)]})
+        self.assertEqual(
+            result,
+            {
+                "issues": 3,
+                "changed": 3,
+                "labels": 1,
+                "label_ids": [str(self.bug_label.id)],
+            },
+        )
         for issue in self.issues:
             self.assertEqual(list(issue.labels.all()), [self.bug_label])
+
+    def test_changed_issues_write_activity_and_broadcast(self):
+        """与单条 PATCH 同语义：真变化的 Issue 留痕 + 广播；无变化的不产生噪声。
+
+        全局一致性（hardening）：批量路径此前绕过了 update_issue 的留痕/广播原语，
+        前端在批量操作后既看不到时间线、也收不到推送。
+        """
+        from apps.activity.models import ActivityLog
+
+        unchanged = self.issues[0]
+        unchanged.labels.set([self.bug_label])  # 批量结果 = 现状 → 无变化
+
+        run = self._start()
+        with mock.patch("apps.jobs.tasks.realtime.defer_issue_updated") as defer_mock:
+            result = bulk_assign_labels.run(str(run.id))
+
+        self.assertEqual(result["changed"], 2)
+        logs = ActivityLog.objects.filter(action="updated", entity_type="issue")
+        self.assertEqual({log.entity_id for log in logs}, {self.issues[1].id, self.issues[2].id})
+        for log in logs:
+            self.assertEqual(log.actor_id, self.owner.id)
+            self.assertIn("labels", log.new_value)
+        # 广播：只有变化的 Issue 各一帧 issue.updated
+        self.assertEqual(defer_mock.call_count, 2)
+        self.assertEqual(
+            {call.kwargs["issue"].id for call in defer_mock.call_args_list},
+            {self.issues[1].id, self.issues[2].id},
+        )
 
     def test_status_transitions_are_recorded(self):
         run = self._start()

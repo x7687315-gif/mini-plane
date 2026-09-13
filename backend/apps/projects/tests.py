@@ -303,3 +303,62 @@ class ProjectMemberTests(ProjectTestBase):
 
         with self.assertNumQueries(5):
             client.get(url)
+
+
+class UnknownMemberIdTests(ProjectTestBase):
+    """hardening：member_id 不存在（或属于别的项目）必须 404，而不是 500。
+
+    原实现用裸 .get()，DoesNotExist 会穿过统一异常处理变成 500，
+    违反契约「不存在 → 404」。
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls._build_workspace()
+        cls.project = services.create_project(
+            cls.workspace, cls.a, name="404 测试", identifier="N404"
+        )
+        cls.other = services.create_project(cls.workspace, cls.a, name="别的项目", identifier="OTH")
+
+    def test_patch_unknown_member_404(self):
+        url = f"{self.members_url()}00000000-0000-0000-0000-000000000000/"
+        response = self.client_as(self.a).patch(url, {"role": 15}, format="json")
+        self.assertEqual(response.status_code, 404)
+
+    def test_member_of_other_project_is_404(self):
+        member = ProjectMember.objects.create(
+            project=self.other, user=self.b, role=ProjectRoles.MEMBER
+        )
+        response = self.client_as(self.a).delete(self.member_url(member))
+        self.assertEqual(response.status_code, 404)
+
+
+class UniquenessRaceGuardTests(ProjectTestBase):
+    """hardening：唯一约束竞态（双击提交）不再 500，统一转成契约的 400。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls._build_workspace()
+
+    def test_create_project_identifier_race_becomes_400(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+        from rest_framework.exceptions import ValidationError
+
+        with mock.patch.object(Project.objects, "create", side_effect=IntegrityError):
+            with self.assertRaises(ValidationError):
+                services.create_project(self.workspace, self.a, name="竞态", identifier="RACE")
+
+    def test_add_member_race_becomes_400(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+        from rest_framework.exceptions import ValidationError
+
+        project = services.create_project(self.workspace, self.a, name="竞态2", identifier="RAC2")
+        with mock.patch.object(ProjectMember.objects, "create", side_effect=IntegrityError):
+            with self.assertRaises(ValidationError):
+                services.add_member(self.workspace, project, str(self.b.id), ProjectRoles.MEMBER)

@@ -348,3 +348,35 @@ class LabelAPITests(IssueAPITestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, 404)
+
+
+class LabelInputHardeningTests(IssueAPITestCase):
+    """hardening：color 格式校验（#RRGGBB）与 label_ids 数量上限。"""
+
+    def test_create_label_invalid_color_400(self):
+        self.auth(self.owner)
+        resp = self.client.post(
+            self.labels_url, {"name": "bad-color", "color": "reddish"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("color", resp.json())
+
+    def test_create_label_valid_uppercase_color_201(self):
+        self.auth(self.owner)
+        resp = self.client.post(
+            self.labels_url, {"name": "ok-color", "color": "#EF4444"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.json()["color"], "#EF4444")
+
+    def test_create_issue_label_ids_over_limit_400(self):
+        from uuid import uuid4
+
+        self.auth(self.owner)
+        resp = self.client.post(
+            self.issues_url,
+            {"title": "超限", "label_ids": [str(uuid4()) for _ in range(51)]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("label_ids", resp.json())

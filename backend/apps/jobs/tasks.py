@@ -15,8 +15,11 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
+from apps.activity import services as activity_services
+from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import Comment
 from apps.jobs.models import Notification, TaskRun, TaskStatus
+from apps.realtime import broadcast as realtime
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +117,14 @@ def _mark(task_run_id, status: str, *, result=None, error: str | None = None) ->
 
 
 def _run_bulk_assign_labels(task_run_id) -> dict:
-    """把一批 Issue 的标签**覆盖**成给定集合，执行过程写进 TaskRun 状态机。"""
-    run = TaskRun.objects.filter(id=task_run_id).select_related("project").first()
+    """把一批 Issue 的标签**覆盖**成给定集合，执行过程写进 TaskRun 状态机。
+
+    与单条 PATCH 的语义保持一致（全局一致性，见 hardening devlog）：
+    每个标签真的发生变化的 Issue 都要写 `issue.updated` 活动留痕并实时广播，
+    否则前端在批量操作后既看不到时间线、也收不到推送。diff/留痕/广播复用
+    与 `issues.services.update_issue` 完全相同的原语。
+    """
+    run = TaskRun.objects.filter(id=task_run_id).select_related("project", "actor").first()
     if run is None:
         return {"reason": "task_run_missing"}
     if run.status == TaskStatus.SUCCESS:
@@ -126,19 +135,44 @@ def _run_bulk_assign_labels(task_run_id) -> dict:
     try:
         issue_ids = run.params.get("issue_ids") or []
         label_ids = run.params.get("label_ids") or []
-        issues = list(run.project.issues.filter(id__in=issue_ids))
+        issues = list(run.project.issues.filter(id__in=issue_ids).prefetch_related("labels"))
         labels = list(run.project.labels.filter(id__in=label_ids))
         if len(issues) != len(set(issue_ids)):
             raise ValueError("部分 Issue 不属于该项目")
         if len(labels) != len(set(label_ids)):
             raise ValueError("部分标签不属于该项目")
 
+        changed = 0
         with transaction.atomic():
             for issue in issues:
+                before = activity_services.capture_issue_snapshot(
+                    issue, labels=[label.name for label in issue.labels.all()]
+                )
                 issue.labels.set(labels)
+                after = activity_services.capture_issue_snapshot(
+                    issue, labels=list(issue.labels.values_list("name", flat=True))
+                )
+                old_value, new_value = activity_services.diff_snapshots(before, after)
+                if not (old_value or new_value):
+                    continue
+                changed += 1
+                activity_services.record_issue_event(
+                    issue,
+                    actor=run.actor,
+                    action=ActivityActions.UPDATED,
+                    old_value=old_value,
+                    new_value=new_value,
+                )
+                realtime.defer_issue_updated(
+                    project_id=issue.project_id,
+                    issue=issue,
+                    old_value=old_value,
+                    new_value=new_value,
+                )
 
         result = {
             "issues": len(issues),
+            "changed": changed,
             "labels": len(labels),
             "label_ids": [str(label.id) for label in labels],
         }

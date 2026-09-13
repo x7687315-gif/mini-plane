@@ -9,6 +9,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -160,7 +161,11 @@ def project_member_detail(request, workspace_slug: str, project_id, member_id):
     """仅项目 Admin；移除后至少保留一位项目 Admin。"""
     project, role = resolve_project(request.user, workspace_slug, project_id)
     _require_role(role, ProjectRoles.ADMIN)
-    member = ProjectMember.objects.select_related("user").get(id=member_id, project=project)
+    # get_object_or_404：member_id 不存在（或属于别的项目）→ 404；
+    # 裸 .get() 会抛 DoesNotExist → 500，与契约「不存在 → 404」不符
+    member = get_object_or_404(
+        ProjectMember.objects.select_related("user"), id=member_id, project=project
+    )
 
     if request.method == "PATCH":
         serializer = ProjectMemberRoleSerializer(data=request.data)

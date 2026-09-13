@@ -78,7 +78,13 @@
 
 请求体：`{"issue_ids": ["…"], "label_ids": ["…"]}`
 语义是**覆盖式**：把选中 Issue 的标签整体替换为 `label_ids`；**空数组 = 清空标签**。
+数量上限：`issue_ids` 最多 **200** 个、`label_ids` 最多 **50** 个（超限 400，字段级错误体）。
 跨作用域校验在请求时就做完（400），任务执行阶段仍会二次校验（防御纵深）。
+
+**留痕与实时推送（与单条 PATCH 同语义）**：任务执行时，每个标签**真的发生变化**的
+Issue 都会写一条 `issue.updated` 活动留痕（06 契约 diff 结构，`old_value`/`new_value`
+只含 `labels` 字段）并广播 `issue.updated` 事件（08 契约）；标签没变的 Issue 不产生
+任何噪声。前端因此可以在批量操作后照常收到推送与时间线，无需特殊处理。
 
 ### 2.2 TaskRun 对象
 
@@ -88,7 +94,7 @@
   "kind": "bulk_assign_labels",
   "status": "success",
   "params": {"issue_ids": ["…"], "label_ids": ["…"]},
-  "result": {"issues": 1, "labels": 1, "label_ids": ["…"]},
+  "result": {"issues": 1, "changed": 1, "labels": 1, "label_ids": ["…"]},
   "error": "",
   "actor": {"id": "uuid", "username": "amiya", "avatar": null},
   "created_at": "2026-09-10T15:00:00Z",

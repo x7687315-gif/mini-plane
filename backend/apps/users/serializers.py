@@ -45,7 +45,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    """登录请求体。失败文案统一为"用户名或密码错误"，防用户名探测。"""
+    """登录请求体。失败文案统一为"用户名或密码错误"，防用户名探测。
 
-    username = serializers.CharField(help_text="用户名")
-    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    max_length 与 User 模型对齐：在校验层拦下超长输入，
+    不给"巨型字符串打进密码哈希器"这类资源浪费留口子。
+    """
+
+    username = serializers.CharField(max_length=150, help_text="用户名")
+    password = serializers.CharField(
+        max_length=128, write_only=True, style={"input_type": "password"}
+    )

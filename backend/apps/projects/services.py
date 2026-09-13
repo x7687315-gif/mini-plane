@@ -3,7 +3,7 @@
 Sprint 4 起，创建/修改项目会写活动留痕（06 契约），与业务同事务。
 """
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.activity import services as activity_services
@@ -25,13 +25,18 @@ def create_project(
     """
     if Project.objects.filter(workspace=workspace, identifier=identifier).exists():
         raise ValidationError({"identifier": ["此字段必须唯一。"]})
-    project = Project.objects.create(
-        workspace=workspace,
-        name=name.strip(),
-        identifier=identifier,
-        description=description or "",
-        created_by=creator,
-    )
+    try:
+        # SAVEPOINT：并发创建（双击）撞唯一约束只回滚这条 INSERT，事务内后续步骤照常
+        with transaction.atomic():
+            project = Project.objects.create(
+                workspace=workspace,
+                name=name.strip(),
+                identifier=identifier,
+                description=description or "",
+                created_by=creator,
+            )
+    except IntegrityError:
+        raise ValidationError({"identifier": ["此字段必须唯一。"]}) from None
     ProjectMember.objects.create(project=project, user=creator, role=ProjectRoles.ADMIN)
     create_default_states(project)
 
@@ -68,7 +73,11 @@ def update_project(
         project.identifier = identifier
     if description is not None:
         project.description = description
-    project.save()
+    try:
+        project.save()
+    except IntegrityError:
+        # 并发改到同一个 identifier：唯一约束兜底转 400（与创建路径同语义）
+        raise ValidationError({"identifier": ["此字段必须唯一。"]}) from None
 
     if old_value:
         activity_services.record_project_event(
@@ -93,7 +102,11 @@ def add_member(workspace: Workspace, project: Project, user_id, role: int) -> Pr
         raise ValidationError({"user_id": ["该用户不是工作区成员，请先添加到工作区。"]})
     if ProjectMember.objects.filter(project=project, user=user).exists():
         raise ValidationError({"user_id": ["该用户已是项目成员。"]})
-    member = ProjectMember.objects.create(project=project, user=user, role=role)
+    try:
+        member = ProjectMember.objects.create(project=project, user=user, role=role)
+    except IntegrityError:
+        # 双击/并发添加的竞态：唯一约束兜底转 400（与预检查同文案）
+        raise ValidationError({"user_id": ["该用户已是项目成员。"]}) from None
     _invalidate_project_cache(project)
     return member
 
