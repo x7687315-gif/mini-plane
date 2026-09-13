@@ -21,6 +21,7 @@ OpenAPI 描述"接口长什么样"，下面的手写契约解释"行为为什么
 | [06-activities.md](api/06-activities.md) | 活动流（含文案映射表） |
 | [07-cache-and-tasks.md](api/07-cache-and-tasks.md) | 缓存行为说明 + 批量任务状态接口 |
 | [08-realtime.md](api/08-realtime.md) | WebSocket：握手、关闭码、事件帧、心跳 |
+| [09-frontend-integration.md](api/09-frontend-integration.md) | **前端接入指南**：环境地址、认证/CSRF 流程、错误与分页处理、实时与任务接入、自检清单 |
 
 ## 重新生成 schema
 
