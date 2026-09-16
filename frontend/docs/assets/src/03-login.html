@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Mini Plane — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4F1EA; --paper-2:#EBE7DD; --paper-3:#D9D4C2;
+    --ink:#1B1A17; --ink-2:#5A5851; --ink-3:#8C887E; --rule:#C8C3B4;
+    --accent:#1F3FA8; --accent-2:#4F6FD6; --accent-soft:#E2E7F5;
+    --serif:'Cormorant Garamond','Times New Roman',Georgia,serif;
+    --sans:'Inter','Helvetica Neue','Segoe UI',Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:13px; line-height:1.55;
+    background-image:
+      linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--paper-3) calc(100% - 1px)),
+      linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--paper-3) calc(100% - 1px));
+    background-size:32px 32px, 32px 32px;
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  body::before{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(31,63,168,0.06), transparent 28%),
+      radial-gradient(circle at 88% 82%, rgba(168,85,31,0.04), transparent 30%);
+  }
+  /* decorative crosshairs in corners */
+  .ch{position:absolute;width:26px;height:26px;border:0.5px solid var(--accent);opacity:.5}
+  .ch::before,.ch::after{content:'';position:absolute;background:var(--accent);opacity:.5}
+  .ch::before{left:50%;top:0;bottom:0;width:.5px}
+  .ch::after{top:50%;left:0;right:0;height:.5px}
+  .ch.tl{top:48px;left:48px}
+  .ch.tr{top:48px;right:48px}
+  .ch.bl{bottom:48px;left:48px}
+  .ch.br{bottom:48px;right:48px}
+
+  /* coord readouts in corners */
+  .coord{position:absolute;font-family:var(--serif);font-style:italic;color:var(--ink-3);font-size:11px;letter-spacing:.04em;opacity:.7}
+  .coord.tl{top:84px;left:84px}
+  .coord.tr{top:84px;right:84px;text-align:right}
+  .coord.bl{bottom:84px;left:84px}
+  .coord.br{bottom:84px;right:84px;text-align:right}
+
+  .card{
+    position:relative; z-index:2;
+    width:480px; padding:48px 56px; background:rgba(255,255,255,.55);
+    border:0.5px solid var(--rule); backdrop-filter:blur(0.5px);
+  }
+  .logo{font-family:var(--serif);font-style:italic;font-size:84px;line-height:1;font-weight:500;letter-spacing:-.02em;margin-bottom:6px}
+  .logo span{opacity:.45;font-size:64px;margin-left:-2px}
+  .tag{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink-3);letter-spacing:.18em;margin-bottom:36px}
+  .title{font-family:var(--serif);font-size:32px;font-weight:500;line-height:1.15;margin-bottom:8px}
+  .sub{font-size:12px;color:var(--ink-2);letter-spacing:.04em;margin-bottom:30px}
+  .sub em{font-family:var(--serif);font-style:italic;color:var(--ink-3)}
+
+  .rule{height:.5px;background:var(--rule);margin-bottom:24px}
+
+  .field{margin-bottom:18px}
+  .lbl{font-size:9px;letter-spacing:.26em;color:var(--ink-3);text-transform:uppercase;margin-bottom:6px}
+  .lbl i{font-family:var(--serif);font-style:italic;color:var(--accent);letter-spacing:.04em;font-size:10px;margin-left:6px;text-transform:none}
+  .input{border:0;outline:none;background:transparent;border-bottom:0.5px solid var(--rule);padding:8px 0;font-family:var(--sans);font-size:14px;color:var(--ink);width:100%}
+  .input::placeholder{color:var(--ink-3);font-style:italic}
+  .input:focus{border-bottom-color:var(--accent)}
+  .input.with-icon{padding-left:18px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><circle cx='4' cy='4' r='2.5' fill='none' stroke='%231B1A17' stroke-width='.7' opacity='.55'/><line x1='5.6' y1='5.6' x2='7' y2='7' stroke='%231B1A17' stroke-width='.7' opacity='.55'/></svg>");background-repeat:no-repeat;background-position:left 0 center;background-size:14px 14px}
+
+  .btn{
+    margin-top:8px; width:100%;
+    background:var(--ink); color:var(--paper);
+    padding:13px 16px; font-family:var(--serif); font-style:italic; font-size:15px;
+    letter-spacing:.04em; border:0; cursor:pointer;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .btn::after{content:'\2197';font-style:normal;font-size:18px;opacity:.7}
+
+  .alt{margin-top:22px;font-size:12px;color:var(--ink-2);text-align:center}
+  .alt a{color:var(--accent);font-style:italic;font-family:var(--serif);text-decoration:none;border-bottom:0.5px solid var(--accent)}
+
+  .footnote{margin-top:36px;padding-top:18px;border-top:0.5px dashed var(--rule);display:flex;justify-content:space-between;font-size:9px;letter-spacing:.24em;color:var(--ink-3);text-transform:uppercase}
+  .footnote b{font-family:var(--serif);font-style:italic;color:var(--accent);font-size:11px;letter-spacing:.04em;text-transform:none;font-weight:500}
+</style>
+</head>
+<body>
+  <div class="ch tl"></div><div class="ch tr"></div><div class="ch bl"></div><div class="ch br"></div>
+  <div class="coord tl">N &middot; 31&deg; 14&prime;</div>
+  <div class="coord tr">sheet 01 / 12</div>
+  <div class="coord bl">fig &middot; sign in</div>
+  <div class="coord br">W &middot; 121&deg; 28&prime;</div>
+
+  <div class="card">
+    <div class="logo">P<span>l</span>ane</div>
+    <div class="tag">mini &middot; identify yourself</div>
+
+    <div class="title">Sign in</div>
+    <div class="sub">Welcome back &middot; <em>between user and system</em></div>
+
+    <div class="rule"></div>
+
+    <div class="field">
+      <div class="lbl">Username <i>or email</i></div>
+      <input class="input with-icon" placeholder="amiya" value="amiya">
+    </div>
+    <div class="field">
+      <div class="lbl">Password</div>
+      <input class="input" type="password" placeholder="&middot;&middot;&middot;&middot;&middot;&middot;&middot;&middot;&middot;&middot;&middot;&middot;" value="12345678">
+    </div>
+
+    <button class="btn">sign in</button>
+
+    <div class="alt">No account? <a href="/register">Register &rarr;</a></div>
+
+    <div class="footnote">
+      <span><b>covenant</b></span>
+      <span>REV &middot; 0.1</span>
+    </div>
+  </div>
+</body>
+</html>

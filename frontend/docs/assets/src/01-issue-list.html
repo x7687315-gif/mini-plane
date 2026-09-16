@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Mini Plane — Issue list</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4F1EA; --paper-2:#EBE7DD; --paper-3:#D9D4C2;
+    --ink:#1B1A17; --ink-2:#5A5851; --ink-3:#8C887E; --rule:#C8C3B4;
+    --accent:#1F3FA8; --accent-2:#4F6FD6; --accent-soft:#E2E7F5;
+    --urgent:#dc2626; --high:#f97316; --medium:#eab308; --low:#3b82f6; --none:#94a3b8;
+    --serif:'Cormorant Garamond','Times New Roman',Georgia,serif;
+    --sans:'Inter','Helvetica Neue','Segoe UI',Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:13px; line-height:1.55;
+    background-image:
+      linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--paper-3) calc(100% - 1px)),
+      linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--paper-3) calc(100% - 1px));
+    background-size:32px 32px, 32px 32px;
+    display:flex; flex-direction:column;
+  }
+  body::before{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(circle at 88% 10%, rgba(31,63,168,0.05), transparent 26%),
+      radial-gradient(circle at 5% 94%, rgba(168,85,31,0.04), transparent 28%);
+  }
+  /* topbar */
+  .topbar{height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:0.5px solid var(--rule);position:relative;z-index:2}
+  .brand{display:flex;align-items:baseline;gap:14px}
+  .logo{font-family:var(--serif);font-style:italic;font-size:32px;font-weight:500;letter-spacing:.02em}
+  .logo span{opacity:.5}
+  .mini{font-family:var(--serif);font-size:11px;letter-spacing:.34em;color:var(--ink-2);text-transform:uppercase}
+  .top-right{display:flex;align-items:center;gap:20px}
+  .crumb{font-size:10px;letter-spacing:.22em;color:var(--ink-3);text-transform:uppercase}
+  .crumb b{color:var(--ink);font-weight:500}
+  .conn{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase}
+  .conn i{width:5px;height:5px;border-radius:50%;background:var(--accent);display:block}
+  .me{display:flex;align-items:center;gap:9px}
+  .av{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);border:0.5px solid var(--accent-2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:13px}
+  .me span{font-size:10px;letter-spacing:.18em;color:var(--ink-2);text-transform:uppercase}
+
+  /* body */
+  .body{flex:1;display:grid;grid-template-columns:96px 1fr 240px;min-height:0;position:relative;z-index:1}
+  .rail{padding:22px 16px;border-right:0.5px solid var(--rule);position:relative}
+  .rail-label{font-size:9px;letter-spacing:.26em;color:var(--ink-3);text-transform:uppercase;margin-bottom:14px}
+  .ws{display:flex;align-items:center;gap:9px;padding:7px 6px;margin-bottom:5px}
+  .ws.on{background:var(--accent-soft);position:relative}
+  .ws.on::before{content:'';position:absolute;left:0;top:5px;bottom:5px;width:2px;background:var(--accent)}
+  .wm{width:20px;height:20px;border:0.5px solid var(--rule);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:12px;color:var(--ink-2);flex-shrink:0}
+  .wn{font-size:10px;letter-spacing:.1em;color:var(--ink);text-transform:uppercase;white-space:nowrap;overflow:hidden}
+  .wn small{display:block;font-size:8px;letter-spacing:.16em;color:var(--ink-3);margin-top:1px}
+  .cross{position:absolute;left:16px;bottom:16px;width:20px;height:20px;border:0.5px solid var(--accent);opacity:.6}
+  .cross::before,.cross::after{content:'';position:absolute;background:var(--accent);opacity:.6}
+  .cross::before{left:50%;top:0;bottom:0;width:.5px}
+  .cross::after{top:50%;left:0;right:0;height:.5px}
+
+  .main{padding:26px 36px;overflow:hidden}
+  .phead{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:6px}
+  .ptitle{font-family:var(--serif);font-size:38px;line-height:1;font-weight:500;font-style:italic}
+  .ptitle em{color:var(--accent);font-style:italic}
+  .ptag{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-3);letter-spacing:.04em;margin-top:5px}
+  .views{display:flex;gap:10px;align-items:center}
+  .views span{font-size:11px;color:var(--ink-3)}
+  .views .on{color:var(--ink);border-bottom:1px solid var(--accent);padding-bottom:2px}
+  .views .lbl{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);margin-right:4px}
+  .measure{display:flex;align-items:center;gap:10px;margin:14px 0 18px}
+  .measure .t{font-size:9px;letter-spacing:.26em;color:var(--ink-3);text-transform:uppercase}
+  .measure .d{width:5px;height:5px;background:var(--accent);transform:rotate(45deg)}
+  .measure .bar{flex:1;height:.5px;background:var(--rule)}
+
+  .filters{display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+  .chip{font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:6px 11px;border:0.5px solid var(--rule);color:var(--ink-2)}
+  .chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .chip.ac{border-color:var(--accent);color:var(--accent)}
+  .search{flex:1;min-width:150px;display:flex;align-items:center;gap:8px;padding:6px 11px;border:0.5px solid var(--rule)}
+  .search i{width:8px;height:8px;border:.5px solid var(--ink-3);border-radius:50%;display:block;flex-shrink:0}
+  .search span{font-size:10px;color:var(--ink-3);letter-spacing:.06em;font-style:italic}
+
+  .list{position:relative}
+  .row{display:grid;grid-template-columns:78px 1fr auto auto auto;gap:14px;align-items:center;padding:13px 6px 13px 0;border-bottom:0.5px dashed var(--rule)}
+  .row.sel{background:rgba(31,63,168,.035)}
+  .seq{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--accent);letter-spacing:.04em}
+  .ttl{font-size:13px;color:var(--ink)}
+  .ttl small{display:block;font-size:8.5px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase;margin-top:4px}
+  .lbl{display:inline-flex;align-items:center;gap:5px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);padding:4px 7px;border:0.5px solid var(--rule)}
+  .lbl i{width:6px;height:6px;display:block}
+  .pri{width:9px;height:9px;transform:rotate(45deg);display:block}
+  .asg{width:26px;height:26px;border-radius:50%;background:var(--paper-2);border:0.5px solid var(--rule);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:11px;color:var(--ink-2)}
+  .asg.e{background:transparent;color:var(--ink-3)}
+  .pager{display:flex;justify-content:space-between;margin-top:16px;font-size:9px;letter-spacing:.24em;color:var(--ink-3);text-transform:uppercase}
+
+  .aside{padding:26px 22px;border-left:0.5px solid var(--rule);background:rgba(255,255,255,.35);position:relative}
+  .axis{position:absolute;left:22px;right:22px;top:26px;height:132px}
+  .axis .v{position:absolute;left:0;top:0;bottom:0;width:.5px;background:var(--accent);opacity:.55}
+  .axis .h{position:absolute;left:0;right:0;top:50%;height:.5px;background:var(--accent);opacity:.55}
+  .axis .tk{position:absolute;font-family:var(--serif);font-style:italic;font-size:9px;color:var(--ink-3)}
+  .stat{margin-top:156px}
+  .stat-l{font-size:9px;letter-spacing:.26em;color:var(--ink-3);text-transform:uppercase;margin-bottom:5px}
+  .stat-v{font-family:var(--serif);font-size:34px;line-height:1;color:var(--ink)}
+  .stat-v small{font-size:12px;color:var(--ink-3);font-style:italic;margin-left:5px}
+  .ledger{margin-top:26px}
+  .ledger .it{display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px dashed var(--rule);font-size:9px;letter-spacing:.16em;color:var(--ink-2);text-transform:uppercase}
+  .ledger .it b{color:var(--ink);font-family:var(--serif);font-style:italic;font-size:11px;letter-spacing:.02em;text-transform:none;font-weight:500}
+  .brk{margin-top:24px}
+  .brk .b{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:10px;color:var(--ink-2)}
+  .brk .b i{width:7px;height:7px;border-radius:50%;display:block;flex-shrink:0}
+  .brk .b em{margin-left:auto;font-family:var(--serif);font-style:italic;color:var(--ink);font-size:11px}
+
+  .foot{height:28px;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:0 32px;border-top:0.5px solid var(--rule);font-size:9px;letter-spacing:.24em;color:var(--ink-3);text-transform:uppercase;position:relative;z-index:2}
+  .foot b{font-family:var(--serif);font-style:italic;color:var(--accent);font-size:12px;letter-spacing:.04em;text-transform:none;font-weight:500}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <span class="logo">P<span>l</span>ane</span>
+      <span class="mini">mini &middot; sheet 03 / 12</span>
+    </div>
+    <div class="top-right">
+      <span class="crumb">Amiya Workspace &middot; <b>Amiya Project</b></span>
+      <span class="conn"><i></i>live &middot; 2s ago</span>
+      <span class="me"><span class="av">A</span><span>Amiya</span></span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="rail">
+      <div class="rail-label">Workspaces</div>
+      <div class="ws on"><div class="wm">A</div><div class="wn">Amiya<small>ADMIN</small></div></div>
+      <div class="ws"><div class="wm">K</div><div class="wn">Kal'tsit<small>MEMBER</small></div></div>
+      <div class="ws"><div class="wm">R</div><div class="wn">Rhodes<small>VIEWER</small></div></div>
+      <div class="cross"></div>
+    </div>
+
+    <div class="main">
+      <div class="phead">
+        <div>
+          <div class="ptitle">Issues <em>&mdash;</em> all states</div>
+          <div class="ptag">PROJ &middot; AMI &middot; 128 items &middot; 5 states &middot; 7 labels</div>
+        </div>
+        <div class="views">
+          <span class="lbl">View</span>
+          <span class="on">List</span><span>Board</span><span>Calendar</span>
+        </div>
+      </div>
+
+      <div class="measure">
+        <span class="t">FIG &middot; 01</span><span class="d"></span><span class="bar"></span><span class="t">AMI &middot; ACTIVE</span>
+      </div>
+
+      <div class="filters">
+        <span class="chip on">All &middot; 128</span>
+        <span class="chip ac">Backlog &middot; 42</span>
+        <span class="chip">Todo &middot; 31</span>
+        <span class="chip">In Progress &middot; 18</span>
+        <span class="chip">Done &middot; 29</span>
+        <span class="chip">Cancelled &middot; 08</span>
+        <span class="search"><i></i><span>search title / description</span></span>
+      </div>
+
+      <div class="list">
+        <div class="row sel">
+          <span class="seq">AMI-07</span>
+          <span class="ttl">登录页验证码不显示<small>BUG &middot; P1 &middot; UPDATED 2 MIN AGO BY AMIYA</small></span>
+          <span class="lbl"><i style="background:#dc2626"></i>bug</span>
+          <span class="pri" style="background:#dc2626"></span>
+          <span class="asg">A</span>
+        </div>
+        <div class="row">
+          <span class="seq">AMI-06</span>
+          <span class="ttl">重构 Auth 模块的 CSRF 自愈逻辑<small>REFACTOR &middot; P2 &middot; UPDATED YESTERDAY</small></span>
+          <span class="lbl"><i style="background:#eab308"></i>tech-debt</span>
+          <span class="pri" style="background:#eab308"></span>
+          <span class="asg">K</span>
+        </div>
+        <div class="row">
+          <span class="seq">AMI-05</span>
+          <span class="ttl">设计 Issue 详情侧拉抽屉的 wireframe<small>DESIGN &middot; P3 &middot; CREATED 3 DAYS AGO</small></span>
+          <span class="lbl"><i style="background:#3b82f6"></i>design</span>
+          <span class="pri" style="background:#94a3b8"></span>
+          <span class="asg e">&mdash;</span>
+        </div>
+        <div class="row">
+          <span class="seq">AMI-04</span>
+          <span class="ttl">补 Sprint 5 EXPLAIN 的索引报告<small>DOCS &middot; P3 &middot; UPDATED 5 DAYS AGO</small></span>
+          <span class="lbl"><i style="background:#10b981"></i>docs</span>
+          <span class="pri" style="background:#3b82f6"></span>
+          <span class="asg">R</span>
+        </div>
+        <div class="row">
+          <span class="seq">AMI-03</span>
+          <span class="ttl">WebSocket 心跳超时断开测试<small>TEST &middot; P2 &middot; CREATED 1 WEEK AGO</small></span>
+          <span class="lbl"><i style="background:#dc2626"></i>bug</span>
+          <span class="pri" style="background:#f97316"></span>
+          <span class="asg">K</span>
+        </div>
+        <div class="row">
+          <span class="seq">AMI-02</span>
+          <span class="ttl">过滤参数多值 state / priority 联调<small>BACKEND &middot; P2 &middot; UPDATED 1 WEEK AGO</small></span>
+          <span class="lbl"><i style="background:#eab308"></i>tech-debt</span>
+          <span class="pri" style="background:#eab308"></span>
+          <span class="asg">A</span>
+        </div>
+        <div class="row">
+          <span class="seq">AMI-01</span>
+          <span class="ttl">初始化 Issue 模型与 sequence_id 发号<small>BACKEND &middot; P1 &middot; CREATED 2 WEEKS AGO</small></span>
+          <span class="lbl"><i style="background:#3b82f6"></i>design</span>
+          <span class="pri" style="background:#94a3b8"></span>
+          <span class="asg">A</span>
+        </div>
+      </div>
+
+      <div class="pager">
+        <span>Showing 7 of 128</span>
+        <span>Page 1 / 3 &middot; &lsaquo; prev &middot; next &rsaquo;</span>
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="axis">
+        <div class="v"></div><div class="h"></div>
+        <span class="tk" style="left:-3px;top:-13px">0,0</span>
+        <span class="tk" style="right:-3px;top:-13px">128,1</span>
+        <span class="tk" style="left:-13px;bottom:-11px">&darr; time</span>
+        <span class="tk" style="right:-11px;top:50%">priority &rarr;</span>
+      </div>
+
+      <div class="stat">
+        <div class="stat-l">Throughput &middot; 7d</div>
+        <div class="stat-v">29 <small>closed</small></div>
+      </div>
+      <div class="stat" style="margin-top:20px">
+        <div class="stat-l">Cycle time</div>
+        <div class="stat-v">3.2 <small>days</small></div>
+      </div>
+
+      <div class="brk">
+        <div class="stat-l">States</div>
+        <div class="b"><i style="background:#94a3b8"></i>Backlog<em>42</em></div>
+        <div class="b"><i style="background:#eab308"></i>Todo<em>31</em></div>
+        <div class="b"><i style="background:#3b82f6"></i>In Progress<em>18</em></div>
+        <div class="b"><i style="background:#10b981"></i>Done<em>29</em></div>
+        <div class="b"><i style="background:#8c887e"></i>Cancelled<em>08</em></div>
+      </div>
+
+      <div class="ledger" style="margin-top:26px">
+        <div class="it"><span>Last event</span><b>Amiya</b></div>
+        <div class="it"><span>Last sync</span><b>2 min</b></div>
+        <div class="it"><span>WS role</span><b>20 &middot; Admin</b></div>
+        <div class="it"><span>Sheet</span><b>03 / 12</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>N &middot; 31&deg; 14&prime; &middot; W &middot; 121&deg; 28&prime;</span>
+    <span><b>covenant</b> &middot; between user and system</span>
+    <span>REV &middot; 0.1 &middot; DRIFT 0.0</span>
+  </div>
+</body>
+</html>

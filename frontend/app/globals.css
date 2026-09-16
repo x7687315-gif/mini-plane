@@ -1,0 +1,210 @@
+@import "tailwindcss";
+
+/* Self-hosted fonts via @fontsource (npm) — Google Fonts CDN unreachable from sandboxed build */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/cormorant-garamond/400.css";
+@import "@fontsource/cormorant-garamond/500.css";
+@import "@fontsource/cormorant-garamond/600.css";
+@import "@fontsource/cormorant-garamond/400-italic.css";
+@import "@fontsource/cormorant-garamond/500-italic.css";
+@import "@fontsource/cormorant-garamond/600-italic.css";
+@import "@fontsource/jetbrains-mono/400.css";
+
+/*
+ * Mini Plane — Blueprint Editorial design tokens
+ * Full spec: see ../../DESIGN.md
+ */
+
+:root {
+  /* Fonts (defined here, not in @theme, since we don't use next/font/google) */
+  --font-serif: "Cormorant Garamond", "Times New Roman", Georgia, serif;
+  --font-sans: "Inter", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", monospace;
+
+  /* Paper / Ink */
+  --color-paper: #F4F1EA;
+  --color-paper-2: #EBE7DD;
+  --color-paper-3: #D9D4C2;
+  --color-ink: #1B1A17;
+  --color-ink-2: #5A5851;
+  --color-ink-3: #8C887E;
+  --color-rule: #C8C3B4;
+
+  /* Engineering accent */
+  --color-accent: #1F3FA8;
+  --color-accent-2: #4F6FD6;
+  --color-accent-soft: #E2E7F5;
+
+  /* State colors */
+  --color-urgent: #dc2626;
+  --color-high: #f97316;
+  --color-medium: #eab308;
+  --color-low: #3b82f6;
+  --color-none: #94a3b8;
+  --color-success: #10b981;
+  --color-warning: #a8551f;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+
+  /* Border widths (Tailwind v4 uses arbitrary values for 0.5px) */
+  --border-thin: 0.5px;
+}
+
+@theme inline {
+  /* Colors */
+  --color-paper: var(--color-paper);
+  --color-paper-2: var(--color-paper-2);
+  --color-paper-3: var(--color-paper-3);
+  --color-ink: var(--color-ink);
+  --color-ink-2: var(--color-ink-2);
+  --color-ink-3: var(--color-ink-3);
+  --color-rule: var(--color-rule);
+  --color-accent: var(--color-accent);
+  --color-accent-2: var(--color-accent-2);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-urgent: var(--color-urgent);
+  --color-high: var(--color-high);
+  --color-medium: var(--color-medium);
+  --color-low: var(--color-low);
+  --color-none: var(--color-none);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+
+  /* Fonts (bound from globals.css :root, NOT from next/font/google) */
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Type scale */
+  --text-display: 48px;
+  --text-title: 30px;
+  --text-section: 20px;
+  --text-body: 13px;
+  --text-meta: 11px;
+  --text-uppercase: 10px;
+  --text-hint: 9px;
+
+  /* Radii (corner radius, mostly zero per Blueprint Editorial) */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-pill: 9999px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans), 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  font-feature-settings: "kern" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Blueprint grid — 32px fine grid, ≤ 30% opacity, the cornerstone of Blueprint Editorial.
+ * Applied to <body> so every page inherits it.
+ */
+body {
+  background-image:
+    linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--color-paper-3) calc(100% - 1px)),
+    linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--color-paper-3) calc(100% - 1px));
+  background-size: 32px 32px, 32px 32px;
+}
+
+/* Typography utilities (use sparingly — most styling is component-level) */
+.font-serif { font-family: var(--font-serif), 'Times New Roman', Georgia, serif; }
+.font-sans { font-family: var(--font-sans), system-ui, sans-serif; }
+.font-mono { font-family: var(--font-mono), 'JetBrains Mono', 'Courier New', monospace; }
+
+/* Borders — always 0.5px per DESIGN.md §1.1 */
+.bp-border { border: 0.5px solid var(--color-rule); }
+.bp-border-t { border-top: 0.5px solid var(--color-rule); }
+.bp-border-b { border-bottom: 0.5px solid var(--color-rule); }
+.bp-border-l { border-left: 0.5px solid var(--color-rule); }
+.bp-border-r { border-right: 0.5px solid var(--color-rule); }
+.bp-border-dashed { border-style: dashed; }
+.bp-border-accent { border-color: var(--color-accent); }
+
+/* Display text (used by Logo / page titles) */
+.bp-display {
+  font-family: var(--font-serif), serif;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.05;
+}
+
+.bp-title {
+  font-family: var(--font-serif), serif;
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--color-ink);
+}
+
+/* Uppercase tracked label */
+.bp-uppercase {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--color-ink-2);
+}
+
+.bp-hint {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-size: 9px;
+  color: var(--color-ink-3);
+}
+
+/* Motion utilities */
+.bp-transition {
+  transition-property: transform, opacity, color, background-color, border-color;
+  transition-timing-function: var(--ease-out);
+  transition-duration: var(--duration-base);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus ring — accent border, no glow */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Selection — accent background, paper text */
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}

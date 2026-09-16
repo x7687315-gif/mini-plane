@@ -18,6 +18,15 @@ media/
 control/
 celerybeat-schedule*
 
+# Next.js / frontend（保持 frontend/node_modules 与 .next 出库；跟踪 lockfile + source）
+frontend/.next/
+frontend/.turbo/
+frontend/node_modules/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
 # 本机工具状态（安全扫描 / 工作记忆），运行产物不入库
 .mimosa/
 .workbuddy/
