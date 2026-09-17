@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Avatar } from "@/components/ui";
+import { AvatarMenu } from "./AvatarMenu";
 import { Crosshair, MeasureLine } from "@/components/ui";
 
 /**
@@ -86,16 +86,7 @@ export function TopBar({
           {connection === "live" ? "live" : connection === "error" ? "reconnecting" : "idle"}
         </span>
 
-        <button
-          type="button"
-          className="flex items-center gap-2 hover:opacity-80"
-          aria-label={`${username} menu`}
-        >
-          <Avatar name={username} size="sm" tone="accent" />
-          <span className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-ink-2)] font-sans font-medium hidden sm:inline">
-            {username}
-          </span>
-        </button>
+        <AvatarMenu />
       </div>
     </header>
   );

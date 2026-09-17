@@ -39,3 +39,6 @@ export type { DrawerProps } from "./Drawer";
 
 export { Modal } from "./Modal";
 export type { ModalProps } from "./Modal";
+
+export { RoleBadge } from "./RoleBadge";
+export type { RoleBadgeProps } from "./RoleBadge";
