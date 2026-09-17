@@ -11,6 +11,37 @@
 
 ---
 
+## 进度总览（实时）
+
+> 每个 Sprint 收尾时更新此表 + [docs/README.md](docs/README.md) + 根 [README.md](../../README.md)。
+
+| Sprint | 主题 | 状态 | 日志 | 四绿（test / tsc / lint / build） |
+|--------|------|------|------|-----------------------------------|
+| 0 | 脚手架 + 设计系统 | ✅ 已完成 | [sprint-0](docs/devlog/sprint-0-frontend.md) | 未记录（当时无测试） |
+| 1 | Auth | ✅ 已完成 | [sprint-1](docs/devlog/sprint-1-frontend.md) | 未记录（当时无测试） |
+| 2 | Workspace + Project | ✅ 已完成 | [sprint-2](docs/devlog/sprint-2-frontend.md) | 未记录（当时无测试） |
+| 3 | Issue 核心 | ✅ 已完成 | [sprint-3](docs/devlog/sprint-3-frontend.md) | 当时只跑了 tsc + build |
+| 4 | Comment + Activity | ✅ 已完成 | [sprint-4](docs/devlog/sprint-4-frontend.md) | 37 / ✅ / ✅ / ✅（11 路由） |
+| 5 | Search + Filter + Sort | ⏳ 下一步 | — | — |
+| 6 | BulkActionBar + 异步任务 | ⏳ 计划 | — | — |
+| 7 | WebSocket Realtime | ⏳ 计划 | — | — |
+| 8 | Docker + CI + 收尾 | ⏳ 计划 | — | — |
+
+**当前四绿命令**（Sprint 4 起成为收尾标准动作）：
+
+```bash
+cd frontend
+pnpm test        # node --test "tests/unit/**/*.test.mts"（零依赖，Node 22 原生 TS）
+pnpm typecheck   # tsc --noEmit
+pnpm lint        # eslint
+pnpm build       # next build
+```
+
+> 前端单元测试目前**只覆盖纯函数**（契约映射表 / 权限判定 / 查询序列化）。
+> 组件测试与 E2E 尚未落地，原因与迁移路径见 [sprint-4-frontend.md §3.1](docs/devlog/sprint-4-frontend.md)。
+
+---
+
 ## 0. 技术栈决策（v0.1 锁定，变更需 PR）
 
 | 维度 | 选型 | 理由 |

@@ -13,8 +13,9 @@ import clsx from "clsx";
  * - Backdrop dims the rest of the page
  * - Esc closes; backdrop click closes
  *
- * Sprint 0: basic client component, no portal-routing integration yet.
- * Sprint 3 will wire it to `?drawer=issue:uuid` URL state.
+ * Opened by URL state (`?issue=<uuid>`, owned by the list page) — the drawer itself
+ * stays presentational and never touches the router. Optional `footer` slot pins an
+ * action bar below the scroll area (Sprint 4: the comment composer).
  */
 
 export interface DrawerProps {
@@ -24,6 +25,14 @@ export interface DrawerProps {
   width?: number;
   /** Top-of-drawer crumb text (e.g. "AMI / WORK ITEM · AMI-07 · OPENED IN DRAWER"). */
   crumb?: ReactNode;
+  /**
+   * Persistent action bar pinned below the scroll area.
+   *
+   * The Issue drawer uses it for the comment composer: SCREEN_BLUEPRINTS §2.9 keeps
+   * the composer visible whatever tab is active, which is impossible if it lives
+   * inside the scrolling content.
+   */
+  footer?: ReactNode;
   children: ReactNode;
   className?: string;
 }
@@ -33,6 +42,7 @@ export function Drawer({
   onClose,
   width = 640,
   crumb,
+  footer,
   children,
   className,
 }: DrawerProps) {
@@ -100,6 +110,12 @@ export function Drawer({
           </div>
         )}
         <div className="flex-1 overflow-auto">{children}</div>
+
+        {footer != null && (
+          <div className="shrink-0 border-t border-[color:var(--color-rule)] px-8 py-4 bg-[color:var(--color-paper)]">
+            {footer}
+          </div>
+        )}
       </div>
 
       <style>{`

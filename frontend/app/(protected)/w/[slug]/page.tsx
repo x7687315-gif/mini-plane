@@ -3,14 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
-import {
-  Avatar,
-  Button,
-  Card,
-  MeasureLine,
-  RoleBadge,
-  IssueId,
-} from "@/components/ui";
+import { Avatar, Button, Card, MeasureLine, RoleBadge } from "@/components/ui";
 import { ArrowRightIcon, PlusIcon, SettingsIcon, UserIcon } from "@/components/icons";
 import { useWorkspace, useWorkspaceMembers } from "@/features/workspace";
 import { useProjects } from "@/features/project";

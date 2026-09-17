@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { isUnauthorized } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import type { LoginPayload, RegisterPayload, User } from "@/types/auth";
@@ -96,22 +96,26 @@ export async function primeCsrf(): Promise<void> {
  *
  * Why not useSearchParams: it forces the enclosing tree into a Suspense boundary,
  * which means the login/register form is NOT server-rendered — users see a skeleton
- * flash on first paint. Reading `window.location.search` in an effect keeps the form
- * statically renderable (SSR shows the real form) at the cost of one extra render.
+ * flash on first paint. Reading `window.location.search` instead keeps the form
+ * statically renderable.
  *
- * Returns "/" during SSR and on the first client render, then the real target.
+ * `useSyncExternalStore` (rather than a mount effect + setState) is the precise fit
+ * here: `location.search` *is* an external store, the server snapshot is "/", and
+ * React swaps to the client snapshot during hydration without an extra commit — so
+ * we get the real target without a skeleton flash and without a cascading render.
  */
+function readRedirectTarget(): string {
+  const target = new URLSearchParams(window.location.search).get("redirect");
+  // Only allow same-origin relative paths — never an absolute URL (open-redirect guard).
+  if (target && target.startsWith("/") && !target.startsWith("//")) return target;
+  return "/";
+}
+
+/** `location.search` only changes on navigation, which re-renders the tree anyway. */
+function subscribeToLocation(): () => void {
+  return () => {};
+}
+
 export function useRedirectTarget(): string {
-  const [redirect, setRedirect] = useState("/");
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const target = params.get("redirect");
-    // Only allow same-origin relative paths — never an absolute URL (open-redirect guard).
-    if (target && target.startsWith("/") && !target.startsWith("//")) {
-      setRedirect(target);
-    }
-  }, []);
-
-  return redirect;
+  return useSyncExternalStore(subscribeToLocation, readRedirectTarget, () => "/");
 }

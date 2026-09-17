@@ -38,20 +38,27 @@ export interface FilterBarProps {
 }
 
 export function FilterBar({ query, states, total, onPatch, onClear }: FilterBarProps) {
-  const [searchDraft, setSearchDraft] = useState(query.search ?? "");
+  const urlSearch = query.search ?? "";
+  const [searchDraft, setSearchDraft] = useState(urlSearch);
+  const [lastUrlSearch, setLastUrlSearch] = useState(urlSearch);
 
-  // Keep the input in sync when the URL changes from outside (e.g. Clear).
-  useEffect(() => {
-    setSearchDraft(query.search ?? "");
-  }, [query.search]);
+  // Keep the input in sync when the URL changes from outside (Clear button, back
+  // button, a pasted link). Adjusting during render — React's documented alternative
+  // to a sync effect — costs no extra commit; a `useEffect` would add one render per
+  // URL change and cascade. The URL stays the single source of truth; the draft is
+  // only ever ahead of it by the debounce window below.
+  if (lastUrlSearch !== urlSearch) {
+    setLastUrlSearch(urlSearch);
+    setSearchDraft(urlSearch);
+  }
 
   // Debounce search → URL (300ms), so typing doesn't fire a request per keystroke.
   useEffect(() => {
-    const current = query.search ?? "";
-    if (searchDraft === current) return;
+    const current = urlSearch;
+    if (searchDraft === current) return; // guard: prevents the URL→effect→URL loop
     const t = setTimeout(() => onPatch({ search: searchDraft || undefined }), 300);
     return () => clearTimeout(t);
-  }, [searchDraft, query.search, onPatch]);
+  }, [searchDraft, urlSearch, onPatch]);
 
   const selectedStates = new Set(query.state ?? []);
   const selectedPriorities = new Set(query.priority ?? []);

@@ -17,8 +17,8 @@
 | 前端 Sprint 1：Auth 闭环 | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 1 devlog](frontend/docs/devlog/sprint-1-frontend.md) |
 | 前端 Sprint 2：Workspace + Project | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 2 devlog](frontend/docs/devlog/sprint-2-frontend.md) |
 | 前端 Sprint 3：Issue 核心 | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 3 devlog](frontend/docs/devlog/sprint-3-frontend.md) |
-| 前端 Sprint 4：Comments + Activity | 🟡 下一步 | ░░░░░░░░░░ | [FRONTEND_ROADMAP §2](frontend/FRONTEND_ROADMAP.md) |
-| 前端 Sprint 5：筛选 + 排序 + 分页 | ⏳ 计划 | ░░░░░░░░░░ | — |
+| 前端 Sprint 4：Comments + Activity | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 4 devlog](frontend/docs/devlog/sprint-4-frontend.md) |
+| 前端 Sprint 5：筛选 + 排序 + 分页 | 🟡 下一步 | ░░░░░░░░░░ | [FRONTEND_ROADMAP §2](frontend/FRONTEND_ROADMAP.md) |
 | 前端 Sprint 6–8：Realtime / 打磨 / Docker | ⏳ 计划 | ░░░░░░░░░░ | — |
 
 > 实时进度详见 [docs/devlog/README.md](docs/devlog/README.md)（后端）+ [frontend/docs/devlog/](frontend/docs/devlog/)（前端）。
@@ -72,10 +72,11 @@ mini-plane/
 ├── frontend/                         # Next.js（开发中）
 │   ├── DESIGN.md · SCREEN_BLUEPRINTS.md · FRONTEND_ROADMAP.md · DESIGN_DECISIONS.md
 │   ├── app/                          # App Router
-│   ├── components/{ui,shell,icons,providers}
-│   ├── features/                     # 业务特性（Sprint 1+ 填充）
+│   ├── components/{ui,shell,icons,providers,issue,activity}
+│   ├── features/                     # 业务特性（auth / workspace / project / issue / comment / activity）
 │   ├── lib/api.ts                    # 统一 fetch（CSRF 自愈 / 错误分流）
 │   ├── stores/                       # Zustand stores
+│   ├── tests/unit/                   # node:test 纯函数用例（契约映射表 / 权限 / 查询）
 │   ├── docs/devlog/                  # 每个 Sprint 一份
 │   └── docs/assets/                  # 设计稿与真实 build 截图
 ├── docs/
@@ -136,13 +137,19 @@ python manage.py test --settings=config.settings.test --noinput
 ruff check . && ruff format --check .
 ```
 
-前端（Sprint 8 后启用，目前脚手架阶段尚未配置）：
+前端（Sprint 4 起）：
 
 ```bash
 cd frontend
-pnpm typecheck
-pnpm build
+pnpm test        # node --test "tests/unit/**/*.test.mts"（37 用例，零依赖）
+pnpm typecheck   # tsc --noEmit
+pnpm lint        # eslint
+pnpm build       # next build
 ```
+
+> 前端单元测试目前只覆盖**纯函数**（契约文案映射表 / 评论权限判定 / 查询序列化与排序白名单），
+> 组件测试与 Playwright E2E 尚未落地 —— 原因与迁移路径见
+> [sprint-4-frontend.md §3.1](frontend/docs/devlog/sprint-4-frontend.md)。
 
 ## 协作约定
 

@@ -7,7 +7,7 @@ import { Button, Card, MeasureLine } from "@/components/ui";
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { FilterBar } from "@/components/issue/FilterBar";
 import { IssueRow } from "@/components/issue/IssueRow";
-import { IssueDrawer } from "@/components/issue/IssueDrawer";
+import { IssueDrawer, normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
 import { CreateIssueModal } from "@/components/issue/CreateIssueModal";
 import { useIssueFilters, useIssues } from "@/features/issue";
 import { useProject, useProjectStates } from "@/features/project";
@@ -43,6 +43,9 @@ function ProjectIssues() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const openIssueId = searchParams.get("issue");
+  // `?tab=` lives next to `?issue=`: the tab strip is part of the drawer's address,
+  // so "look at the thread of AMI-7" is a shareable link rather than lost UI state.
+  const tab = normalizeDrawerTab(searchParams.get("tab"));
 
   const { query, patch, clear } = useIssueFilters();
 
@@ -67,9 +70,27 @@ function ProjectIssues() {
   const setOpenIssue = useCallback(
     (id: string | null) => {
       const next = new URLSearchParams(searchParams.toString());
-      if (id) next.set("issue", id);
-      else next.delete("issue");
+      if (id) {
+        next.set("issue", id);
+      } else {
+        next.delete("issue");
+      }
+      // Never carry a tab across issues: opening AMI-9 must not land on the tab
+      // you happened to leave AMI-7 on.
+      next.delete("tab");
       const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+
+  /** Switch the drawer's tab. `activity` is the default, so it leaves no trace. */
+  const setTab = useCallback(
+    (next: IssueDrawerTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "activity") params.delete("tab");
+      else params.set("tab", next);
+      const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
     [router, pathname, searchParams],
@@ -222,6 +243,8 @@ function ProjectIssues() {
         issueId={openIssueId}
         states={states}
         role={role}
+        tab={tab}
+        onTabChange={setTab}
       />
     </AppShell>
   );

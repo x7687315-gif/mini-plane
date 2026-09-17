@@ -169,20 +169,24 @@ export default function WorkspaceSettingsPage() {
         </Card>
       </div>
 
-      <DeleteWorkspaceModal
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        slug={slug}
-        onConfirm={async () => {
-          try {
-            await deleteMutation.mutateAsync(slug);
-            router.replace("/");
-          } catch {
-            setDeleteOpen(false);
-          }
-        }}
-        pending={deleteMutation.isPending}
-      />
+      {/* Mounted only while open: the confirmation's `typed` state then starts
+          fresh on every open without a "reset on close" effect. */}
+      {deleteOpen && (
+        <DeleteWorkspaceModal
+          open
+          onClose={() => setDeleteOpen(false)}
+          slug={slug}
+          onConfirm={async () => {
+            try {
+              await deleteMutation.mutateAsync(slug);
+              router.replace("/");
+            } catch {
+              setDeleteOpen(false);
+            }
+          }}
+          pending={deleteMutation.isPending}
+        />
+      )}
     </AppShell>
   );
 }
@@ -202,10 +206,6 @@ function DeleteWorkspaceModal({
 }) {
   const [typed, setTyped] = useState("");
   const matches = typed === slug;
-
-  useEffect(() => {
-    if (!open) setTyped("");
-  }, [open]);
 
   return (
     <Modal

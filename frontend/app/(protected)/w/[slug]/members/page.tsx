@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AppShell } from "@/components/shell/AppShell";
-import { Avatar, Button, Card, Field, Input, MeasureLine, Modal, RoleBadge } from "@/components/ui";
+import { Avatar, Button, Field, Input, MeasureLine, Modal, RoleBadge } from "@/components/ui";
 import { PlusIcon, XIcon } from "@/components/icons";
 import {
   useAddWorkspaceMember,

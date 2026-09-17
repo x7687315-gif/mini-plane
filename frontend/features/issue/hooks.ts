@@ -1,13 +1,13 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { activityKeys } from "@/features/activity/hooks";
 import type { Paginated } from "@/types/project";
 import type {
   CreateIssuePayload,
   CreateLabelPayload,
   Issue,
   IssueListQuery,
-  Label,
   UpdateIssuePayload,
   UpdateLabelPayload,
 } from "@/types/issue";
@@ -76,7 +76,12 @@ export function useCreateIssue(slug: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateIssuePayload) => createIssue(slug, projectId, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) });
+      // A new issue also writes an `issue.created` activity and shows up in the
+      // project-level feed.
+      qc.invalidateQueries({ queryKey: activityKeys.project(slug, projectId) });
+    },
   });
 }
 
@@ -148,6 +153,14 @@ export function useUpdateIssue(slug: string, projectId: string) {
     onSettled: (_data, _err, vars) => {
       qc.invalidateQueries({ queryKey: issueKeys.lists(slug, projectId) });
       qc.invalidateQueries({ queryKey: issueKeys.detail(slug, projectId, vars.issueId) });
+      // A PATCH that actually changed something writes an activity record on that
+      // issue (06 契约 §字段 diff 白名单). Without this the drawer's timeline would
+      // show a state change that never appears in its own audit trail — which
+      // defeats the whole point of having one. Runs on error too, harmlessly.
+      qc.invalidateQueries({
+        queryKey: activityKeys.issue(slug, projectId, vars.issueId),
+      });
+      qc.invalidateQueries({ queryKey: activityKeys.project(slug, projectId) });
     },
   });
 }
@@ -156,7 +169,10 @@ export function useDeleteIssue(slug: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (issueId: string) => deleteIssue(slug, projectId, issueId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) });
+      qc.invalidateQueries({ queryKey: activityKeys.project(slug, projectId) });
+    },
   });
 }
 

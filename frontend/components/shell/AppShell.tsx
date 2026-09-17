@@ -21,7 +21,6 @@ export interface AppShellProps {
     workspace?: string;
     project?: string;
     role?: number;
-    username?: string;
   };
   rail?: {
     workspaces?: RailWorkspace[];

@@ -23,8 +23,6 @@ export interface TopBarProps {
   project?: string;
   /** User's role in the current workspace (20/15/5). */
   role?: number;
-  /** Current username; used for avatar initial. */
-  username?: string;
   /** WebSocket connection state. */
   connection?: "idle" | "live" | "error";
 }
@@ -36,13 +34,7 @@ function roleLabel(r: number): string {
   return `ROLE ${r}`;
 }
 
-export function TopBar({
-  workspace,
-  project,
-  role,
-  username = "Amiya",
-  connection = "live",
-}: TopBarProps) {
+export function TopBar({ workspace, project, role, connection = "live" }: TopBarProps) {
   return (
     <header className="bp-border-b flex items-center justify-between px-8 h-14 relative z-30 bg-[color:var(--color-paper)]">
       <div className="flex items-baseline gap-4">

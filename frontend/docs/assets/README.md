@@ -9,6 +9,7 @@
 | `preview-login.png` | 登录页 | 1440 × 900 |
 | `preview-issue-list.png` | Issue 列表页（核心页） | 1440 × 900 |
 | `preview-issue-drawer.png` | Issue 详情侧拉抽屉 | 1440 × 900 |
+| `preview-issue-drawer-thread.png` | Issue 抽屉 · Activity / Comments tab（Sprint 4） | 1440 × 900 |
 
 ## 设计语言代号
 
@@ -33,7 +34,7 @@ mkdir -p /c/temp/mpshot
 cp frontend/docs/assets/src/*.html /c/temp/mpshot/
 
 # 2) 截图（每张独立 user-data-dir，避免 session 复用问题）
-for i in 01 02 03; do
+for i in 01 02 03 04; do
   "$CHROME" --headless=new --disable-gpu --no-sandbox --hide-scrollbars \
     --force-device-scale-factor=1 \
     --user-data-dir="C:/temp/mpshot/prof_$i" \
@@ -47,6 +48,7 @@ done
 cp /c/temp/mpshot/01.png frontend/docs/assets/preview-issue-list.png
 cp /c/temp/mpshot/02.png frontend/docs/assets/preview-issue-drawer.png
 cp /c/temp/mpshot/03.png frontend/docs/assets/preview-login.png
+cp /c/temp/mpshot/04.png frontend/docs/assets/preview-issue-drawer-thread.png
 ```
 
 > `--virtual-time-budget=12000` 让 headless Chrome 等待 Google Fonts 加载完成；fallback 字体（Times New Roman / Arial）保证即便离线也能呈现"近似的 Blueprint Editorial"。
@@ -59,11 +61,16 @@ cp /c/temp/mpshot/03.png frontend/docs/assets/preview-login.png
 - `src/*.html` → 给 README 看的视觉演示稿
 - Sprint 后续的 `app/**` → 真实可交互的产品代码
 
-## 第二阶段（真实项目截图）
+## 第二阶段（真实项目截图）—— 挂着
 
-当 Sprint 3（Issue 核心）完成后，这里会被**真实项目截图**替换：
+Sprint 3 / Sprint 4 完成后，这里的**列表与抽屉应该换成真实项目截图**（跑起后端 + 前端，
+登录后截真实数据）。目前仍是 `src/*.html` 渲染的静态视觉稿，这笔账记在
+[sprint-4-frontend.md §六](../devlog/sprint-4-frontend.md) 的"留给后面 Sprint 的账"里。
+
+真实截图的目标清单：
 - `preview-issue-list.png` ← Sprint 3 真实列表页
 - `preview-issue-drawer.png` ← Sprint 3 真实 drawer
-- 额外加入：`preview-issue-create.png` / `preview-realtime.png` / `preview-board.png`
+- `preview-issue-drawer-thread.png` ← Sprint 4 真实 Activity / Comments tab
+- 额外加入：`preview-realtime.png`（Sprint 7）/ `preview-docker.png`（Sprint 8）
 
 设计稿保留在 `src/` 作为设计意图的"原版"参照。

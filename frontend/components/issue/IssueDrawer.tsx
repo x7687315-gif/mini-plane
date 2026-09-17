@@ -1,9 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Avatar, Drawer, EditableField, LabelTag, MeasureLine, Button } from "@/components/ui";
+import {
+  Avatar,
+  Button,
+  Drawer,
+  EditableField,
+  LabelTag,
+  MeasureLine,
+  Modal,
+  Tab,
+  TabCount,
+} from "@/components/ui";
+import { ActivityFeed } from "@/components/activity/ActivityFeed";
+import { CommentList } from "@/components/issue/CommentList";
+import { CommentComposer } from "@/components/issue/CommentComposer";
 import { useDeleteIssue, useIssue, useLabels, useUpdateIssue } from "@/features/issue";
 import { useProjectMembers } from "@/features/project";
+import { useComments, useCreateComment, useDeleteComment, useUpdateComment } from "@/features/comment";
+import { useIssueActivities } from "@/features/activity";
 import { ApiError } from "@/lib/api";
 import { flattenErrors } from "@/types/auth";
 import { formatDateTime, formatDistanceToNow } from "@/lib/time";
@@ -24,7 +39,20 @@ import { useAuthStore } from "@/stores/auth";
  *
  * Assignee candidates come from PROJECT members (not workspace members) —
  * backend rule: only ProjectMembers can be assigned (docs/api/04-issues.md).
+ *
+ * Sprint 4 adds the Activity / Comments / Refs tab strip. Note the two orderings
+ * that sit inches apart and are deliberately opposite: activity DESC (newest
+ * first), comments ASC (oldest first). See 05 / 06 契约.
  */
+
+/** Tabs of the issue drawer. Kept in the URL as `?issue=<id>&tab=<tab>`. */
+export type IssueDrawerTab = "activity" | "comments" | "refs";
+
+const TABS: IssueDrawerTab[] = ["activity", "comments", "refs"];
+
+export function normalizeDrawerTab(raw: string | null): IssueDrawerTab {
+  return TABS.includes(raw as IssueDrawerTab) ? (raw as IssueDrawerTab) : "activity";
+}
 
 export interface IssueDrawerProps {
   open: boolean;
@@ -36,6 +64,9 @@ export interface IssueDrawerProps {
   states: IssueState[];
   /** Effective role of the current user in this project (from Project.current_user_role). */
   role: number | null | undefined;
+  /** Active tab — URL-backed so a link can point at the thread. */
+  tab: IssueDrawerTab;
+  onTabChange: (tab: IssueDrawerTab) => void;
 }
 
 const PRIORITY_COLOR: Record<IssuePriority, string> = {
@@ -55,6 +86,8 @@ export function IssueDrawer({
   issueId,
   states,
   role,
+  tab,
+  onTabChange,
 }: IssueDrawerProps) {
   const writable = canWrite(role);
   const me = useAuthStore((s) => s.user);
@@ -66,8 +99,20 @@ export function IssueDrawer({
   const updateMutation = useUpdateIssue(slug, projectId);
   const deleteMutation = useDeleteIssue(slug, projectId);
 
+  // Thread data. Both hooks are enabled only while the drawer has an issue, so
+  // opening a drawer fires 3 requests (issue + activities + comments) in parallel.
+  const activitiesQuery = useIssueActivities(slug, projectId, issueId ?? undefined);
+  const commentsQuery = useComments(slug, projectId, issueId ?? undefined);
+  const createCommentMutation = useCreateComment(slug, projectId, issueId ?? "");
+  const updateCommentMutation = useUpdateComment(slug, projectId, issueId ?? "");
+  const deleteCommentMutation = useDeleteComment(slug, projectId, issueId ?? "");
+
   const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmDeleteIssue, setConfirmDeleteIssue] = useState(false);
   const issue = issueQuery.data;
+
+  const activityCount = activitiesQuery.data?.count ?? 0;
+  const commentCount = commentsQuery.data?.count ?? 0;
 
   const stateOptions = useMemo(
     () => states.map((s) => ({ value: s.id, label: s.name, color: s.color })),
@@ -123,7 +168,7 @@ export function IssueDrawer({
 
   const handleDelete = async () => {
     if (!issue) return;
-    if (!confirm(`删除 ${identifier}-${issue.sequence_id}？此操作不可撤销。`)) return;
+    setConfirmDeleteIssue(false);
     setActionError(null);
     try {
       await deleteMutation.mutateAsync(issue.id);
@@ -133,6 +178,19 @@ export function IssueDrawer({
         e instanceof ApiError ? `删除失败（HTTP ${e.status}）` : "网络异常。",
       );
     }
+  };
+
+  /**
+   * Post a comment, then jump to the Comments tab.
+   *
+   * The composer is pinned at the bottom of the drawer and stays visible on every
+   * tab (SCREEN_BLUEPRINTS §2.9). Posting while the Activity tab is showing would
+   * otherwise leave the user staring at an unchanged screen, so we switch tabs to
+   * wherever the comment actually landed.
+   */
+  const handlePostComment = async (content: string) => {
+    await createCommentMutation.mutateAsync({ content });
+    onTabChange("comments");
   };
 
   return (
@@ -148,6 +206,11 @@ export function IssueDrawer({
           </b>{" "}
           &middot; OPENED IN DRAWER
         </>
+      }
+      footer={
+        issue ? (
+          <CommentComposer onSubmit={handlePostComment} canWrite={writable} />
+        ) : undefined
       }
     >
       <div className="px-8 py-6">
@@ -320,15 +383,65 @@ export function IssueDrawer({
               </dd>
             </dl>
 
+            <MeasureLine left="FIG · THREAD" right="AUDIT TRAIL · CONVERSATION" />
+
+            {/* tab strip — counts come from the pagination `count`, not results.length,
+                so a truncated first page still shows the honest total. */}
+            <div className="flex items-center gap-6 border-b border-[color:var(--color-rule)]">
+              <Tab active={tab === "activity"} onClick={() => onTabChange("activity")}>
+                activity
+                <TabCount count={activityCount} />
+              </Tab>
+              <Tab active={tab === "comments"} onClick={() => onTabChange("comments")}>
+                comments
+                <TabCount count={commentCount} />
+              </Tab>
+              <Tab active={tab === "refs"} onClick={() => onTabChange("refs")}>
+                refs
+              </Tab>
+            </div>
+
+            <div className="pt-3">
+              {tab === "activity" && (
+                <ActivityFeed
+                  items={activitiesQuery.data?.results ?? []}
+                  isLoading={activitiesQuery.isLoading}
+                  error={activitiesQuery.error}
+                  total={activitiesQuery.data?.count}
+                  onRetry={() => void activitiesQuery.refetch()}
+                  onJumpToComments={() => {
+                    onTabChange("comments");
+                    // The composer lives in the drawer footer, not in the tab panel,
+                    // so there is nothing extra to scroll into view.
+                  }}
+                />
+              )}
+
+              {tab === "comments" && (
+                <CommentList
+                  comments={commentsQuery.data?.results ?? []}
+                  currentUserId={me?.id}
+                  role={role}
+                  isLoading={commentsQuery.isLoading}
+                  error={commentsQuery.error}
+                  total={commentsQuery.data?.count}
+                  onRetry={() => void commentsQuery.refetch()}
+                  onUpdate={(commentId, content) =>
+                    updateCommentMutation.mutateAsync({ commentId, payload: { content } })
+                  }
+                  onDelete={(commentId) => deleteCommentMutation.mutateAsync(commentId)}
+                />
+              )}
+
+              {tab === "refs" && <RefsPlaceholder />}
+            </div>
+
             {writable && (
-              <div className="pt-4 border-t border-[color:var(--color-rule)] flex items-center justify-between">
-                <span className="text-[10px] text-[color:var(--color-ink-3)] italic font-serif">
-                  Comments &amp; activity arrive in Sprint 4.
-                </span>
+              <div className="pt-5 mt-2 border-t border-[color:var(--color-rule)] flex justify-end">
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={handleDelete}
+                  onClick={() => setConfirmDeleteIssue(true)}
                   disabled={deleteMutation.isPending}
                   className="border-[color:var(--color-urgent)] text-[color:var(--color-urgent)]"
                 >
@@ -339,7 +452,57 @@ export function IssueDrawer({
           </>
         )}
       </div>
+
+      <Modal
+        open={confirmDeleteIssue}
+        onClose={() => setConfirmDeleteIssue(false)}
+        title="Delete this issue?"
+        subtitle={
+          issue ? `${identifier}-${issue.sequence_id} · this cannot be undone` : undefined
+        }
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmDeleteIssue(false)}>
+              cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void handleDelete()}
+              disabled={deleteMutation.isPending}
+              className="border-[color:var(--color-urgent)] text-[color:var(--color-urgent)]"
+            >
+              delete issue
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[12px] text-[color:var(--color-ink-2)] leading-relaxed">
+          删除后该 Issue 及其评论、活动记录一并消失，编号不会被回收。
+        </p>
+      </Modal>
     </Drawer>
+  );
+}
+
+/**
+ * Refs tab — present because SCREEN_BLUEPRINTS §2.9 specifies it, honest because
+ * v0.1 has no reference/link endpoint.
+ *
+ * We deliberately do NOT invent a data shape here. The backend hardening pass
+ * (hardening-02) settled on "no aggregate endpoints, no second source of truth for
+ * a fact that has no contract"; a fabricated Refs list would be exactly that.
+ */
+function RefsPlaceholder() {
+  return (
+    <div className="py-8 text-center">
+      <p className="font-serif italic text-[15px] text-[color:var(--color-ink-2)]">
+        References are not part of v0.1
+      </p>
+      <p className="mt-1 text-[11px] text-[color:var(--color-ink-3)] max-w-sm mx-auto leading-relaxed">
+        Issue 之间的关联（blocks / relates to）在后端还没有端点，这个 tab 先留位，
+        不做假数据。契约补上之后再接线。
+      </p>
+    </div>
   );
 }
 
