@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { isUnauthorized } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import type { LoginPayload, RegisterPayload, User } from "@/types/auth";
@@ -88,4 +89,29 @@ export function useLogout() {
 /** Seed the csrftoken cookie. Safe to call repeatedly; usually once on app boot. */
 export async function primeCsrf(): Promise<void> {
   await fetchCsrf();
+}
+
+/**
+ * Read `?redirect=` without `useSearchParams()`.
+ *
+ * Why not useSearchParams: it forces the enclosing tree into a Suspense boundary,
+ * which means the login/register form is NOT server-rendered — users see a skeleton
+ * flash on first paint. Reading `window.location.search` in an effect keeps the form
+ * statically renderable (SSR shows the real form) at the cost of one extra render.
+ *
+ * Returns "/" during SSR and on the first client render, then the real target.
+ */
+export function useRedirectTarget(): string {
+  const [redirect, setRedirect] = useState("/");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("redirect");
+    // Only allow same-origin relative paths — never an absolute URL (open-redirect guard).
+    if (target && target.startsWith("/") && !target.startsWith("//")) {
+      setRedirect(target);
+    }
+  }, []);
+
+  return redirect;
 }

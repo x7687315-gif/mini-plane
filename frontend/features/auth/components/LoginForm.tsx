@@ -1,13 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiError } from "@/lib/api";
 import { flattenErrors, type FlatErrors } from "@/types/auth";
-import { useLogin } from "@/features/auth/hooks";
+import { useLogin, useRedirectTarget } from "@/features/auth/hooks";
 import {
   AuthAltLink,
   AuthFieldError,
@@ -35,8 +35,7 @@ type FormValues = z.infer<typeof schema>;
  */
 export function LoginForm() {
   const router = useRouter();
-  const params = useSearchParams();
-  const redirect = params.get("redirect") || "/";
+  const redirect = useRedirectTarget();
 
   const loginMutation = useLogin();
   const [formError, setFormError] = useState<string | null>(null);

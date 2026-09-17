@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { RegisterAlt, RegisterForm } from "@/features/auth/components/RegisterForm";
@@ -28,20 +27,7 @@ export default function RegisterPage() {
       }
       alt={<RegisterAlt />}
     >
-      <Suspense fallback={<AuthFormSkeleton />}>
-        <RegisterForm />
-      </Suspense>
+      <RegisterForm />
     </AuthCard>
-  );
-}
-
-function AuthFormSkeleton() {
-  return (
-    <div className="flex flex-col gap-5" aria-hidden>
-      <div className="h-9 border-b border-[color:var(--color-rule)]" />
-      <div className="h-9 border-b border-[color:var(--color-rule)]" />
-      <div className="h-9 border-b border-[color:var(--color-rule)]" />
-      <div className="h-12 bg-[color:var(--color-paper-2)]" />
-    </div>
   );
 }

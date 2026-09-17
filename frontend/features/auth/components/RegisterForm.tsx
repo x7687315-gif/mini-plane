@@ -1,13 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiError } from "@/lib/api";
 import { flattenErrors, type FlatErrors } from "@/types/auth";
-import { useRegister } from "@/features/auth/hooks";
+import { useRedirectTarget, useRegister } from "@/features/auth/hooks";
 import {
   AuthAltLink,
   AuthFieldError,
@@ -31,7 +31,7 @@ const schema = z.object({
   password: z
     .string()
     .min(8, "密码至少 8 位")
-    .refine((v) => !/^\d+$/, "密码不能只包含数字"),
+    .refine((v) => !/^\d+$/.test(v), "密码不能只包含数字"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -44,8 +44,7 @@ type FormValues = z.infer<typeof schema>;
  */
 export function RegisterForm() {
   const router = useRouter();
-  const params = useSearchParams();
-  const redirect = params.get("redirect") || "/";
+  const redirect = useRedirectTarget();
 
   const registerMutation = useRegister();
   const [formError, setFormError] = useState<string | null>(null);

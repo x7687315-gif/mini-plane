@@ -1,5 +1,5 @@
 # pnpm 11 requires explicit approval for packages that run install scripts.
 # unrs-resolver is a native binding used by eslint-import-resolver-typescript.
-# Approving it is safe (it only compiles its own Rust binding).
-onlyBuiltDependencies:
-  - unrs-resolver
+# Approving it is safe — it only compiles its own Rust binding.
+allowBuilds:
+  unrs-resolver: true
