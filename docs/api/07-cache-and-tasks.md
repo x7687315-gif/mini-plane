@@ -1,6 +1,6 @@
 # 07 · 缓存与异步任务契约
 
-> 状态：**待前端确认 → 确认后冻结**
+> 状态：**待前端确认 → 确认后冻结**（前端 Sprint 6（BulkActionBar + 任务进度轮询）实现后收口）
 > 公共约定见 [00-conventions.md](00-conventions.md)。
 > 计划依据：[BACKEND_PLAN.md](../../BACKEND_PLAN.md) §Sprint 6。
 > 本文回答三个问题：**什么被缓存了？什么时候失效？异步任务怎么查进度？**

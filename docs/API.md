@@ -10,18 +10,22 @@
 OpenAPI 描述"接口长什么样"，下面的手写契约解释"行为为什么是这样"（多值语义、
 错误分支、防枚举约定、缓存与推送行为等），两者互补：
 
-| 文档 | 内容 |
-|------|------|
-| [00-conventions.md](api/00-conventions.md) | 通用约定：认证、错误体、分页体、命名、幂等 |
-| [01-auth.md](api/01-auth.md) | 注册 / 登录 / 登出 / 当前用户 |
-| [02-workspaces.md](api/02-workspaces.md) | 工作区与成员管理 |
-| [03-projects.md](api/03-projects.md) | 项目、项目成员、默认五态 |
-| [04-issues.md](api/04-issues.md) | Issue / Label CRUD + 列表查询引擎（过滤/搜索/排序/分页） |
-| [05-comments.md](api/05-comments.md) | 评论 |
-| [06-activities.md](api/06-activities.md) | 活动流（含文案映射表） |
-| [07-cache-and-tasks.md](api/07-cache-and-tasks.md) | 缓存行为说明 + 批量任务状态接口 |
-| [08-realtime.md](api/08-realtime.md) | WebSocket：握手、关闭码、事件帧、心跳 |
-| [09-frontend-integration.md](api/09-frontend-integration.md) | **前端接入指南**：环境地址、认证/CSRF 流程、错误与分页处理、实时与任务接入、自检清单 |
+| 文档 | 内容 | 状态 |
+|------|------|------|
+| [00-conventions.md](api/00-conventions.md) | 通用约定：认证、错误体、分页体、命名、幂等 | 约定（不单独冻结） |
+| [01-auth.md](api/01-auth.md) | 注册 / 登录 / 登出 / 当前用户 | ✅ 已冻结（前端 Sprint 1） |
+| [02-workspaces.md](api/02-workspaces.md) | 工作区与成员管理 | ✅ 已冻结（前端 Sprint 2） |
+| [03-projects.md](api/03-projects.md) | 项目、项目成员、默认五态 | ✅ 已冻结（前端 Sprint 2） |
+| [04-issues.md](api/04-issues.md) | Issue / Label CRUD + 列表查询引擎（过滤/搜索/排序/分页） | ✅ 已冻结（前端 Sprint 3） |
+| [05-comments.md](api/05-comments.md) | 评论 | ✅ 已冻结（前端 Sprint 4） |
+| [06-activities.md](api/06-activities.md) | 活动流（含文案映射表） | ✅ 已冻结（前端 Sprint 4） |
+| [07-cache-and-tasks.md](api/07-cache-and-tasks.md) | 缓存行为说明 + 批量任务状态接口 | 🟡 待前端确认（Sprint 6 实现后收口） |
+| [08-realtime.md](api/08-realtime.md) | WebSocket：握手、关闭码、事件帧、心跳 | 🟡 待前端确认（Sprint 7 实现后收口） |
+| [09-frontend-integration.md](api/09-frontend-integration.md) | **前端接入指南**：环境地址、认证/CSRF 流程、错误与分页处理、实时与任务接入、自检清单 | 手册（随前端进展回填） |
+
+> **冻结的含义**：前端已按该契约实现并逐项验收通过，后端不再单方面变更；
+> 需要变更时走 PR 并同步更新契约的「变更记录」。冻结状态由前端在对应 Sprint 收尾时推进，
+> 清点见 [frontend/docs/README.md](../frontend/docs/README.md)。
 
 ## 重新生成 schema
 

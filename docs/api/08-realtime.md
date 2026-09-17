@@ -1,6 +1,6 @@
 # 08 · Realtime（WebSocket 实时推送）契约
 
-> 状态：**待前端确认 → 确认后冻结**
+> 状态：**待前端确认 → 确认后冻结**（前端 Sprint 7（wsStore + 实时增量更新 + 重连）实现后收口）
 > 公共约定见 [00-conventions.md](00-conventions.md)；事件 payload 复用 [06-activities.md](06-activities.md) 的字段语义。
 > 计划依据：[BACKEND_PLAN.md](../../BACKEND_PLAN.md) §Sprint 7。
 

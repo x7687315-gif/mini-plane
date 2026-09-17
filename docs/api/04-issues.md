@@ -1,6 +1,6 @@
 # 04 · Issue（含 Label）契约
 
-> 状态：**待前端确认 → 确认后冻结**
+> 状态：**已冻结**（前端 Sprint 3 已按本契约实现并确认，2026-09-17）
 > 公共约定见 [00-conventions.md](00-conventions.md)。角色值：`20=Admin / 15=Member / 5=Viewer`。
 > 项目作用域见 [03-projects.md](03-projects.md)「生效角色」表——本模块所有权限判定都基于**生效角色**。
 > 计划依据：[BACKEND_PLAN.md](../../BACKEND_PLAN.md) §Sprint 3、§7.5。
@@ -187,3 +187,4 @@
 |------|------|------|
 | 2026-09-10 | 初稿（后端起草，Sprint 3）：端点、Issue/Label 结构、priority 枚举、发号规则、assignee 必须为项目成员、ordering 白名单 | 待前端确认 |
 | 2026-09-10 | Sprint 5：补齐 `state`/`priority`/`assignee`/`labels`/`search`；**labels 定为 OR（并集）**；**缺省 ordering 由 `-sequence_id` 改为 `-created_at`**；`priority` 排序改为按严重度；所有排序追加 `sequence_id` 次级键保证翻页稳定；`page` 越界改为 200 + 空 results、非整数 400 | 待前端确认 |
+| 2026-09-17 | **冻结**（前端 Sprint 3 已按本契约实现并确认：列表筛选/排序/分页 + 详情抽屉就地编辑 + ordering 白名单 + page 越界语义） | 已冻结 |
