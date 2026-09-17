@@ -16,7 +16,7 @@
 | 4 | Comment + Activity（抽屉内对话 + 审计时间线） | ✅ 已完成 | [sprint-4-frontend.md](devlog/sprint-4-frontend.md) |
 | 5 | Search + Filter + Sort + URL 同步 | ✅ 已完成 | [sprint-5-frontend.md](devlog/sprint-5-frontend.md) |
 | 6 | BulkActionBar + 异步任务 | ✅ 已完成 | [sprint-6-frontend.md](devlog/sprint-6-frontend.md) |
-| 7 | WebSocket Realtime | ⏳ 计划 | — |
+| 7 | WebSocket Realtime | ✅ 已完成 | [sprint-7-frontend.md](devlog/sprint-7-frontend.md) |
 | 8 | Docker + CI + 收尾 | ⏳ 计划 | — |
 
 ## 一个 Sprint 收尾时的固定动作

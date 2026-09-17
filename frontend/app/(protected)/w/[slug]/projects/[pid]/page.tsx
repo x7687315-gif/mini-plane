@@ -12,6 +12,7 @@ import { CreateIssueModal } from "@/components/issue/CreateIssueModal";
 import { BulkActionBar } from "@/components/issue/BulkActionBar";
 import { useIssueFilters, useIssues, useLabels } from "@/features/issue";
 import { useProject, useProjectMembers, useProjectStates } from "@/features/project";
+import { useProjectRealtime } from "@/features/realtime";
 import { useWorkspace } from "@/features/workspace";
 import { ApiError } from "@/lib/api";
 import { hasActiveFilters } from "@/lib/url";
@@ -58,6 +59,16 @@ function ProjectIssues() {
   const labelsQuery = useLabels(slug, projectId);
   const membersQuery = useProjectMembers(slug, projectId);
   const issuesQuery = useIssues(slug, projectId, query);
+
+  /**
+   * Realtime (Sprint 7): connect while this project is on screen.
+   *
+   * Gated on `!project.isError` on purpose. If the project itself 404s, the page has
+   * already explained that; opening a socket would only earn a 4404 close and overwrite
+   * a correct message with a redundant one. 4404 still happens for real when access is
+   * revoked mid-session, which is the case it exists for.
+   */
+  useProjectRealtime(slug, projectId, Boolean(slug && projectId) && !project.isError);
 
   const [createOpen, setCreateOpen] = useState(false);
 

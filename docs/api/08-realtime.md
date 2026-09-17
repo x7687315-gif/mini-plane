@@ -1,6 +1,6 @@
 # 08 · Realtime（WebSocket 实时推送）契约
 
-> 状态：**待前端确认 → 确认后冻结**（前端 Sprint 7（wsStore + 实时增量更新 + 重连）实现后收口）
+> 状态：**已冻结**（前端 Sprint 7 已按本契约实现并确认，2026-09-17）
 > 公共约定见 [00-conventions.md](00-conventions.md)；事件 payload 复用 [06-activities.md](06-activities.md) 的字段语义。
 > 计划依据：[BACKEND_PLAN.md](../../BACKEND_PLAN.md) §Sprint 7。
 
@@ -114,3 +114,4 @@
 | 日期 | 变更 | 状态 |
 |------|------|------|
 | 2026-09-10 | 初稿（后端起草，Sprint 7）：连接 URL、Session 鉴权、4401/4404 关闭码、握手确认帧、`issue.updated` 与 `comment.created` 两个事件、心跳与错误帧、部署配置 | 待前端确认 |
+| 2026-09-17 | **冻结**（前端 Sprint 7 实现并确认）。前端侧补两条落地约定：① **`issue.updated` 的 payload 是展示用 diff（不含 `state.id` / 标签对象），结构上无法重建 Issue** —— 前端采用「作废并重取」而非「按 payload patch 本地」，与 §2.3「事件只做提示刷新，不承载最终状态」一致；② `comment.created` 会广播给包括作者在内的整个频道，前端**必须比对 `payload.author.id` 跳过自己刚乐观插入的评论**，否则作者会短暂看到重复。另：重连后全量刷新已按 §2.3 落地（作废该项目全部缓存） | 已冻结 |

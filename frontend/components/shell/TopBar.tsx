@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { AvatarMenu } from "./AvatarMenu";
 import { Crosshair, MeasureLine } from "@/components/ui";
+import { useWsStore, wsStatusLabel, type WsStatus } from "@/stores/ws";
 
 /**
  * TopBar — see SCREEN_BLUEPRINTS §1.1.
  *
  * 56px fixed at the top of every authenticated page.
  *
- * Props (Sprint 0: minimal; Sprint 2 will expand):
+ * Props:
  * - workspace / project breadcrumb
  * - role badge (ADMIN / MEMBER / VIEWER)
- * - realtime connection status dot
+ * - realtime connection status dot (Sprint 7: read straight from the ws store)
  * - avatar menu (click → sign out)
  */
 
@@ -23,8 +24,6 @@ export interface TopBarProps {
   project?: string;
   /** User's role in the current workspace (20/15/5). */
   role?: number;
-  /** WebSocket connection state. */
-  connection?: "idle" | "live" | "error";
 }
 
 function roleLabel(r: number): string {
@@ -34,7 +33,34 @@ function roleLabel(r: number): string {
   return `ROLE ${r}`;
 }
 
-export function TopBar({ workspace, project, role, connection = "live" }: TopBarProps) {
+/**
+ * Dot colour per connection state.
+ *
+ * `reconnecting` is `--color-warning` (amber) rather than red: a transient drop that
+ * the backoff is already handling is not an error, and colouring it like one trains
+ * people to ignore red.
+ */
+const DOT_COLOR: Record<WsStatus, string> = {
+  live: "var(--color-accent)",
+  connecting: "var(--color-ink-3)",
+  reconnecting: "var(--color-warning)",
+  idle: "var(--color-ink-3)",
+  forbidden: "var(--color-urgent)",
+  error: "var(--color-urgent)",
+};
+
+export function TopBar({ workspace, project, role }: TopBarProps) {
+  // Selected as primitives: zustand v5 requires a stable snapshot, and an object
+  // selector would allocate a new one on every store read.
+  const wsStatus = useWsStore((s) => s.status);
+  const wsDetail = useWsStore((s) => s.detail);
+  const wsAttempts = useWsStore((s) => s.attempts);
+
+  const statusLabel =
+    wsStatus === "reconnecting" && wsAttempts > 1
+      ? `reconnecting · ${wsAttempts}`
+      : wsStatusLabel(wsStatus);
+
   return (
     <header className="bp-border-b flex items-center justify-between px-8 h-14 relative z-30 bg-[color:var(--color-paper)]">
       <div className="flex items-baseline gap-4">
@@ -62,20 +88,20 @@ export function TopBar({ workspace, project, role, connection = "live" }: TopBar
           </span>
         )}
 
-        <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
+        {/* Realtime indicator. The reason lives on the wrapper's `aria-label` (and is
+            visible for the terminal states) — DESIGN §10 forbids hover tooltips. */}
+        <span
+          className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium"
+          aria-label={
+            wsDetail ? `realtime: ${statusLabel} — ${wsDetail}` : `realtime: ${statusLabel}`
+          }
+        >
           <span
             className="inline-block w-1.5 h-1.5 rounded-full"
-            style={{
-              background:
-                connection === "live"
-                  ? "var(--color-accent)"
-                  : connection === "error"
-                  ? "var(--color-urgent)"
-                  : "var(--color-ink-3)",
-            }}
+            style={{ background: DOT_COLOR[wsStatus] }}
             aria-hidden
           />
-          {connection === "live" ? "live" : connection === "error" ? "reconnecting" : "idle"}
+          {statusLabel}
         </span>
 
         <AvatarMenu />
