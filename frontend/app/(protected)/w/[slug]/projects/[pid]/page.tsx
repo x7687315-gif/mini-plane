@@ -9,10 +9,12 @@ import { FilterBar } from "@/components/issue/FilterBar";
 import { IssueRow } from "@/components/issue/IssueRow";
 import { IssueDrawer, normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
 import { CreateIssueModal } from "@/components/issue/CreateIssueModal";
-import { useIssueFilters, useIssues } from "@/features/issue";
-import { useProject, useProjectStates } from "@/features/project";
+import { useIssueFilters, useIssues, useLabels } from "@/features/issue";
+import { useProject, useProjectMembers, useProjectStates } from "@/features/project";
 import { useWorkspace } from "@/features/workspace";
 import { ApiError } from "@/lib/api";
+import { hasActiveFilters } from "@/lib/url";
+import { flattenErrors } from "@/types/auth";
 import { canWrite } from "@/types/workspace";
 import type { Issue } from "@/types/issue";
 
@@ -52,15 +54,31 @@ function ProjectIssues() {
   const ws = useWorkspace(slug);
   const project = useProject(slug, projectId);
   const statesQuery = useProjectStates(slug, projectId);
+  const labelsQuery = useLabels(slug, projectId);
+  const membersQuery = useProjectMembers(slug, projectId);
   const issuesQuery = useIssues(slug, projectId, query);
 
   const [createOpen, setCreateOpen] = useState(false);
 
   const states = statesQuery.data?.results ?? [];
+  const labels = labelsQuery.data?.results ?? [];
+  const members = membersQuery.data?.results ?? [];
   const issues: Issue[] = issuesQuery.data?.results ?? [];
   const total = issuesQuery.data?.count ?? 0;
   const role = project.data?.current_user_role;
   const identifier = project.data?.identifier ?? "ISS";
+  const canCreate = canWrite(role);
+
+  /**
+   * A 400 here means the URL carried a value the backend rejects (illegal
+   * `ordering`, a malformed `priority`, a non-integer `page`). The UI cannot
+   * produce one — this only fires for hand-edited or stale links — so instead of a
+   * generic failure we surface the backend's own field-level message
+   * (04 契约 §参数校验文案) and offer the way out: clear the filters.
+   */
+  const badParam = issuesQuery.error instanceof ApiError && issuesQuery.error.status === 400
+    ? flattenErrors(issuesQuery.error.body).fields
+    : null;
 
   const perPage = 50;
   const page = query.page ?? 1;
@@ -121,7 +139,7 @@ function ProjectIssues() {
             {headerSubtitle}
           </p>
         </div>
-        {canWrite(role) && (
+        {canCreate && (
           <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
             <PlusIcon size={12} />
             <span>new issue</span>
@@ -148,6 +166,8 @@ function ProjectIssues() {
         <FilterBar
           query={query}
           states={states}
+          labels={labels}
+          members={members}
           total={total}
           onPatch={patch}
           onClear={clear}
@@ -159,18 +179,37 @@ function ProjectIssues() {
 
       {issuesQuery.isError && (
         <Card>
-          <p className="text-[13px] text-[color:var(--color-ink-2)]">
-            {issuesQuery.error instanceof ApiError && issuesQuery.error.status === 400
-              ? "筛选参数不合法（后端返回 400）。请点击 clear 重置筛选。"
-              : "无法加载 Issue 列表。"}
-          </p>
+          {badParam ? (
+            <>
+              <p className="text-[12px] text-[color:var(--color-ink)] mb-1">
+                链接里的筛选参数不合法（后端返回 400）：
+              </p>
+              <ul className="mb-3 space-y-0.5">
+                {Object.entries(badParam).map(([field, message]) => (
+                  <li key={field} className="text-[11px] text-[color:var(--color-urgent)]">
+                    <code className="font-mono text-[10px] text-[color:var(--color-ink-2)]">
+                      {field}
+                    </code>{" "}
+                    {message}
+                  </li>
+                ))}
+              </ul>
+              <Button variant="secondary" size="sm" onClick={clear}>
+                clear filters
+              </Button>
+            </>
+          ) : (
+            <p className="text-[13px] text-[color:var(--color-ink-2)]">
+              无法加载 Issue 列表。
+            </p>
+          )}
         </Card>
       )}
 
       {!issuesQuery.isLoading && !issuesQuery.isError && issues.length === 0 && (
         <EmptyIssues
-          filtered={Boolean(query.state?.length || query.priority?.length || query.assignee || query.labels?.length || query.search)}
-          canCreate={canWrite(role)}
+          filtered={hasActiveFilters(query)}
+          canCreate={canCreate}
           onCreate={() => setCreateOpen(true)}
           onClear={clear}
         />

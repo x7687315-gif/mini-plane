@@ -14,8 +14,8 @@
 | 2 | Workspace + Project（Dashboard / 项目列表 / 新建 / 成员 / 设置） | ✅ 已完成 | [sprint-2-frontend.md](devlog/sprint-2-frontend.md) |
 | 3 | Issue 核心（列表 + 详情抽屉 + 就地编辑 + 筛选） | ✅ 已完成 | [sprint-3-frontend.md](devlog/sprint-3-frontend.md) |
 | 4 | Comment + Activity（抽屉内对话 + 审计时间线） | ✅ 已完成 | [sprint-4-frontend.md](devlog/sprint-4-frontend.md) |
-| 5 | Search + Filter + Sort + URL 同步 | ⏳ 下一步 | — |
-| 6 | BulkActionBar + 异步任务 | ⏳ 计划 | — |
+| 5 | Search + Filter + Sort + URL 同步 | ✅ 已完成 | [sprint-5-frontend.md](devlog/sprint-5-frontend.md) |
+| 6 | BulkActionBar + 异步任务 | ⏳ 下一步 | — |
 | 7 | WebSocket Realtime | ⏳ 计划 | — |
 | 8 | Docker + CI + 收尾 | ⏳ 计划 | — |
 

@@ -45,3 +45,6 @@ export type { RoleBadgeProps } from "./RoleBadge";
 
 export { EditableField } from "./EditableField";
 export type { EditableFieldProps, EditableOption } from "./EditableField";
+
+export { MultiSelect } from "./MultiSelect";
+export type { MultiSelectProps } from "./MultiSelect";

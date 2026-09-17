@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { Chip, EditableField } from "@/components/ui";
+import { Avatar, Chip, EditableField, MultiSelect } from "@/components/ui";
 import { SearchIcon, XIcon } from "@/components/icons";
-import type { IssueState } from "@/types/project";
-import type { IssueListQuery, IssueOrdering, IssuePriority } from "@/types/issue";
+import type { IssueState, ProjectMember } from "@/types/project";
+import type { IssueListQuery, IssueOrdering, IssuePriority, Label } from "@/types/issue";
 import { ISSUE_ORDERING_OPTIONS, PRIORITY_VALUES } from "@/types/issue";
 import { countActiveFilters } from "@/lib/url";
 
@@ -18,6 +18,12 @@ import { countActiveFilters } from "@/lib/url";
  * Backend semantics (docs/api/04-issues.md):
  * - multi-value params are OR within the field, AND across fields
  * - `priority` outside the enum → 400, so we only ever send known values
+ * - `assignee` takes a user id **or the literal `me`**; an id that is not a project
+ *   member yields an empty result set rather than an error, so the picker is fed
+ *   by project members only (a non-member would silently show "nothing matches")
+ * - `labels` is OR / union — that is the frozen semantics (04 契约, Sprint 5)
+ * - there is deliberately **no "unassigned" option**: the backend has none yet
+ *   (see 04 契约 §明确不做), so the UI must not offer what it cannot honour
  */
 
 const PRIORITY_COLOR: Record<IssuePriority, string> = {
@@ -28,16 +34,33 @@ const PRIORITY_COLOR: Record<IssuePriority, string> = {
   low: "var(--color-low)",
 };
 
+/** Search debounce, ms. 04 契约/Sprint 5 计划：250ms. */
+const SEARCH_DEBOUNCE_MS = 250;
+
+/** The literal the backend accepts for "the current user". */
+export const ME = "me";
+
 export interface FilterBarProps {
   query: IssueListQuery;
   states: IssueState[];
+  labels: Label[];
+  /** Project members — assignee candidates (must be ProjectMembers, per 04 契约). */
+  members: ProjectMember[];
   /** Total count for the current query (from the API envelope). */
   total?: number;
   onPatch: (partial: Partial<IssueListQuery>) => void;
   onClear: () => void;
 }
 
-export function FilterBar({ query, states, total, onPatch, onClear }: FilterBarProps) {
+export function FilterBar({
+  query,
+  states,
+  labels,
+  members,
+  total,
+  onPatch,
+  onClear,
+}: FilterBarProps) {
   const urlSearch = query.search ?? "";
   const [searchDraft, setSearchDraft] = useState(urlSearch);
   const [lastUrlSearch, setLastUrlSearch] = useState(urlSearch);
@@ -52,16 +75,20 @@ export function FilterBar({ query, states, total, onPatch, onClear }: FilterBarP
     setSearchDraft(urlSearch);
   }
 
-  // Debounce search → URL (300ms), so typing doesn't fire a request per keystroke.
+  // Debounce search → URL, so typing doesn't fire a request per keystroke.
   useEffect(() => {
     const current = urlSearch;
     if (searchDraft === current) return; // guard: prevents the URL→effect→URL loop
-    const t = setTimeout(() => onPatch({ search: searchDraft || undefined }), 300);
+    const t = setTimeout(
+      () => onPatch({ search: searchDraft || undefined }),
+      SEARCH_DEBOUNCE_MS,
+    );
     return () => clearTimeout(t);
   }, [searchDraft, urlSearch, onPatch]);
 
   const selectedStates = new Set(query.state ?? []);
   const selectedPriorities = new Set(query.priority ?? []);
+  const selectedLabels = query.labels ?? [];
   const activeCount = countActiveFilters(query);
 
   const toggleState = (id: string) => {
@@ -77,6 +104,22 @@ export function FilterBar({ query, states, total, onPatch, onClear }: FilterBarP
     else next.add(p);
     onPatch({ priority: next.size ? Array.from(next) : undefined });
   };
+
+  const toggleLabel = (id: string) => {
+    const next = new Set(selectedLabels);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onPatch({ labels: next.size ? Array.from(next) : undefined });
+  };
+
+  const assigneeOptions = [
+    { value: ME, label: "me (assigned to you)", leading: <Avatar name="me" size="xs" tone="accent" /> },
+    ...members.map((m) => ({
+      value: m.user.id,
+      label: m.user.username,
+      leading: <Avatar name={m.user.username} size="xs" />,
+    })),
+  ];
 
   return (
     <div className="mb-5">
@@ -110,6 +153,7 @@ export function FilterBar({ query, states, total, onPatch, onClear }: FilterBarP
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             placeholder="search title / description"
+            aria-label="search issues"
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[11px] text-[color:var(--color-ink)] placeholder:italic placeholder:text-[color:var(--color-ink-3)]"
           />
           {searchDraft && (
@@ -125,8 +169,8 @@ export function FilterBar({ query, states, total, onPatch, onClear }: FilterBarP
         </span>
       </div>
 
-      {/* Row 2: priority chips + ordering + clear */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Row 2: priority chips */}
+      <div className="flex flex-wrap items-center gap-2 mb-2">
         <span className="text-[9px] uppercase tracking-[0.24em] text-[color:var(--color-ink-3)] font-sans font-medium mr-1">
           priority
         </span>
@@ -147,26 +191,49 @@ export function FilterBar({ query, states, total, onPatch, onClear }: FilterBarP
             {p}
           </Chip>
         ))}
+      </div>
 
-        <span className="ml-auto flex items-center gap-3">
-          <span className="w-[150px]">
-            <EditableField
-              label=""
-              value={query.ordering ?? "-created_at"}
-              options={ISSUE_ORDERING_OPTIONS.map((o) => ({
-                value: o.value,
-                label: o.label,
-              }))}
-              onSelect={(v) => onPatch({ ordering: (v ?? "-created_at") as IssueOrdering })}
-            />
-          </span>
+      {/* Row 3: labels + assignee + ordering + clear */}
+      <div className="flex flex-wrap items-end gap-3">
+        <MultiSelect
+          label="labels"
+          className="w-[190px]"
+          values={selectedLabels}
+          placeholder="any label"
+          options={labels.map((l) => ({ value: l.id, label: l.name, color: l.color }))}
+          onToggle={toggleLabel}
+          onClear={() => onPatch({ labels: undefined })}
+        />
+
+        <EditableField
+          label="assignee"
+          className="w-[190px]"
+          value={query.assignee ?? null}
+          options={assigneeOptions}
+          clearable
+          clearLabel="anyone"
+          placeholder="anyone"
+          onSelect={(v) => onPatch({ assignee: v ?? undefined })}
+        />
+
+        <span className="ml-auto flex items-end gap-3">
+          <EditableField
+            label="sort"
+            className="w-[170px]"
+            value={query.ordering ?? "-created_at"}
+            options={ISSUE_ORDERING_OPTIONS.map((o) => ({
+              value: o.value,
+              label: o.label,
+            }))}
+            onSelect={(v) => onPatch({ ordering: (v ?? "-created_at") as IssueOrdering })}
+          />
 
           {activeCount > 0 && (
             <button
               type="button"
               onClick={onClear}
               className={clsx(
-                "text-[9px] uppercase tracking-[0.2em] font-sans font-medium",
+                "text-[9px] uppercase tracking-[0.2em] font-sans font-medium mb-2",
                 "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]",
                 "border-b border-dashed border-[color:var(--color-rule)]",
               )}

@@ -116,18 +116,46 @@ export interface IssueListQuery {
   per_page?: number;
 }
 
-/** Serialise a query object into the backend's comma-separated multi-value form. */
+/**
+ * Percent-encode one value for the query string, but keep commas literal.
+ *
+ * `URLSearchParams` encodes `,` as `%2C`, which turns the multi-value convention
+ * into `?state=s-1%2Cs-2`. The backend decodes it back and behaves identically, but
+ * the address bar becomes unreadable and un-editable — and the whole point of
+ * keeping filters in the URL (SCREEN_BLUEPRINTS §2.7) is that a human can read,
+ * paste and hand-edit it. Comma is a legal `sub-delim` in RFC 3986, so leaving it
+ * raw is both valid and faithful to 04 契约's documented form (`state=<id>,<id>`).
+ *
+ * Everything else still goes through `encodeURIComponent` — a search term with a
+ * space or an `&` must not break the query.
+ */
+function encodeQueryValue(value: string): string {
+  return encodeURIComponent(value).replace(/%2C/gi, ",");
+}
+
+/**
+ * Serialise a query object into the backend's comma-separated multi-value form.
+ *
+ * Hand-rolled instead of `URLSearchParams` so commas stay literal (see above).
+ * Default values are omitted on purpose: `page=1` and the default ordering leave
+ * no trace in the URL, so "clear filters" and "first visit" produce the same address.
+ */
 export function serializeIssueQuery(q: IssueListQuery): string {
-  const params = new URLSearchParams();
-  if (q.state?.length) params.set("state", q.state.join(","));
-  if (q.priority?.length) params.set("priority", q.priority.join(","));
-  if (q.assignee) params.set("assignee", q.assignee);
-  if (q.labels?.length) params.set("labels", q.labels.join(","));
-  if (q.search?.trim()) params.set("search", q.search.trim());
-  if (q.ordering) params.set("ordering", q.ordering);
-  if (q.page && q.page > 1) params.set("page", String(q.page));
-  if (q.per_page) params.set("per_page", String(q.per_page));
-  return params.toString();
+  const parts: string[] = [];
+  const add = (key: string, value: string) => {
+    parts.push(`${key}=${encodeQueryValue(value)}`);
+  };
+
+  if (q.state?.length) add("state", q.state.join(","));
+  if (q.priority?.length) add("priority", q.priority.join(","));
+  if (q.assignee) add("assignee", q.assignee);
+  if (q.labels?.length) add("labels", q.labels.join(","));
+  if (q.search?.trim()) add("search", q.search.trim());
+  if (q.ordering) add("ordering", q.ordering);
+  if (q.page && q.page > 1) add("page", String(q.page));
+  if (q.per_page) add("per_page", String(q.per_page));
+
+  return parts.join("&");
 }
 
 /** Display id helper: `AMI-7` (identifier comes from the Project). */

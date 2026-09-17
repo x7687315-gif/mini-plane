@@ -18,8 +18,9 @@
 | 前端 Sprint 2：Workspace + Project | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 2 devlog](frontend/docs/devlog/sprint-2-frontend.md) |
 | 前端 Sprint 3：Issue 核心 | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 3 devlog](frontend/docs/devlog/sprint-3-frontend.md) |
 | 前端 Sprint 4：Comments + Activity | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 4 devlog](frontend/docs/devlog/sprint-4-frontend.md) |
-| 前端 Sprint 5：筛选 + 排序 + 分页 | 🟡 下一步 | ░░░░░░░░░░ | [FRONTEND_ROADMAP §2](frontend/FRONTEND_ROADMAP.md) |
-| 前端 Sprint 6–8：Realtime / 打磨 / Docker | ⏳ 计划 | ░░░░░░░░░░ | — |
+| 前端 Sprint 5：Search + Filter + Sort | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 5 devlog](frontend/docs/devlog/sprint-5-frontend.md) |
+| 前端 Sprint 6：批量操作 + 异步任务 | 🟡 下一步 | ░░░░░░░░░░ | [FRONTEND_ROADMAP §2](frontend/FRONTEND_ROADMAP.md) |
+| 前端 Sprint 7–8：Realtime / Docker + CI | ⏳ 计划 | ░░░░░░░░░░ | — |
 
 > 实时进度详见 [docs/devlog/README.md](docs/devlog/README.md)（后端）+ [frontend/docs/devlog/](frontend/docs/devlog/)（前端）。
 
