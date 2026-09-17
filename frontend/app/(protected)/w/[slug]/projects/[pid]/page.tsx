@@ -9,6 +9,7 @@ import { FilterBar } from "@/components/issue/FilterBar";
 import { IssueRow } from "@/components/issue/IssueRow";
 import { IssueDrawer, normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
 import { CreateIssueModal } from "@/components/issue/CreateIssueModal";
+import { BulkActionBar } from "@/components/issue/BulkActionBar";
 import { useIssueFilters, useIssues, useLabels } from "@/features/issue";
 import { useProject, useProjectMembers, useProjectStates } from "@/features/project";
 import { useWorkspace } from "@/features/workspace";
@@ -16,7 +17,7 @@ import { ApiError } from "@/lib/api";
 import { hasActiveFilters } from "@/lib/url";
 import { flattenErrors } from "@/types/auth";
 import { canWrite } from "@/types/workspace";
-import type { Issue } from "@/types/issue";
+import { serializeIssueQuery, type Issue } from "@/types/issue";
 
 /**
  * Project issue list — the core screen. See SCREEN_BLUEPRINTS §2.7.
@@ -59,6 +60,39 @@ function ProjectIssues() {
   const issuesQuery = useIssues(slug, projectId, query);
 
   const [createOpen, setCreateOpen] = useState(false);
+
+  /**
+   * Row selection for batch operations (Sprint 6).
+   *
+   * Deliberately NOT in the URL: a selection is ephemeral like a text selection, and
+   * putting 30 uuids in the address bar would make every shared link unusable.
+   *
+   * It is also **scoped to the current query** — the stored `key` is the serialized
+   * filter string, and any change to the filters discards the selection (derived
+   * during render, no effect). Otherwise "3 selected" could quietly refer to rows the
+   * user can no longer see, and a batch delete would hit them.
+   */
+  const queryKey = serializeIssueQuery(query);
+  const [selection, setSelection] = useState<{ key: string; ids: string[] }>({
+    key: queryKey,
+    ids: [],
+  });
+  const selectedIds = selection.key === queryKey ? selection.ids : [];
+  const setSelectedIds = useCallback(
+    (ids: string[]) => setSelection({ key: queryKey, ids }),
+    [queryKey],
+  );
+
+  const toggleSelect = useCallback(
+    (id: string) => {
+      const current = selection.key === queryKey ? selection.ids : [];
+      setSelection({
+        key: queryKey,
+        ids: current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+      });
+    },
+    [selection, queryKey],
+  );
 
   const states = statesQuery.data?.results ?? [];
   const labels = labelsQuery.data?.results ?? [];
@@ -225,6 +259,8 @@ function ProjectIssues() {
                 identifier={identifier}
                 selected={it.id === openIssueId}
                 onOpen={(id) => setOpenIssue(id)}
+                checked={selectedIds.includes(it.id)}
+                onToggleSelect={canCreate ? toggleSelect : undefined}
               />
             ))}
           </div>
@@ -285,6 +321,20 @@ function ProjectIssues() {
         tab={tab}
         onTabChange={setTab}
       />
+
+      {/* batch operations — viewers never see the checkboxes, so never this bar */}
+      {canCreate && selectedIds.length > 0 && (
+        <BulkActionBar
+          slug={slug}
+          projectId={projectId}
+          identifier={identifier}
+          selectedIds={selectedIds}
+          states={states}
+          labels={labels}
+          members={members}
+          onClearSelection={() => setSelectedIds([])}
+        />
+      )}
     </AppShell>
   );
 }

@@ -19,8 +19,9 @@
 | 前端 Sprint 3：Issue 核心 | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 3 devlog](frontend/docs/devlog/sprint-3-frontend.md) |
 | 前端 Sprint 4：Comments + Activity | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 4 devlog](frontend/docs/devlog/sprint-4-frontend.md) |
 | 前端 Sprint 5：Search + Filter + Sort | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 5 devlog](frontend/docs/devlog/sprint-5-frontend.md) |
-| 前端 Sprint 6：批量操作 + 异步任务 | 🟡 下一步 | ░░░░░░░░░░ | [FRONTEND_ROADMAP §2](frontend/FRONTEND_ROADMAP.md) |
-| 前端 Sprint 7–8：Realtime / Docker + CI | ⏳ 计划 | ░░░░░░░░░░ | — |
+| 前端 Sprint 6：批量操作 + 异步任务 | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 6 devlog](frontend/docs/devlog/sprint-6-frontend.md) |
+| 前端 Sprint 7：WebSocket Realtime | 🟡 下一步 | ░░░░░░░░░░ | [FRONTEND_ROADMAP §2](frontend/FRONTEND_ROADMAP.md) |
+| 前端 Sprint 8：Docker + CI + 收尾 | ⏳ 计划 | ░░░░░░░░░░ | — |
 
 > 实时进度详见 [docs/devlog/README.md](docs/devlog/README.md)（后端）+ [frontend/docs/devlog/](frontend/docs/devlog/)（前端）。
 
@@ -142,7 +143,7 @@ ruff check . && ruff format --check .
 
 ```bash
 cd frontend
-pnpm test        # node --test "tests/unit/**/*.test.mts"（37 用例，零依赖）
+pnpm test        # node --test "tests/unit/**/*.test.mts"（70 用例，零依赖）
 pnpm typecheck   # tsc --noEmit
 pnpm lint        # eslint
 pnpm build       # next build

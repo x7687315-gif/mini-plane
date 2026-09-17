@@ -19,8 +19,8 @@ OpenAPI 描述"接口长什么样"，下面的手写契约解释"行为为什么
 | [04-issues.md](api/04-issues.md) | Issue / Label CRUD + 列表查询引擎（过滤/搜索/排序/分页） | ✅ 已冻结（前端 Sprint 3） |
 | [05-comments.md](api/05-comments.md) | 评论 | ✅ 已冻结（前端 Sprint 4） |
 | [06-activities.md](api/06-activities.md) | 活动流（含文案映射表） | ✅ 已冻结（前端 Sprint 4） |
-| [07-cache-and-tasks.md](api/07-cache-and-tasks.md) | 缓存行为说明 + 批量任务状态接口 | 🟡 待前端确认（Sprint 6 实现后收口） |
-| [08-realtime.md](api/08-realtime.md) | WebSocket：握手、关闭码、事件帧、心跳 | 🟡 待前端确认（Sprint 7 实现后收口） |
+| [07-cache-and-tasks.md](api/07-cache-and-tasks.md) | 缓存行为说明 + 批量任务状态接口 | ✅ 已冻结（前端 Sprint 6 · 异步任务部分） |
+| [08-realtime.md](api/08-realtime.md) | WebSocket：握手、关闭码、事件帧、心跳 | 🟡 待前端确认（前端 Sprint 7 实现后收口） |
 | [09-frontend-integration.md](api/09-frontend-integration.md) | **前端接入指南**：环境地址、认证/CSRF 流程、错误与分页处理、实时与任务接入、自检清单 | 手册（随前端进展回填） |
 
 > **冻结的含义**：前端已按该契约实现并逐项验收通过，后端不再单方面变更；

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { Toaster } from "@/components/ui/Toaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,6 +20,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="zh-CN" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <QueryProvider>{children}</QueryProvider>
+        {/* Batch-operation results surface here (SCREEN_BLUEPRINTS §5.3). */}
+        <Toaster />
       </body>
     </html>
   );

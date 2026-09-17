@@ -14,6 +14,7 @@
 
 import { api } from "@/lib/api";
 import type { Paginated } from "@/types/project";
+import type { TaskRun } from "@/types/task";
 import type {
   CreateIssuePayload,
   CreateLabelPayload,
@@ -78,6 +79,31 @@ export async function deleteIssue(
   issueId: string,
 ): Promise<void> {
   return api<void>(`${issuesBase(slug, projectId)}/${issueId}`, { method: "DELETE" });
+}
+
+/**
+ * Bulk label assignment — docs/api/07-cache-and-tasks.md §2.1.
+ *
+ * **Asynchronous**: the server answers `202` with a TaskRun, not with the updated
+ * issues. The caller must poll `GET …/tasks/{task_id}/` and then refresh the lists.
+ *
+ * Semantics are **overwriting**, not additive: the selected issues' label set is
+ * *replaced* by `labelIds`, and `[]` clears every label. That is why the UI offers
+ * "set labels to X" rather than "add label X" — adding is not expressible here when
+ * the selected issues start with different label sets.
+ *
+ * Limits (400 field errors if exceeded): at most 200 `issue_ids`, 50 `label_ids`.
+ */
+export async function bulkSetLabels(
+  slug: string,
+  projectId: string,
+  issueIds: string[],
+  labelIds: string[],
+): Promise<TaskRun> {
+  return api<TaskRun>(`${issuesBase(slug, projectId)}/bulk/labels`, {
+    method: "POST",
+    json: { issue_ids: issueIds, label_ids: labelIds },
+  });
 }
 
 /* ---------------- labels ---------------- */
