@@ -1,0 +1,29 @@
+# Build context exclusions for frontend/Dockerfile (Sprint 8).
+#
+# `node_modules` and `.next` are the two that actually matter:
+#
+# - The builder stage copies `node_modules` from the `deps` stage and *then* does
+#   `COPY . .`. If the host's `node_modules` were part of the context, that second copy
+#   would overwrite the Linux-installed one with the host's — which on Windows is a set
+#   of pnpm symlinks that do not resolve inside the container. The build would fail in a
+#   way that looks like a source problem.
+# - `.next` would bloat the context and let a stale build cache leak in.
+
+node_modules
+.next
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# CI/local artefacts and docs are not needed to build the image
+.git
+.gitignore
+Dockerfile
+.dockerignore
+*.md
+docs
+tests
+
+# Never ship secrets into a build context
+.env
+.env.*
+!.env.example

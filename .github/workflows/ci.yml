@@ -95,3 +95,58 @@ jobs:
         run: python manage.py check_cache --settings=config.settings.local
         env:
           CACHE_URL: redis://127.0.0.1:6379/0
+
+  # ── 前端（Sprint 8）──────────────────────────────────────────────
+  # 顺序与后端 job 同一套逻辑：先最便宜最能拦住的（lint / 类型），最后才 build。
+  # 「四绿」的四个动作在 CI 里就是四个 step —— 与本地 `pnpm test && pnpm typecheck
+  # && pnpm lint && pnpm build` 完全一致，避免"本地绿 CI 红"。
+  frontend:
+    name: frontend（lint + 类型 + 单测 + 构建）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # 必须先装 pnpm 再 setup-node，否则 `cache: pnpm` 找不到命令
+      - uses: pnpm/action-setup@v4
+        with:
+          # 与 package.json 的 packageManager 字段保持一致
+          version: 11.25.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # --frozen-lockfile：lockfile 与 package.json 不一致时直接失败，
+      # 而不是"顺手更新一下"——那样会把依赖漂移悄悄带进 main
+      - name: 安装依赖（frozen lockfile）
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: 类型检查（tsc --noEmit）
+        run: pnpm typecheck
+
+      # 零依赖测试：node --test + Node 22 原生 TS 类型擦除，
+      # tests/alias-loader.mjs 负责解析 @/ 别名（见 sprint-5 devlog §2.5）
+      - name: 单元测试（node --test）
+        run: pnpm test
+
+      # 生产构建。next.config.ts 里 output: "standalone"，同时验证 Dockerfile 的
+      # 构建阶段能拿到产物；typescript/eslint 的 ignore* 均为 false，构建即把关
+      - name: 生产构建（next build）
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_BASE: http://127.0.0.1:8000
+          NEXT_PUBLIC_WS_BASE: ws://127.0.0.1:8001
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      # 构建产物自检：standalone 的入口必须存在，否则 Dockerfile 会在 COPY 时失败，
+      # 而那个失败发生在 Docker 阶段（本 job 看不到）——所以提前在这里断言
+      - name: 校验 standalone 产物存在
+        run: test -f .next/standalone/server.js

@@ -1,10 +1,15 @@
-# Mini Plane 架构（后端部分）
+# Mini Plane 架构（全栈）
 
 > 目标读者：刚接手的同学。读完后应该能回答：一个 HTTP 请求从进来到返回，穿过了哪些层？
 > 一次状态变更如何同时产生活动记录、实时推送和异步任务？
-> 前端部分由同学补充到本文件（协作总计划 §37 约定共同维护）。
+> 前端从点击到数据落屏走了哪几段？
+>
+> §0–§6 是后端视角，§7–§8 是前端视角（Sprint 8 补齐，协作总计划 §37 约定共同维护）。
 
-## 0. 一张图
+## 0. 一张图（后端视角）
+
+> 前端不在这个框里：`[frontend]` 容器只提供 SSR 壳与静态资源，
+> **所有业务数据都由浏览器直接打 `/api/v1/**`**（不走 Next 的服务端中转）。前端链路见 §7。
 
 ```text
                         ┌────────────────────── 容器/进程边界 ──────────────────────┐
@@ -92,6 +97,7 @@ services.py 投递 → broker（Redis db1）→ worker（celery -A config）
 | `web` | gunicorn | HTTP API（8000） | health 探测 DB+缓存，503 即 unhealthy |
 | `asgi` | daphne | HTTP + WebSocket（8001） | 同上，走 8001 |
 | `worker` | celery | 异步任务 | 无 HTTP，显式禁用 healthcheck |
+| `frontend` | node（standalone） | Next.js（3000） | `fetch /login`（唯一不依赖后端的页面） |
 | `db` | postgres:16 | 主库（数据卷 pg-data） | `pg_isready` |
 | `redis` | redis:7 | 缓存/broker/result/channel layer | `redis-cli ping` |
 
@@ -99,7 +105,15 @@ services.py 投递 → broker（Redis db1）→ worker（celery -A config）
 静态文件由 whitenoise 从 collectstatic 产物服务；`init` 单独成服务是为了避免
 三个进程并发 `migrate` 互相抢锁。
 
-## 6. 目录速查
+**前端容器的两个坑（都在 docker-compose.yml 里写了）**：
+
+1. `NEXT_PUBLIC_*` 是**构建期**常量（Next 会内联进客户端 bundle），所以走 `build.args`
+   而不是 `environment`——改地址必须重新 build；
+2. 打开页面请用 **http://localhost:3000**，因为 Session Cookie / CSRF 按来源校验，
+   `localhost:3000` 与 `127.0.0.1:3000` 在 CORS 白名单里是两个不同来源
+   （默认值已把两种写法都列上，自己改 `.env` 时留意）。
+
+## 6. 目录速查（后端）
 
 ```text
 backend/
@@ -112,3 +126,61 @@ docs/
 ├── api/               00–08 手写契约 + openapi.yaml（生成物，CI 保证一致）
 └── devlog/            每个 Sprint 一篇
 ```
+
+## 7. 前端请求链路（Sprint 8）
+
+```text
+浏览器
+  └─ Next.js App Router（[frontend] 容器，:3000）
+       ① Server Component 只渲染"壳"（字体 / 网格 / 骨架屏），不发业务请求；
+          鉴权是客户端行为：(protected)/layout.tsx 里的 <AuthGuard> 依据 /auth/me/
+       ② Client Component 取数据，链路只有一条：
+            features/<模块>/hooks.ts   （React Query：key、缓存、乐观更新）
+              → features/<模块>/api.ts （端点封装，一条 API 一个函数）
+                → lib/api.ts::api()    ← 统一出口；组件里不准直接 fetch
+                     · credentials: "include"（Session Cookie）
+                     · 写请求带 X-CSRFToken（读 csrftoken cookie）
+                     · 403 → 重取 /auth/csrf/ 后**重放一次**（CSRF 自愈）
+                     · 非 2xx → 抛 ApiError(status, body)，由调用方分流
+       ③ 错误分流（09 契约）：400 字段级（flattenErrors 拆字段）/ 401 跳登录
+          / 403 提示且不重试 / 404 按不存在处理 / 429 提示稍后
+       ④ 缓存失效成对设计：写操作只要会产生活动留痕，就必须同时失效
+          issueKeys 与 activityKeys（Sprint 4 修过的 bug 就是漏了后者）
+  └─ WebSocket（同一份 Session Cookie，握手期鉴权）
+       ProjectSocket（指数退避重连 + 心跳 + 僵尸检测）
+         → stores/ws.ts（六态状态机 + 握手角色）
+         → 收到帧只做"作废并重取"，**不**用 payload 重建本地对象
+           （payload 是展示用 diff，不含 state.id / 标签对象 —— 08 契约 §2.3）
+  └─ 异步任务轮询：useTaskRun（1s / 上限 30 次）→ 终态后失效列表与活动
+```
+
+前端侧的三条硬规则：
+
+- **URL 是筛选 / 抽屉 / 抽屉 tab 的唯一事实来源**——不放第二份 Zustand 副本，
+  两份状态必然漂移；默认值（`page=1`、`tab=activity`）不写进地址栏；
+- **不显示按钮 > 显示禁用按钮 > 点了才报 403**——权限判定是 `types/*.ts` 里的纯函数
+  （`canWrite` / `canManageComment`），有单测；
+- **契约里没有的能力不做**：后端没有「未指派」筛选就不放那个选项，没有关联端点就
+  不给 Refs 造假数据——UI 不提供后端兑现不了的按钮。
+
+## 8. 前端目录速查
+
+```text
+frontend/
+├── app/                App Router：(auth)/login|register · (protected)/…
+├── components/         ui（设计系统）· shell（AppShell/TopBar）· icons（自绘 SVG）
+│                       · issue（列表/抽屉/筛选/批量条）· activity（时间线）
+├── features/           auth · workspace · project · issue · comment · activity · task · realtime
+│                       每模块：api.ts（端点）· hooks.ts（React Query）
+│                       · 失败模式复杂的模块带一个纯策略文件（realtime/policy.ts、task/polling.ts）
+├── lib/                api.ts（统一 fetch + CSRF 自愈）· url.ts（筛选解析）· time.ts
+├── stores/             auth · toast · ws（Zustand；不含筛选状态）
+├── types/              与 docs/api/*.md 对齐的类型 + 可测的纯逻辑（文案映射、权限、序列化）
+├── tests/unit/         node --test 用例（98 个）+ alias-loader.mjs（解析 @/ 别名）
+├── docs/devlog/        每个 Sprint 一篇
+└── Dockerfile          多阶段：deps → builder → runner（standalone 产物）
+```
+
+测试与 CI 的对应关系：`pnpm lint / typecheck / test / build` 四个动作在
+`.github/workflows/ci.yml` 的 `frontend` job 里是四个 step ——「本地四绿 == CI 四绿」，
+避免出现"本地绿 CI 红"。

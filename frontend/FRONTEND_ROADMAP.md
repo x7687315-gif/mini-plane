@@ -25,7 +25,9 @@
 | 5 | Search + Filter + Sort | ✅ 已完成 | [sprint-5](docs/devlog/sprint-5-frontend.md) | 54 / ✅ / ✅ / ✅（11 路由） |
 | 6 | BulkActionBar + 异步任务 | ✅ 已完成 | [sprint-6](docs/devlog/sprint-6-frontend.md) | 70 / ✅ / ✅ / ✅（11 路由） |
 | 7 | WebSocket Realtime | ✅ 已完成 | [sprint-7](docs/devlog/sprint-7-frontend.md) | 98 / ✅ / ✅ / ✅（11 路由） |
-| 8 | Docker + CI + 收尾 | ⏳ 下一步 | — | — |
+| 8 | Docker + CI + 收尾 | ✅ 已完成 | [sprint-8](docs/devlog/sprint-8-frontend.md) | 98 / ✅ / ✅ / ✅（11 路由 · standalone 22MB） |
+
+**Sprint 0–8 全部完成** —— 结局清单见 [sprint-8-frontend.md §六](docs/devlog/sprint-8-frontend.md)。
 
 **当前四绿命令**（Sprint 4 起成为收尾标准动作）：
 

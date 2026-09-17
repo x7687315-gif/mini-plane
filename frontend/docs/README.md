@@ -17,7 +17,16 @@
 | 5 | Search + Filter + Sort + URL 同步 | ✅ 已完成 | [sprint-5-frontend.md](devlog/sprint-5-frontend.md) |
 | 6 | BulkActionBar + 异步任务 | ✅ 已完成 | [sprint-6-frontend.md](devlog/sprint-6-frontend.md) |
 | 7 | WebSocket Realtime | ✅ 已完成 | [sprint-7-frontend.md](devlog/sprint-7-frontend.md) |
-| 8 | Docker + CI + 收尾 | ⏳ 计划 | — |
+| 8 | Docker + CI + 收尾 | ✅ 已完成 | [sprint-8-frontend.md](devlog/sprint-8-frontend.md) |
+
+## 状态
+
+**Sprint 0–8 全部完成**（2026-09-17），8 份接口契约全部冻结，四绿为
+`test 98 / tsc / eslint / next build`。发布说明见 [docs/releases/v0.2.0.md](../../docs/releases/v0.2.0.md)。
+
+> 各篇日志的验收表里，**未实测的项都标了 ⚠️ / ⬜ 并写了原因**（主要是本机没有可跑的后端）。
+> 二期第一件事应该是把那些标号变成 ✅ —— 汇总清单见
+> [sprint-8-frontend.md §六](devlog/sprint-8-frontend.md)。
 
 ## 一个 Sprint 收尾时的固定动作
 

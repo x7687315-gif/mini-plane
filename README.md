@@ -21,7 +21,8 @@
 | 前端 Sprint 5：Search + Filter + Sort | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 5 devlog](frontend/docs/devlog/sprint-5-frontend.md) |
 | 前端 Sprint 6：批量操作 + 异步任务 | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 6 devlog](frontend/docs/devlog/sprint-6-frontend.md) |
 | 前端 Sprint 7：WebSocket Realtime | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 7 devlog](frontend/docs/devlog/sprint-7-frontend.md) |
-| 前端 Sprint 8：Docker + CI + 收尾 | 🟡 下一步 | ░░░░░░░░░░ | [FRONTEND_ROADMAP §2](frontend/FRONTEND_ROADMAP.md) |
+| 前端 Sprint 8：Docker + CI + 收尾 | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [Sprint 8 devlog](frontend/docs/devlog/sprint-8-frontend.md) |
+| **前端 MVP 收口（Sprint 0–8 全绿）** | ✅ 完成 | ▓▓▓▓▓▓▓▓▓▓ | [frontend/docs/devlog/](frontend/docs/devlog/) |
 
 > 实时进度详见 [docs/devlog/README.md](docs/devlog/README.md)（后端）+ [frontend/docs/devlog/](frontend/docs/devlog/)（前端）。
 
@@ -125,7 +126,15 @@ cp .env.example .env.local
 pnpm dev  # 默认 http://localhost:3000
 ```
 
-环境变量 `NEXT_PUBLIC_API_BASE` 默认 `http://127.0.0.1:8000`，`NEXT_PUBLIC_WS_BASE` 默认 `ws://127.0.0.1:8000`。
+> 也可以交给编排：`docker compose up --build -d` 会一起起 `frontend`（见下）。
+> 前端镜像用 Next 的 standalone 产物，所以 `NEXT_PUBLIC_*` 是**构建期**常量 ——
+> 改后端地址要 `docker compose build frontend` 重新构建，改环境变量没用。
+
+环境变量 `NEXT_PUBLIC_API_BASE` 默认 `http://127.0.0.1:8000`，`NEXT_PUBLIC_WS_BASE` 默认 `ws://127.0.0.1:8000`
+（本地 `runserver` 由 daphne 接管，HTTP 与 WS 同端口；compose 里 WS 走独立的 asgi 8001 端口）。
+
+> **compose 下请用 <http://localhost:3000> 打开，不要用 127.0.0.1:3000**：
+> Session Cookie 与 CSRF 按来源校验，两者在 CORS 白名单里是不同的来源。
 
 > **首次接入建议**：先跑后端，再启前端，打开 <http://localhost:3000> 应看到 Blueprint Editorial 风格的占位首页（[preview-sprint0-home.png](frontend/docs/assets/preview-sprint0-home.png)），证明字体 / 网格 / 组件全部加载成功。
 

@@ -3,12 +3,23 @@
 # 一条命令起全套（仓库根目录，需要 Docker Desktop / Docker Engine）：
 #     docker compose up --build -d
 # 起来之后：
+#     前端        http://localhost:3000/                   （Next.js，**必须用 localhost**，见下）
 #     健康检查    http://127.0.0.1:8000/api/v1/health/   （gunicorn，HTTP API）
 #     Swagger     http://127.0.0.1:8000/api/docs/
 #     WebSocket   ws://127.0.0.1:8001/ws/...             （daphne，与 HTTP 分开的端口，见下）
 #
 # 想只起 Redis 给"无 Docker 的本地开发流程"用（Sprint 6 老用法，仍然有效）：
 #     docker compose up -d redis
+#
+# ⚠️ 前端请用 **http://localhost:3000** 打开，不要用 http://127.0.0.1:3000。
+#    Session Cookie + CSRF 都按来源（origin）校验，而默认的 CORS/CSRF 白名单是
+#    localhost:3000。两个写法在白名单里是**不同的来源**。（为了让这一步少坑人，
+#    下面的 ALLOWED/CORS/CSRF 默认值已经把两种写法都列进去了；自己改 .env 时注意。）
+#
+# ⚠️ NEXT_PUBLIC_API_BASE / NEXT_PUBLIC_WS_BASE 是**构建期**常量（Next.js 会把它们
+#    内联进客户端 bundle），container 起来后再设环境变量无效。所以它们走 build.args
+#    而不是 environment —— 改地址要重新 build，这是 Next 的机制，不是这里配错了。
+#    它们用的是宿主机的 127.0.0.1:8000/8001，因为**浏览器**跑在宿主机上。
 #
 # 设计约定：
 # - db 端口刻意不映射到宿主机：容器间走 compose 内网；本地开发请用机器上自装的
@@ -28,8 +39,8 @@ x-backend-env: &backend-env
   CELERY_BROKER_URL: redis://redis:6379/1
   CELERY_RESULT_BACKEND: redis://redis:6379/2
   CHANNEL_REDIS_URL: redis://redis:6379/3
-  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
-  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
 
 services:
   # ── 基础设施 ─────────────────────────────────────────────
@@ -98,6 +109,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Sprint 8 补：HTTP API 是前端的硬依赖，必须能探活。
+    # （此前只有 asgi 有 healthcheck，`depends_on: service_healthy` 对 web 会直接报错，
+    #   前端服务也就无法正确地"等后端就绪再起"。）
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
     restart: unless-stopped
 
   # WebSocket 与 HTTP 分成两个端口是刻意的：gunicorn(WSGI) 服务 HTTP API，
@@ -142,6 +162,28 @@ services:
     # 真要探活可用 `celery inspect ping`（二期再议）
     healthcheck:
       disable: true
+    restart: unless-stopped
+
+  # ── 前端（Next.js standalone）──────────────────────────────
+  # 镜像很小（standalone 产物自带精简 node_modules），但**必须重新 build 才能换地址**：
+  # NEXT_PUBLIC_* 在构建期被内联进客户端 bundle，见文件头说明。
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # 浏览器在宿主机上跑，所以这里写宿主机的地址，不是 compose 服务名
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://127.0.0.1:8000}
+        # compose 里 WS 是独立的 asgi 端口（见下面 asgi 服务的注释）
+        NEXT_PUBLIC_WS_BASE: ${NEXT_PUBLIC_WS_BASE:-ws://127.0.0.1:8001}
+    image: miniplane-frontend:latest
+    container_name: miniplane-frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      # 只等 HTTP API 就绪；WS 后起不影响页面加载（前端会重连），
+      # 但如果等 asgi 健康检查会让首次 `up` 无谓地慢几十秒。
+      web:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
