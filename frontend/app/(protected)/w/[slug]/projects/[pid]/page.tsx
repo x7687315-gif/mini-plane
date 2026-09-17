@@ -1,0 +1,293 @@
+"use client";
+
+import { Suspense, useCallback, useMemo, useState } from "react";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AppShell } from "@/components/shell/AppShell";
+import { Button, Card, MeasureLine } from "@/components/ui";
+import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
+import { FilterBar } from "@/components/issue/FilterBar";
+import { IssueRow } from "@/components/issue/IssueRow";
+import { IssueDrawer } from "@/components/issue/IssueDrawer";
+import { CreateIssueModal } from "@/components/issue/CreateIssueModal";
+import { useIssueFilters, useIssues } from "@/features/issue";
+import { useProject, useProjectStates } from "@/features/project";
+import { useWorkspace } from "@/features/workspace";
+import { ApiError } from "@/lib/api";
+import { canWrite } from "@/types/workspace";
+import type { Issue } from "@/types/issue";
+
+/**
+ * Project issue list — the core screen. See SCREEN_BLUEPRINTS §2.7.
+ *
+ * URL owns three pieces of state:
+ * - filters + ordering + page  → `useIssueFilters()`
+ * - open drawer                → `?issue=<id>`
+ *
+ * A <Suspense> wrapper is required because both `useIssueFilters()` and this
+ * page read `useSearchParams()`.
+ */
+export default function ProjectIssuesPage() {
+  return (
+    <Suspense fallback={<ListSkeleton />}>
+      <ProjectIssues />
+    </Suspense>
+  );
+}
+
+function ProjectIssues() {
+  const params = useParams<{ slug: string; pid: string }>();
+  const slug = params?.slug ?? "";
+  const projectId = params?.pid ?? "";
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openIssueId = searchParams.get("issue");
+
+  const { query, patch, clear } = useIssueFilters();
+
+  const ws = useWorkspace(slug);
+  const project = useProject(slug, projectId);
+  const statesQuery = useProjectStates(slug, projectId);
+  const issuesQuery = useIssues(slug, projectId, query);
+
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const states = statesQuery.data?.results ?? [];
+  const issues: Issue[] = issuesQuery.data?.results ?? [];
+  const total = issuesQuery.data?.count ?? 0;
+  const role = project.data?.current_user_role;
+  const identifier = project.data?.identifier ?? "ISS";
+
+  const perPage = 50;
+  const page = query.page ?? 1;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+  /** Write `?issue=<id>` without touching the filter params. */
+  const setOpenIssue = useCallback(
+    (id: string | null) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (id) next.set("issue", id);
+      else next.delete("issue");
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+
+  const headerSubtitle = useMemo(() => {
+    if (project.isLoading) return "loading…";
+    if (!project.data) return "—";
+    return `${project.data.name} · ${total} issues · ${states.length} states`;
+  }, [project.isLoading, project.data, total, states.length]);
+
+  return (
+    <AppShell
+      topbar={{
+        workspace: ws.data?.name,
+        project: project.data ? `${project.data.name} · ${identifier}` : undefined,
+        role: ws.data?.current_role,
+      }}
+      rail={{ current: slug }}
+      hideAside
+    >
+      <div className="flex items-end justify-between mb-2">
+        <div>
+          <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">
+            {project.isLoading ? "…" : (project.data?.name ?? "Issues")}
+          </h1>
+          <p className="font-serif italic text-[14px] text-[color:var(--color-ink-3)] mt-1 tracking-[0.04em]">
+            {headerSubtitle}
+          </p>
+        </div>
+        {canWrite(role) && (
+          <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
+            <PlusIcon size={12} />
+            <span>new issue</span>
+          </Button>
+        )}
+      </div>
+
+      <MeasureLine
+        left={`PROJ · ${identifier}`}
+        right={`${total} ITEMS · PAGE ${page}/${totalPages}`}
+      />
+
+      {project.isError && (
+        <Card className="mb-5">
+          <p className="text-[13px] text-[color:var(--color-ink-2)]">
+            {project.error instanceof ApiError && project.error.status === 404
+              ? "该项目不存在，或你不在其中（后端按防枚举语义返回 404）。"
+              : "无法加载项目。"}
+          </p>
+        </Card>
+      )}
+
+      {!project.isError && (
+        <FilterBar
+          query={query}
+          states={states}
+          total={total}
+          onPatch={patch}
+          onClear={clear}
+        />
+      )}
+
+      {/* list */}
+      {issuesQuery.isLoading && <ListSkeleton />}
+
+      {issuesQuery.isError && (
+        <Card>
+          <p className="text-[13px] text-[color:var(--color-ink-2)]">
+            {issuesQuery.error instanceof ApiError && issuesQuery.error.status === 400
+              ? "筛选参数不合法（后端返回 400）。请点击 clear 重置筛选。"
+              : "无法加载 Issue 列表。"}
+          </p>
+        </Card>
+      )}
+
+      {!issuesQuery.isLoading && !issuesQuery.isError && issues.length === 0 && (
+        <EmptyIssues
+          filtered={Boolean(query.state?.length || query.priority?.length || query.assignee || query.labels?.length || query.search)}
+          canCreate={canWrite(role)}
+          onCreate={() => setCreateOpen(true)}
+          onClear={clear}
+        />
+      )}
+
+      {issues.length > 0 && (
+        <>
+          <div className="border-t border-[color:var(--color-rule)]">
+            {issues.map((it) => (
+              <IssueRow
+                key={it.id}
+                issue={it}
+                identifier={identifier}
+                selected={it.id === openIssueId}
+                onOpen={(id) => setOpenIssue(id)}
+              />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-5">
+              <span className="text-[9px] uppercase tracking-[0.24em] text-[color:var(--color-ink-3)] font-sans font-medium">
+                showing {issues.length} of {total}
+              </span>
+              <span className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => patch({ page: page - 1 })}
+                  className="flex items-center gap-1 text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-2)] hover:text-[color:var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeftIcon size={11} />
+                  prev
+                </button>
+                <span className="text-[10px] font-serif italic text-[color:var(--color-ink-3)]">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => patch({ page: page + 1 })}
+                  className="flex items-center gap-1 text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-2)] hover:text-[color:var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  next
+                  <ChevronRightIcon size={11} />
+                </button>
+              </span>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* create */}
+      <CreateIssueModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        slug={slug}
+        projectId={projectId}
+        states={states}
+        onCreated={(id) => setOpenIssue(id)}
+      />
+
+      {/* detail drawer */}
+      <IssueDrawer
+        open={Boolean(openIssueId)}
+        onClose={() => setOpenIssue(null)}
+        slug={slug}
+        projectId={projectId}
+        identifier={identifier}
+        issueId={openIssueId}
+        states={states}
+        role={role}
+      />
+    </AppShell>
+  );
+}
+
+function EmptyIssues({
+  filtered,
+  canCreate,
+  onCreate,
+  onClear,
+}: {
+  filtered: boolean;
+  canCreate: boolean;
+  onCreate: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="h-px w-12 bg-[color:var(--color-rule)]" />
+        <span className="bp-hint">{filtered ? "fig · no match" : "fig · empty"}</span>
+        <div className="h-px w-12 bg-[color:var(--color-rule)]" />
+      </div>
+      <h2 className="font-serif italic text-[24px] text-[color:var(--color-ink)]">
+        {filtered ? "Nothing matches these filters" : "No issues yet"}
+      </h2>
+      <p className="mt-2 text-[12px] text-[color:var(--color-ink-2)] max-w-md">
+        {filtered
+          ? "The query returned an empty page. Try widening the filters or clearing them."
+          : "Create the first issue — it will get a project-scoped number automatically."}
+      </p>
+      <div className="mt-6 flex items-center gap-3">
+        {filtered && (
+          <Button variant="secondary" onClick={onClear}>
+            clear filters
+          </Button>
+        )}
+        {!filtered && canCreate && (
+          <Button variant="primary" onClick={onCreate}>
+            <PlusIcon size={12} />
+            <span>new issue</span>
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <div className="space-y-0" aria-hidden>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className="grid grid-cols-[78px_1fr_auto_auto_auto] gap-3.5 items-center py-3 pr-2 border-b border-dashed border-[color:var(--color-rule)]"
+        >
+          <div className="h-4 w-14 bg-[color:var(--color-paper-2)]" />
+          <div>
+            <div className="h-3.5 w-2/3 bg-[color:var(--color-paper-2)] mb-2" />
+            <div className="h-2.5 w-1/3 bg-[color:var(--color-paper-2)]" />
+          </div>
+          <div className="h-5 w-14 bg-[color:var(--color-paper-2)]" />
+          <div className="h-2.5 w-2.5 bg-[color:var(--color-paper-2)]" />
+          <div className="h-6 w-6 rounded-full bg-[color:var(--color-paper-2)]" />
+        </div>
+      ))}
+    </div>
+  );
+}

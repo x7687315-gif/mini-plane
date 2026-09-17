@@ -42,3 +42,6 @@ export type { ModalProps } from "./Modal";
 
 export { RoleBadge } from "./RoleBadge";
 export type { RoleBadgeProps } from "./RoleBadge";
+
+export { EditableField } from "./EditableField";
+export type { EditableFieldProps, EditableOption } from "./EditableField";

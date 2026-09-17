@@ -1,0 +1,40 @@
+/**
+ * Time formatting helpers.
+ *
+ * Kept in one place so the whole UI speaks the same tense/format
+ * (the design language cares about editorial consistency).
+ */
+
+import { formatDistanceToNow as dfFormatDistanceToNow, format } from "date-fns";
+
+/** "2 minutes", "3 days" — no suffix (callers add "ago" when they want it). */
+export function formatDistanceToNow(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return dfFormatDistanceToNow(d, { addSuffix: false });
+}
+
+/** "2026-09-17 14:03" — used in the drawer's activity feed. */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return format(d, "yyyy-MM-dd HH:mm");
+}
+
+/** "14:03" — compact form for activity rows. */
+export function formatTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return format(d, "HH:mm");
+}
+
+/** "17 Sep 2026" — for detail panes. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return format(d, "dd MMM yyyy");
+}
