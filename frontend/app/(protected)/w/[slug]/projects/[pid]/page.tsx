@@ -7,9 +7,9 @@ import { Button, Card, MeasureLine } from "@/components/ui";
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { FilterBar } from "@/components/issue/FilterBar";
 import { IssueRow } from "@/components/issue/IssueRow";
-import { IssueDrawer, normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
-import { CreateIssueModal } from "@/components/issue/CreateIssueModal";
+import { normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
 import { BulkActionBar } from "@/components/issue/BulkActionBar";
+import dynamic from "next/dynamic";
 import { useIssueFilters, useIssues, useLabels } from "@/features/issue";
 import { useProject, useProjectMembers, useProjectStates } from "@/features/project";
 import { useProjectRealtime } from "@/features/realtime";
@@ -19,6 +19,31 @@ import { hasActiveFilters } from "@/lib/url";
 import { flattenErrors } from "@/types/auth";
 import { canWrite } from "@/types/workspace";
 import { serializeIssueQuery, type Issue } from "@/types/issue";
+
+/**
+ * 代码分割（2026-09-18，为 Lighthouse 而从报告数据倒推出来的）。
+ *
+ * 这两个组件的依赖很重但**首屏不需要**：
+ * - `CreateIssueModal` 用了 react-hook-form + zod + @hookform/resolvers（约 24KB gzip），
+ *   但它在用户点「new issue」之前永远不会渲染；
+ * - `IssueDrawer` 拖着整个评论/活动/侧拉逻辑，只有 `?issue=` 存在时才需要。
+ *
+ * 静态 import 会把它们无条件算进列表页的首屏 bundle。Lighthouse 报告显示
+ * 主线程 2.8s 里 **Script Evaluation 占 1235ms** —— 这是当时最大的一块。
+ *
+ * 注意 `ssr` 的选择：
+ * - 弹窗 `ssr: false`（它只在客户端交互后出现，SSR 出来也没用）；
+ * - 抽屉**保留 SSR**：分享出去的 `?issue=<id>` 链接仍要能直出抽屉内容，
+ *   而按需加载的 **客户端** chunk 依然被拆出去了，两边都拿到。
+ */
+const CreateIssueModal = dynamic(
+  () => import("@/components/issue/CreateIssueModal").then((m) => m.CreateIssueModal),
+  { ssr: false },
+);
+
+const IssueDrawer = dynamic(
+  () => import("@/components/issue/IssueDrawer").then((m) => m.IssueDrawer),
+);
 
 /**
  * Project issue list — the core screen. See SCREEN_BLUEPRINTS §2.7.

@@ -179,29 +179,64 @@ node-linker=hoisted          # 本次未真正切换（增量安装保留了既�
 
 生产构建下、**登录后的真实 Issue 列表页**（不是登录页，因为受保护页才有意义）：
 
-| 类别 | 分数 | 目标 |
-|------|------|------|
-| performance | **79** | 90 ❌ |
-| accessibility | **96** | — |
-| best-practices | **100** | — |
+| 类别 | 优化前 | 优化后（3 次中位数） | 目标 |
+|------|--------|---------------------|------|
+| performance | 79 | **89**（89 / 89 / 86） | 90 ❌（差 1） |
+| accessibility | 96 | **96** | — |
+| best-practices | 100 | **100** | — |
 
-指标：FCP 1.1s · LCP 3.4s · TBT 440ms · CLS 0.096 · SI 1.1s
+指标（优化前 → 优化后中位数）：
 
-### 性能 79 的诚实结论
+| 指标 | 前 | 后 | 评价 |
+|------|----|----|------|
+| Total Blocking Time | 440ms | **88ms** | ✅ 从"需改进"进入"良好"（<200ms） |
+| Script Evaluation（主线程） | 1235ms | **583ms** | ✅ 砍掉一半 |
+| Style & Layout（主线程） | 933ms | **344ms** | ✅ 砍掉近三分之二 |
+| Speed Index | 1.1s | 1.1s | — |
+| FCP | 1.1s | 1.1s | — |
+| **LCP** | 3.4s | **3.36s** | ❌ 仍是唯一瓶颈（阈值 2.5s） |
+| CLS | 0.096 | ~0.096 | — |
 
-**没达标**，且这次能给出具体方向（都是实测数据指出的，不是猜）：
+### 优化做了什么（都是报告数据倒推出来的，不是猜）
 
-1. **TBT 440ms** —— 主线程被 JS 占用。首屏是"SSR 壳 + 客户端取数"，
-   React Query / zustand / date-fns 都在客户端解析；
-2. **LCP 3.4s** —— 壳里的字体是关键路径：`globals.css` 用 `@import` 引了
-   **10 个 `@fontsource` CSS**（Cormorant 4 字重 + 3 斜体、Inter 2、JetBrains Mono 1），
-   `@import` 是串行的，会推迟首屏文字渲染；
-3. CLS 0.096 —— 骨架屏切换到真实行的位移。
+Lighthouse 报告显示主线程 2.8s 的构成是 **Script Evaluation 1235ms + Style & Layout 933ms**，
+而未用 JS 只有 25KiB（所以"删代码"不是答案）。据此做了两处低风险改动：
 
-**下一步的最低成本动作**：把 `@import` 改成 `next/font`（自托管 + 预加载 + 只引实际用到的字重），
-并把 Cormorant 的斜体字重收敛。预期能同时改善 LCP 与 TBT。
+1. **列表页代码分割**（`app/(protected)/w/[slug]/projects/[pid]/page.tsx`）：
+   `CreateIssueModal` 与 `IssueDrawer` 改成 `next/dynamic`。
+   原因很具体 —— 弹窗用 react-hook-form + zod + @hookform/resolvers（约 24KB gzip），
+   抽屉拖着整套评论/活动逻辑，而**两者在首屏都不需要**：静态 import 会把它们无条件
+   算进列表页 bundle。弹窗用 `ssr: false`；抽屉**保留 SSR**（分享出去的 `?issue=` 链接
+   仍要能直出内容，而客户端 chunk 照样被拆出去）。
+2. **收敛字重**：全仓库 grep 发现 `font-semibold` / `font-bold` **0 次使用**，
+   于是删掉 Cormorant 600（正体 + 斜体）两个 `@fontsource` 引入 ——
+   每多引一个字重就多一个渲染阻塞 CSS + 一套 woff2。
 
-本次**没有**做这个优化：它属于新的工作项，而不是"结账"。记在这里作为明确的待办。
+> 注意：**所有分块的总和没有变小**（985KB → 995KB raw）。代码分割不减少总量，
+> 它改变的是"首屏要下载并执行多少"。所以判断这类优化不能看总和，
+> 必须看 Lighthouse 的 TBT / Script Evaluation，或首屏实际传输量。
+
+### LCP 3.36s 的诚实结论：这个差距不是"再抠一点"能补的
+
+先排除了一个想当然的怀疑：**字体不是 LCP 的元凶**。网络时序显示 5 个字体文件
+在 **575–589ms** 就全部到位，早于 FCP（1.1s）—— 也就是说字体没有推迟首屏。
+
+真正的原因在架构：这个页面是「SSR 出壳 + 客户端取数」。
+FCP 1.1s 画的是壳（标题、筛选栏、骨架屏），而 **LCP 元素是数据行**，
+它必须等：hydration 完成 → `useIssues` 发请求 → 后端返回 → 渲染。
+这段不可压缩的往返（≈2.2s）就是 FCP 与 LCP 之间的全部差距。
+
+**能真正解决它的只有一条路**：把首屏数据搬到服务端预取并注水
+（Server Component 里 `prefetchQuery` + `HydrationBoundary`），
+让 LCP 元素出现在 SSR 的 HTML 里，LCP 就会回落到接近 FCP。
+
+**本次没有做**，理由是它是对旗舰页面的架构改动（涉及 `searchParams` 的异步化、
+服务端转发 cookie、以及客户端缓存键必须与服务端预取键逐字一致），
+一旦出错影响面是"整个项目页"，而当前 E2E 尚不足以覆盖这种改动的所有回归路径。
+记在这里，作为下一步的第一优先项 —— 它同时是 LCP 的解法和"更快的首屏"这个真实收益。
+
+> 另外明确一条**不做**的事：把骨架屏画大一点能让 LCP 数字变好看（LCP 变成骨架屏，
+> 出现时间提前），但那是纯粹的指标作弊，用户不会因此更快看到内容。不做。
 
 ## 六、5 笔账的逐条结算
 
@@ -209,7 +244,7 @@ node-linker=hoisted          # 本次未真正切换（增量安装保留了既�
 |---|----|------|------|
 | 1 | **端到端验收**（登录闭环 / 评论时间线 / 批量改标签 / A→B 实时） | ✅ **结清** | 后端冒烟 54/54 + 实时冒烟 7 项 + E2E 13/13；并**修掉了它挖出的 host bug** |
 | 2 | **E2E 与组件测试** | 🟡 **一半** | E2E 落地（13 用例，可进 CI）；**组件测试仍未做**（需 Vitest，本次只解决了 pnpm 安装这个前置） |
-| 3 | **Lighthouse ≥ 90** | 🟡 **已测未达标** | 真数据 79/96/100；候选原因与下一步已列（§五） |
+| 3 | **Lighthouse ≥ 90** | 🟡 **已优化到 89** | 79 → **89**（3 次中位数）；TBT 440→88ms、脚本执行 1235→583ms；差 1 分，瓶颈是 LCP 3.36s，解法与理由见 §五 |
 | 4a | 批量失败的重试入口 | ⬜ 未做 | 仍是 Sprint 6 记的那笔 |
 | 4b | `docs/assets/` 换真实截图 | 🟡 **可做了** | 前置（能跑栈）已具备，本次未做（预算花在验收与修 bug 上） |
 | 4c | 契约 09 回填常见坑 | ⬜ 未做 | 但本次踩到的坑已全部记录在案，回填素材就绪 |
@@ -246,6 +281,8 @@ frontend/docs/devlog/integration-verification.md   # 本文件
 | `docker-compose.yml` | `NEXT_PUBLIC_*` 默认值改 localhost |
 | `frontend/.gitignore` | 排除 `.auth/`、`playwright-report/`、`test-results/` |
 | `frontend/package.json` | 新增 `@playwright/test`、`lighthouse`；`test:e2e` 脚本 |
+| `app/(protected)/w/[slug]/projects/[pid]/page.tsx` | **性能优化**：弹窗/抽屉改 `next/dynamic` 代码分割 |
+| `app/globals.css` | **性能优化**：删掉零使用的 Cormorant 600 字重引入（2 个） |
 
 ## 八、怎么复现
 
@@ -271,8 +308,9 @@ pnpm exec lighthouse "http://localhost:3000/<项目页>" --extra-headers='{"Cook
 
 ## 九、下一步（按性价比排序）
 
-1. **字体加载**：`@import` → `next/font`，收敛字重。预计同时改善 LCP 与 TBT，
-   是 Lighthouse 从 79 冲 90 的最低成本动作。
+1. **首屏数据服务端预取**（LCP 的唯一解法，也是 Lighthouse 89 → 90+ 的路径）：
+   把首屏 Issue 列表在 Server Component 里 `prefetchQuery` + `HydrationBoundary` 注水
+   （§五 有完整论证）。这同时是真实的用户体验收益，不只是分数。
 2. **组件测试**：pnpm 安装已解封，可以装 Vitest + Testing Library 了。
    E2E 只覆盖主链路，边界（空态、错误态、权限态）更适合组件测试。
 3. **批量失败的重试入口**（Sprint 6 的账）：把失败的 id 留在操作条里给一个 `retry failed`。

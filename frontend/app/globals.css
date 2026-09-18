@@ -1,14 +1,20 @@
 @import "tailwindcss";
 
 /* Self-hosted fonts via @fontsource (npm) — Google Fonts CDN unreachable from sandboxed build */
+/*
+ * ⚠️ 每多引一个字重就多一个**渲染阻塞**的 CSS 请求 + 一套 woff2。
+ * 2026-09-18 按 Lighthouse 报告收敛过一次：
+ * - 去掉 Cormorant 600（正体 + 斜体）—— 全仓库 grep `font-semibold` / `font-bold`
+ *   结果是 **0 次使用**，纯死重；
+ * - 其余字重保留：`font-medium`(500) 用了 62 处、`italic` 105 处、400 是正文默认。
+ * 再想加字重前，先 grep 确认真的有人用。
+ */
 @import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/cormorant-garamond/400.css";
 @import "@fontsource/cormorant-garamond/500.css";
-@import "@fontsource/cormorant-garamond/600.css";
 @import "@fontsource/cormorant-garamond/400-italic.css";
 @import "@fontsource/cormorant-garamond/500-italic.css";
-@import "@fontsource/cormorant-garamond/600-italic.css";
 @import "@fontsource/jetbrains-mono/400.css";
 
 /*
