@@ -1,4 +1,4 @@
-param(
+﻿param(
     # up (default) / down / status / e2e
     [string]$Cmd = 'up'
 )
@@ -17,6 +17,8 @@ param(
 # ============================================================
 
 $ErrorActionPreference = 'Stop'
+# Invoke-WebRequest 的进度条会刷屏/拖慢，静音
+$ProgressPreference = 'SilentlyContinue'
 
 $Root     = Split-Path -Parent $PSScriptRoot
 $Backend  = Join-Path $Root 'backend'
