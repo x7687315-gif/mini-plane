@@ -140,8 +140,51 @@ me（401 → 登录页）
 
 ## 十、常见坑（踩过的都在这）
 
+> 本节由前端同学回填：以下每一条都是**真实踩过并修过**的，附现象与根因，不是提醒清单。
+> 最近一次回填：2026-09-18（集成验收），详细过程见
+> [frontend/docs/devlog/integration-verification.md](../../frontend/docs/devlog/integration-verification.md)。
+
 1. **尾斜杠**：`/api/v1/auth/login`（无斜杠）会被 301；浏览器重放 POST 时可能变 GET。
-2. **localhost 跨端口是同站**：3000 → 8000 不受 SameSite=Lax 影响，正常带 cookie。
-3. **401 vs 403 vs 404**：401 去登录；403 先自愈 CSRF 再提示；404 是"不可见"，别重试。
-4. **current_role / current_user_role 是每请求注入的**，不会出现在缓存里，也不需要前端缓存。
-5. 改了接口记得重新生成 `docs/api/openapi.yaml`（CI 有 diff 检查），Swagger 与实现永远一致。
+
+2. **⚠️ 页面与 API 必须同 host —— 这是本项目最贵的一个坑**（2026-09-18 实测）
+
+   `localhost:3000` → `localhost:8000`：**同站跨端口，cookie 正常**。
+   但 `localhost:3000` → `127.0.0.1:8000`：**不同 host，全线崩溃**：
+   - 后端 `SESSION_COOKIE_SAMESITE="Lax"`，跨站 fetch **不会带**会话 cookie；
+   - 更致命的是 `csrftoken`：它落在 `127.0.0.1` 域上，而前端用 `document.cookie` 读，
+     在 `localhost` 页面上**永远读不到** → 所有写请求 403；
+     且 403 自愈会重取 `/auth/csrf/`，新 cookie 仍落在 127.0.0.1 → 重放依旧 403，**死循环**。
+   - 症状极具误导性：**读操作一切正常**（列表能显示、能翻页），
+     只有登录/建 Issue/改状态/发评论/批量操作失败。八个 Sprint 都没发现，
+     就是因为后端测试是 Python 客户端、不执行浏览器 cookie 策略。
+   - 规则：`NEXT_PUBLIC_API_BASE` / `NEXT_PUBLIC_WS_BASE` 的 **host 必须与页面一致**
+     （端口随意）。WebSocket 同理：host 不一致时握手带不上 cookie，直接收 **4401**。
+   - 诊断口诀：**"能看不能写" → 先怀疑 host，而不是权限。**
+
+3. **CSRF：`/auth/csrf/` 不返回令牌，且登录时会轮换**
+
+   - 响应体只有 `{"detail": "CSRF cookie 已设置。"}` —— 令牌**只能从 cookie 读**
+     （`document.cookie` 里的 `csrftoken`），别指望从 body 里取。
+   - **登录成功会轮换 `csrftoken`**（Django `login()` 的既有行为）。所以：
+     登录前抓的令牌在登录后失效；任何"缓存令牌"的写法都会在登录后踩 403。
+   - 正确姿势就是前端 `lib/api.ts` 现在的做法：**每个写请求现读 cookie**，
+     403 时重取一次再重放。服务端返回的是
+     `CSRF Failed: CSRF token from the 'X-Csrftoken' HTTP header incorrect.`
+     —— 看到 `incorrect` 就说明"会话没问题，只是令牌与当前 cookie 不匹配"。
+
+4. **401 vs 403 vs 404**：401 去登录；403 先自愈 CSRF 再提示；404 是"不可见"，别重试。
+
+5. **current_role / current_user_role 是每请求注入的**，不会出现在缓存里，也不需要前端缓存。
+
+6. 改了接口记得重新生成 `docs/api/openapi.yaml`（CI 有 diff 检查），Swagger 与实现永远一致。
+
+### 附：前端开发环境的坑（不在 API 层，但会拦住接入）
+
+- **pnpm 在 Windows 上装不了新依赖**：报
+  `UNKNOWN: unknown error, symlink`（等价于 `os error 1314`：非管理员进程
+  不许建符号链接）。修法是 `frontend/.npmrc` 里的 `package-import-method=copy`
+  （实测生效）+ `node-linker=hoisted`（重装时的保险）。**不加这个文件，
+  任何 `pnpm add` 都会失败**，E2E / Vitest 之类都装不上。
+- **前端单元测试是零依赖的**（`node --test` + Node 原生 TS），
+  `tests/alias-loader.mjs` 负责解析 `@/` 别名 —— 所以 `lib/url.ts` 这类用了别名的
+  纯函数也能被测。组件测试需要 Vitest（装依赖的前提就是上面那条）。

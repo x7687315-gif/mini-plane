@@ -126,33 +126,58 @@ export function BulkActionBar({
     [labels],
   );
 
-  /* ---------------- field batches (N sequential requests) ---------------- */
+  /* ---------------- 批量执行（含"只重试失败的那些"） ---------------- */
 
-  const describeFailure = (outcome: { ok: number; failed: number; firstError: string | null }) => {
-    if (outcome.failed === 0) return null;
-    return `${outcome.failed} 个失败（首个原因：${outcome.firstError ?? "未知"}）`;
-  };
-
-  const runFieldBatch = async (
-    payload: Parameters<typeof updateIssues.mutateAsync>[0]["payload"],
-    optimistic: Parameters<typeof updateIssues.mutateAsync>[0]["optimistic"],
-    successVerb: string,
-  ) => {
-    setProgress({ done: 0, total: count });
-    try {
-      const outcome = await updateIssues.mutateAsync({
-        issueIds: selectedIds,
-        payload,
-        optimistic,
-        onProgress: (done, total) => setProgress({ done, total }),
-      });
-      const failure = describeFailure(outcome);
-      if (failure) {
-        toast.error(`${successVerb} ${outcome.ok}/${count} 成功 · ${failure}`);
-      } else {
-        toast.success(`${successVerb} · ${outcome.ok} 个任务`);
-        onClearSelection();
+  /**
+   * 一次批量操作的完整描述。
+   *
+   * 记住这个是为了**重试**：失败时不能只丢一句提示就完事 ——
+   * 用户看到"2 个失败"却不知道是哪两条，只能回列表里猜（Sprint 6 留下的那笔账）。
+   * 把操作本身和失败的 id 都留着，就能给一个"retry failed"，把没做完的事做完。
+   */
+  type BulkOp =
+    | {
+        kind: "field";
+        payload: Parameters<typeof updateIssues.mutateAsync>[0]["payload"];
+        optimistic: Parameters<typeof updateIssues.mutateAsync>[0]["optimistic"];
+        /** 完成文案前缀，如「已把状态改为 Done」。 */
+        verb: string;
       }
+    | { kind: "delete" };
+
+  const [retry, setRetry] = useState<{ ids: string[]; op: BulkOp } | null>(null);
+
+  const execute = async (op: BulkOp, ids: string[]) => {
+    if (ids.length === 0) return;
+    const label = op.kind === "delete" ? "删除" : op.verb;
+    setProgress({ done: 0, total: ids.length });
+    try {
+      const onProgress = (done: number, total: number) => setProgress({ done, total });
+      const outcome =
+        op.kind === "delete"
+          ? await deleteIssues.mutateAsync({ issueIds: ids, onProgress })
+          : await updateIssues.mutateAsync({
+              issueIds: ids,
+              payload: op.payload,
+              optimistic: op.optimistic,
+              onProgress,
+            });
+
+      if (outcome.failed > 0) {
+        // 部分失败：不静默、不夸大，把「还差哪几条」留在界面上
+        setRetry({ ids: outcome.failedIds, op });
+        toast.error(
+          `${label} ${outcome.ok}/${ids.length} 成功 · ${outcome.failed} 个失败` +
+            `（首个原因：${outcome.firstError ?? "未知"}）· 可点「retry failed」只重试这些`,
+        );
+        return;
+      }
+
+      setRetry(null);
+      toast.success(
+        op.kind === "delete" ? `已删除 ${outcome.ok} 个任务` : `${label} · ${outcome.ok} 个任务`,
+      );
+      onClearSelection();
     } catch (e) {
       toast.error(e instanceof ApiError ? `批量操作失败（HTTP ${e.status}）` : "网络异常。");
     } finally {
@@ -163,42 +188,35 @@ export function BulkActionBar({
   const handleSetState = (stateId: string) => {
     const next = states.find((s) => s.id === stateId);
     if (!next) return;
-    void runFieldBatch({ state_id: next.id }, { state: next }, `已把状态改为 ${next.name}`);
+    void execute(
+      { kind: "field", payload: { state_id: next.id }, optimistic: { state: next }, verb: `已把状态改为 ${next.name}` },
+      selectedIds,
+    );
   };
 
   const handleSetPriority = (priority: IssuePriority) => {
-    void runFieldBatch({ priority }, { priority }, `已把优先级改为 ${priority}`);
+    void execute(
+      { kind: "field", payload: { priority }, optimistic: { priority }, verb: `已把优先级改为 ${priority}` },
+      selectedIds,
+    );
   };
 
   const handleSetAssignee = (userId: string | null) => {
     const member = members.find((m) => m.user.id === userId);
-    void runFieldBatch(
-      { assignee_id: userId },
-      { assignee: member ? member.user : null },
-      userId ? `已指派给 ${member?.user.username ?? "成员"}` : "已清空指派人",
+    void execute(
+      {
+        kind: "field",
+        payload: { assignee_id: userId },
+        optimistic: { assignee: member ? member.user : null },
+        verb: userId ? `已指派给 ${member?.user.username ?? "成员"}` : "已清空指派人",
+      },
+      selectedIds,
     );
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     setConfirmDelete(false);
-    setProgress({ done: 0, total: count });
-    try {
-      const outcome = await deleteIssues.mutateAsync({
-        issueIds: selectedIds,
-        onProgress: (done, total) => setProgress({ done, total }),
-      });
-      const failure = describeFailure(outcome);
-      if (failure) {
-        toast.error(`删除 ${outcome.ok}/${count} 成功 · ${failure}`);
-      } else {
-        toast.success(`已删除 ${outcome.ok} 个任务`);
-        onClearSelection();
-      }
-    } catch (e) {
-      toast.error(e instanceof ApiError ? `删除失败（HTTP ${e.status}）` : "网络异常。");
-    } finally {
-      setProgress(null);
-    }
+    void execute({ kind: "delete" }, selectedIds);
   };
 
   /* ---------------- async label batch (202 + TaskRun) ---------------- */
@@ -321,6 +339,23 @@ export function BulkActionBar({
               {progress.done}/{progress.total}
             </span>
           )}
+
+          {/* 部分失败时的出路：只重试失败的那几条（Sprint 6 留下的账） */}
+          {retry && !progress && (
+            <span className="flex items-center gap-2">
+              <span className="bp-hint text-[color:var(--color-urgent)]">
+                {retry.ids.length} failed
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => void execute(retry.op, retry.ids)}
+              >
+                retry failed
+              </Button>
+            </span>
+          )}
           {labelConfirmationPending && (
             <span className="bp-hint">{describeTaskStatus(run)}</span>
           )}
@@ -358,7 +393,8 @@ export function BulkActionBar({
       >
         <p className="text-[12px] text-[color:var(--color-ink-2)] leading-relaxed">
           每个 Issue 的评论与活动记录会一并消失，编号不会被回收。
-          删除是逐个下发的，所以可能出现「删了一半」——完成后列表会按服务端的真实状态刷新。
+          删除是逐个下发的，所以可能出现「删了一半」；真的发生时会给出「retry failed」
+          只重试没删掉的那几条。完成后列表会按服务端的真实状态刷新。
         </p>
       </Modal>
     </>

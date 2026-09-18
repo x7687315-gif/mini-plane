@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { apiClient, issueRow, projectUrl, readDemoFixture, STATES } from "./helpers";
+import { apiClient, issueRow, projectUrl, readDemoFixture } from "./helpers";
 
 /**
  * Sprint 7 验收（`sprint-7-frontend.md` 里标 ⚠️ 的三条里的第一条）：
@@ -22,7 +22,7 @@ test.describe("实时推送", () => {
   test("B 停在列表：A 在另一个窗口改状态 → B 无需刷新即更新", async ({ page, browser }) => {
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
-    await api.dispose();
+    // ⚠️ 这里**不能**马上 dispose：下面还要用它读"当前状态"来决定目标状态
     const target = fixture.issues[1]!;
 
     // ── B：停在项目页，之后**不再有任何交互** ──────────────
@@ -33,9 +33,29 @@ test.describe("实时推送", () => {
     // 握手成功 → 顶栏指示器变 live（08 契约的 connected 帧）
     await expect(page.locator("header")).toContainText(/live/i, { timeout: 20_000 });
 
-    // 记录 B 侧的初始状态，确保后面看到的变化真的是新写入的
     const rowB = issueRow(page, target.sequenceId);
-    await expect(rowB).toContainText(STATES[0], { timeout: 15_000 });
+
+    /**
+     * 目标状态必须**与当前状态不同**，而且不能假定当前是什么。
+     *
+     * 早期版本硬编码"先断言是 Backlog，再改成 Cancelled"。这在单独跑时没问题，
+     * 但它悄悄依赖了"没有别的 spec 动过这条 Issue" —— 一旦新加的用例
+     * （批量改状态那条）先把它改成 Todo，这条就假红。
+     * **共享可变数据的用例不能假定初值**，只能断言"变化前后不同"。
+     */
+    const { body: states } = await api.get<{ results: { id: string; name: string }[] }>(
+      `/api/v1/workspaces/${fixture.workspaceSlug}/projects/${fixture.projectId}/states/`,
+    );
+    const current = await api.get<{ state: { name: string } }>(
+      `/api/v1/workspaces/${fixture.workspaceSlug}/projects/${fixture.projectId}/issues/${target.id}/`,
+    );
+    const currentName = current.body?.state.name ?? "";
+    const targetState = states!.results.find((s) => s.name !== currentName)!;
+    expect(targetState, "要有一个与当前不同的状态可用").toBeTruthy();
+
+    // 改之前：B 的行里**没有**目标状态 —— 这样后面的断言才能证明"是推送带来的变化"
+    await expect(rowB).not.toContainText(targetState.name);
+    await api.dispose();
 
     // ── A：另一个浏览器上下文（独立 cookie 罐），通过 UI 改状态 ──
     const ctxA = await browser.newContext({ storageState: ".auth/user.json" });
@@ -44,17 +64,21 @@ test.describe("实时推送", () => {
 
     const drawerA = pageA.getByRole("dialog");
     await expect(drawerA).toBeVisible({ timeout: 20_000 });
-    await drawerA.getByRole("button", { name: new RegExp(STATES[0], "i") }).click();
-    await drawerA.getByRole("option", { name: new RegExp(`^${STATES[4]}`, "i") }).click();
+    await drawerA.getByRole("button", { name: new RegExp(currentName, "i") }).click();
+    await drawerA.getByRole("option", { name: new RegExp(`^${targetState.name}`, "i") }).click();
     // A 侧确认写入成功
     await expect(
-      pageA.locator("div").filter({ hasText: target.title }).filter({ hasText: STATES[4] }).last(),
+      pageA
+        .locator("div")
+        .filter({ hasText: target.title })
+        .filter({ hasText: targetState.name })
+        .last(),
       "A 应看到自己的改动生效",
     ).toBeVisible({ timeout: 15_000 });
     await ctxA.close();
 
     // ★ 核心断言：B 全程零交互，行内容自己变成新状态
-    await expect(rowB, "B 应在几秒内自动看到 A 的改动").toContainText(STATES[4], {
+    await expect(rowB, "B 应在几秒内自动看到 A 的改动").toContainText(targetState.name, {
       timeout: 20_000,
     });
   });

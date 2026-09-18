@@ -117,3 +117,70 @@ test.describe("批量操作（异步任务）", () => {
     });
   });
 });
+
+test.describe("批量部分失败 → 只重试失败的", () => {
+  /**
+   * Sprint 6 留下那笔账的回归：批量失败时不能只丢一句提示，要给出"继续做完"的路。
+   *
+   * 怎么**确定性地**制造部分失败：在 UI 背后用 API 删掉其中一条被选中的 Issue，
+   * 界面上那一行还在（缓存尚未刷新），于是整批操作里它必然 404，另外两条成功。
+   * 这比注入 mock 更接近真实的失败来源 —— 别人删了、权限变了、并发改动了。
+   */
+  test("3 条里有 1 条已被删 → 报 2/3 成功 → retry failed 只打那 1 条", async ({ page }) => {
+    const api = await apiClient();
+    const fixture = await readDemoFixture(api);
+    expect(fixture.issues.length).toBeGreaterThanOrEqual(3);
+
+    await page.goto(projectUrl(fixture));
+    const picked = fixture.issues.slice(0, 3);
+    for (const issue of picked) {
+      await expect(page.getByText(issue.title, { exact: true }).first()).toBeVisible({
+        timeout: 20_000,
+      });
+      await page.getByLabel(`select E2E-${issue.sequenceId}`, { exact: true }).check();
+    }
+
+    const toolbar = page.getByRole("toolbar", { name: /bulk actions/i });
+    await expect(toolbar).toContainText("03");
+
+    // 在 UI 背后删掉第三条 —— 界面上它还在，所以这一批会有一条 404
+    const doomed = picked[2]!;
+    const del = await api.write(
+      "DELETE",
+      `/api/v1/workspaces/${fixture.workspaceSlug}/projects/${fixture.projectId}/issues/${doomed.id}/`,
+    );
+    expect(del.status(), "背后删除应成功").toBe(204);
+    await api.dispose();
+
+    // 用操作条改状态（这条路径是前端编排的 N 次串行请求，不是异步任务）
+    await toolbar.getByRole("button", { name: /set state/i }).click();
+    await page.getByRole("option", { name: /^Todo$/i }).click();
+
+    // ★ 断言 1：如实报「2/3 成功 · 1 个失败」，而不是笼统说"失败"
+    const toast = page.getByRole("status");
+    await expect(toast).toContainText("2/3 成功", { timeout: 20_000 });
+    await expect(toast).toContainText("1 个失败");
+
+    // ★ 断言 2：操作条上出现重试入口，并写明还有几条
+    await expect(toolbar).toContainText("1 failed");
+    const retryBtn = toolbar.getByRole("button", { name: /retry failed/i });
+    await expect(retryBtn).toBeVisible();
+
+    // 成功的那两条真的写进去了
+    for (const issue of picked.slice(0, 2)) {
+      await expect(issueRow(page, issue.sequenceId), "成功的两条应显示新状态").toContainText(
+        "Todo",
+        { timeout: 20_000 },
+      );
+    }
+
+    // ★ 断言 3：重试**只打失败的那 1 条**（0/1，而不是 0/3）
+    // 这一条是整笔账的重点：重试必须精确，否则会把已经成功的两条再打一遍。
+    await retryBtn.click();
+    await expect(toast, "重试应只针对失败的 1 条").toContainText("0/1 成功", {
+      timeout: 20_000,
+    });
+    // 被删掉的那条依然失败（它真的不存在了），所以入口保留，用户不会以为已经修好
+    await expect(toolbar).toContainText("1 failed");
+  });
+});

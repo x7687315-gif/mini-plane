@@ -245,6 +245,14 @@ export function useBulkSetLabels(slug: string, projectId: string) {
 export interface BulkOutcome {
   ok: number;
   failed: number;
+  /**
+   * 具体是哪几条失败。
+   *
+   * 一开始只回了 `failed` 这个数字 —— 够写一句提示，但**没法做事**：
+   * 用户看到"2 个失败"只能自己回列表里猜是哪两条。带上 id 之后，操作条才能提供
+   * "只重试失败的那 2 条"（Sprint 6 留下的那笔账）。
+   */
+  failedIds: string[];
   /** First error message, for the toast. */
   firstError: string | null;
 }
@@ -285,23 +293,25 @@ export function useBulkUpdateIssues(slug: string, projectId: string) {
     }: BulkUpdateVars): Promise<BulkOutcome> => {
       let ok = 0;
       let failed = 0;
+      const failedIds: string[] = [];
       let firstError: string | null = null;
 
       for (let i = 0; i < issueIds.length; i += 1) {
+        const id = issueIds[i]!;
         try {
-          await updateIssue(slug, projectId, issueIds[i]!, payload);
+          await updateIssue(slug, projectId, id, payload);
           ok += 1;
         } catch (e) {
           failed += 1;
+          failedIds.push(id);
           if (!firstError) {
-            firstError =
-              e instanceof Error ? e.message : "请求失败";
+            firstError = e instanceof Error ? e.message : "请求失败";
           }
         }
         onProgress?.(i + 1, issueIds.length);
       }
 
-      return { ok, failed, firstError };
+      return { ok, failed, failedIds, firstError };
     },
 
     onMutate: async (vars) => {
@@ -356,20 +366,23 @@ export function useBulkDeleteIssues(slug: string, projectId: string) {
     mutationFn: async ({ issueIds, onProgress }: BulkDeleteVars): Promise<BulkOutcome> => {
       let ok = 0;
       let failed = 0;
+      const failedIds: string[] = [];
       let firstError: string | null = null;
 
       for (let i = 0; i < issueIds.length; i += 1) {
+        const id = issueIds[i]!;
         try {
-          await deleteIssue(slug, projectId, issueIds[i]!);
+          await deleteIssue(slug, projectId, id);
           ok += 1;
         } catch (e) {
           failed += 1;
+          failedIds.push(id);
           if (!firstError) firstError = e instanceof Error ? e.message : "请求失败";
         }
         onProgress?.(i + 1, issueIds.length);
       }
 
-      return { ok, failed, firstError };
+      return { ok, failed, failedIds, firstError };
     },
 
     onMutate: async (vars) => {
