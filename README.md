@@ -3,7 +3,12 @@
 仿 [Plane](https://github.com/makeplane/plane) 的迷你项目管理软件（双人学习项目）：从 0 实现用户、工作区、项目、任务（Issue）管理的完整业务链路，最终目标是具备阅读并贡献真实 Plane 源码的能力。
 
 <p align="center">
-  <img src="frontend/docs/assets/preview-issue-list.png" width="800" alt="Mini Plane — Issue list (design preview)">
+  <img src="frontend/docs/assets/real-issue-list.png" width="820" alt="Mini Plane — Issue list（真实截图：真实数据 · 生产构建 · 右上角 ● live 是已建立的 WebSocket 连接）">
+</p>
+
+<p align="center">
+  <sub>真实产品截图（生产构建 + 真实后端数据）—— 不是设计稿。
+  设计稿见 <a href="frontend/docs/assets/">frontend/docs/assets/</a></sub>
 </p>
 
 ## 当前进度
@@ -29,12 +34,15 @@
 ## 设计语言：Blueprint Editorial
 
 <p align="center">
-  <img src="frontend/docs/assets/preview-login.png" width="280" alt="Login">
+  <img src="frontend/docs/assets/real-issue-drawer-activity.png" width="300" alt="抽屉 · Activity 审计时间线">
   &nbsp;&nbsp;
-  <img src="frontend/docs/assets/preview-issue-list.png" width="380" alt="Issue list">
+  <img src="frontend/docs/assets/real-issue-drawer-comments.png" width="300" alt="抽屉 · Comments 对话">
   &nbsp;&nbsp;
-  <img src="frontend/docs/assets/preview-issue-drawer.png" width="280" alt="Issue drawer">
+  <img src="frontend/docs/assets/real-bulk-actions.png" width="300" alt="批量操作条">
 </p>
+
+<sub>左：Activity 审计时间线（倒序）· 中：Comments 对话（正序）—— **同一个抽屉里两个列表顺序相反是故意的**，
+理由见 [sprint-4 devlog](frontend/docs/devlog/sprint-4-frontend.md)。右：多选后的批量操作条。</sub>
 
 整套 UI 走 **Blueprint Editorial（蓝图编辑风）**：暖灰白底 `#F4F1EA` + 钴蓝细线高亮 `#1F3FA8` + 古典衬线 Cormorant Garamond italic 做装饰 + Inter 做正文 + 0.5px 直角边框 + 32px 网格底纹 + 坐标轴 / 十字标记 / 装饰词。完整规格见 [frontend/DESIGN.md](frontend/DESIGN.md)。
 

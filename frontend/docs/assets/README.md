@@ -1,8 +1,30 @@
 # frontend/docs/assets/
 
-设计稿静态截图，用于 README / 文档展示当前设计语言。
+文档与 README 用的图。**分两类，不要混淆**：
 
-## 文件清单
+## 一、真实产品截图（`real-*.png`）—— 推荐引用这些
+
+真实登录态 + 真实后端数据 + 生产构建下截的，等于用户实际看到的样子。
+
+| 文件 | 屏幕 | 尺寸 |
+|------|------|------|
+| `real-issue-list.png` | Issue 列表页（核心页，含真实数据与 `● live` 连接指示器） | 1440 × 900 |
+| `real-issue-drawer-activity.png` | 抽屉 · Activity 审计时间线 | 1440 × 900 |
+| `real-issue-drawer-comments.png` | 抽屉 · Comments 对话 | 1440 × 900 |
+| `real-bulk-actions.png` | 多选 3 行后的批量操作条（Sprint 6） | 1440 × 900 |
+
+**重新采集**（前置：后端 + 前端都在跑，且先跑过一次 `pnpm test:e2e` 生成登录态）：
+
+```bash
+cd frontend
+pnpm test:e2e                      # 重置演示数据 + 生成 .auth/user.json
+node scripts/capture-screenshots.mjs
+```
+
+## 二、设计稿静态截图（`preview-*.png`）—— 历史资产
+
+`src/*.html` 渲染出来的视觉稿，记录**设计意图**。产品已实现，所以看实际效果请用上面那组；
+这一组保留作为"当初想做成什么样"的参照。
 
 | 文件 | 屏幕 | 尺寸 |
 |------|------|------|
@@ -61,16 +83,11 @@ cp /c/temp/mpshot/04.png frontend/docs/assets/preview-issue-drawer-thread.png
 - `src/*.html` → 给 README 看的视觉演示稿
 - Sprint 后续的 `app/**` → 真实可交互的产品代码
 
-## 第二阶段（真实项目截图）—— 挂着
+## 第二阶段（真实项目截图）—— ✅ 已结清（2026-09-18）
 
-Sprint 3 / Sprint 4 完成后，这里的**列表与抽屉应该换成真实项目截图**（跑起后端 + 前端，
-登录后截真实数据）。目前仍是 `src/*.html` 渲染的静态视觉稿，这笔账记在
-[sprint-4-frontend.md §六](../devlog/sprint-4-frontend.md) 的"留给后面 Sprint 的账"里。
+Sprint 3 起欠的"用真实截图替换"，在集成验收当天补齐了：
+栈能真正跑起来之后（本机其实一直可以，见
+[integration-verification.md §一](../devlog/integration-verification.md)），
+真实截图一次性采齐 4 张，且做成了可重跑的脚本。
 
-真实截图的目标清单：
-- `preview-issue-list.png` ← Sprint 3 真实列表页
-- `preview-issue-drawer.png` ← Sprint 3 真实 drawer
-- `preview-issue-drawer-thread.png` ← Sprint 4 真实 Activity / Comments tab
-- 额外加入：`preview-realtime.png`（Sprint 7）/ `preview-docker.png`（Sprint 8）
-
-设计稿保留在 `src/` 作为设计意图的"原版"参照。
+设计稿保留在 `src/` 作为设计意图的"原版"参照 —— 两类图各有用途，别互相替换。

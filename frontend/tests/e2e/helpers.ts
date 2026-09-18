@@ -10,7 +10,14 @@ import { request } from "@playwright/test";
  * 由固定常量派生，跨运行确定。
  */
 
-export const API_BASE = process.env.E2E_API_BASE ?? "http://127.0.0.1:8000";
+/**
+ * 与 APP_ORIGIN **同 host**。
+ *
+ * 这个自带 cookie jar，所以写 127.0.0.1 也能跑；但只要有人想复用
+ * `.auth/user.json` 的会话（storageState），cookie 就带不上了 ——
+ * 集成验收时正是这个 host 不一致导致"所有写请求 403"。默认值统一 localhost。
+ */
+export const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:8000";
 
 /** 与 backend .env 的 CORS/CSRF 白名单一致：必须是 localhost，不能是 127.0.0.1 */
 export const APP_ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3000";
