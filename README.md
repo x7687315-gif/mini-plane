@@ -145,6 +145,17 @@ scripts\dev.cmd down     # 全部停掉
 
 （逻辑在 `scripts/dev.ps1`；`dev.cmd` 只是双击入口。前置：`backend/.venv` 存在、`pnpm` 在 PATH。）
 
+### 本地一键启动（推荐给"想直接点开测试"的你）
+
+```bash
+scripts\dev.cmd          # 双击也行：起后端+前端，等就绪，自动开浏览器
+scripts\dev.cmd e2e      # 起栈 → 跑 Playwright 14 用例 → 报结果
+scripts\dev.cmd status   # 两个端口各是什么状态
+scripts\dev.cmd down     # 全部停掉
+```
+
+（逻辑在 `scripts/dev.ps1`；`dev.cmd` 只是双击入口。前置：`backend/.venv` 存在、`pnpm` 在 PATH。）
+
 > 也可以交给编排：`docker compose up --build -d` 会一起起 `frontend`（见下）。
 > 前端镜像用 Next 的 standalone 产物，所以 `NEXT_PUBLIC_*` 是**构建期**常量 ——
 > 改后端地址要 `docker compose build frontend` 重新构建，改环境变量没用。
