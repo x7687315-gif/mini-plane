@@ -250,7 +250,6 @@ mini-plane/
 │   └── devlog/                       # 后端 Sprint 日志
 ├── docker-compose.yml                # db / redis / web / asgi / worker / frontend
 ├── ARCHITECTURE.md · BACKEND_PLAN.md
-└── plane_mini_collaboration_plan.md  # 双人协作总计划
 ```
 
 ## 文档导航
@@ -258,7 +257,6 @@ mini-plane/
 | 你想知道 | 看这里 |
 |---------|--------|
 | 使用中的已知边界与二期计划 | [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md) |
-| 项目目标与协作原则 | [plane_mini_collaboration_plan.md](plane_mini_collaboration_plan.md) |
 | 后端 / 前端执行计划 | [BACKEND_PLAN.md](BACKEND_PLAN.md) · [frontend/FRONTEND_ROADMAP.md](frontend/FRONTEND_ROADMAP.md) |
 | 设计系统 / 屏幕蓝图 / 设计决策 | [frontend/DESIGN.md](frontend/DESIGN.md) 等（见上方目录结构） |
 | 架构总览（请求 / 推送 / 任务三条链路 + 前端链路） | [ARCHITECTURE.md](ARCHITECTURE.md) |
