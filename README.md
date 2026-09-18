@@ -112,6 +112,10 @@
 
 ### 方式一：本地单机版软件包（推荐给"只想用起来"的场景）
 
+> 不想自己构建？直接从 [Releases v0.2.0](https://github.com/x7687315-gif/mini-plane/releases/tag/v0.2.0)
+> 下载 **mini-plane-0.2.0-local.zip**（22 MB，含启动器与中文说明）——
+> 注意包里**不含** `backend\.env`（含数据库口令），收包人用 `setup.cmd` 在自己机器上生成。
+
 ```bash
 python scripts/package.py     # 组装 dist/mini-plane-<版本>-local/（约 40MB）
 ```
