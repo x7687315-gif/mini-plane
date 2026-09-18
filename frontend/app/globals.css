@@ -16,6 +16,9 @@
 @import "@fontsource/cormorant-garamond/400-italic.css";
 @import "@fontsource/cormorant-garamond/500-italic.css";
 @import "@fontsource/jetbrains-mono/400.css";
+/* 中文匹配：思源宋体配 Cormorant（古典衬线），思源黑体配 Inter（UI 无衬线）。OFL 可商用 */
+@import "@fontsource/noto-serif-sc/index.css";
+@import "@fontsource/noto-sans-sc/index.css";
 
 /*
  * Mini Plane — Blueprint Editorial design tokens
@@ -24,8 +27,8 @@
 
 :root {
   /* Fonts (defined here, not in @theme, since we don't use next/font/google) */
-  --font-serif: "Cormorant Garamond", "Times New Roman", Georgia, serif;
-  --font-sans: "Inter", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --font-serif: "Cormorant Garamond", "Noto Serif SC", "Times New Roman", Georgia, serif;
+  --font-sans: "Inter", "Noto Sans SC", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Courier New", monospace;
 
   /* Paper / Ink */

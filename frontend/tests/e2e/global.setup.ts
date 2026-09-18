@@ -41,8 +41,8 @@ setup("重置 E2E 数据、建账号与演示项目、保存登录态", async ({
 
   // 走 UI 登录：同时验证登录闭环本身
   await page.goto("/login");
-  await page.getByLabel(/Username/i).fill(DEMO.username);
-  await page.getByLabel(/Password/i).fill(DEMO.password);
+  await page.getByLabel(/用户名/i).fill(DEMO.username);
+  await page.getByLabel(/密码/i).fill(DEMO.password);
   // 用「表单的提交按钮」而不是按钮文案：文案会改，语义不会
   await page.locator('form button[type="submit"]').click();
 

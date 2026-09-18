@@ -74,11 +74,11 @@ export const useWsStore = create<WsState>((set) => ({
 export function wsStatusLabel(status: WsStatus): string {
   switch (status) {
     case "live":
-      return "live";
+      return "已连接";
     case "connecting":
-      return "connecting";
+      return "连接中";
     case "reconnecting":
-      return "reconnecting";
+      return "重连中";
     case "forbidden":
       return "no access";
     case "error":

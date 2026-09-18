@@ -3,7 +3,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { RegisterAlt, RegisterForm } from "@/features/auth/components/RegisterForm";
 
 export const metadata: Metadata = {
-  title: "Register · Mini Plane",
+  title: "注册 · Mini Plane",
 };
 
 /**

@@ -27,9 +27,9 @@ export interface TopBarProps {
 }
 
 function roleLabel(r: number): string {
-  if (r === 20) return "ADMIN";
-  if (r === 15) return "MEMBER";
-  if (r === 5) return "VIEWER";
+  if (r === 20) return "管理员";
+  if (r === 15) return "成员";
+  if (r === 5) return "只读";
   return `ROLE ${r}`;
 }
 

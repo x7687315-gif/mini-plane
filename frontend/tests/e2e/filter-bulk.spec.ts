@@ -16,7 +16,7 @@ test.describe("筛选与 URL 同步", () => {
     await api.dispose();
 
     await page.goto(projectUrl(fixture));
-    const search = page.getByLabel("search issues");
+    const search = page.getByLabel("搜索任务");
     await expect(search).toBeVisible({ timeout: 20_000 });
 
     await search.fill("E2E 任务 A");
@@ -29,7 +29,7 @@ test.describe("筛选与 URL 同步", () => {
     const other = await context.newPage();
     await other.goto(shared);
 
-    await expect(other.getByLabel("search issues")).toHaveValue("E2E 任务 A", {
+    await expect(other.getByLabel("搜索任务")).toHaveValue("E2E 任务 A", {
       timeout: 20_000,
     });
     // 结果集也一致：命中 A，且不含 B
@@ -84,15 +84,15 @@ test.describe("批量操作（异步任务）", () => {
       await page.getByLabel(`select E2E-${issue.sequenceId}`, { exact: true }).check();
     }
 
-    const toolbar = page.getByRole("toolbar", { name: /bulk actions/i });
+    const toolbar = page.getByRole("toolbar", { name: /批量操作/ });
     await expect(toolbar).toBeVisible();
     await expect(toolbar).toContainText("03");
 
     // labels (replace)：覆盖式语义，所以勾选只改本地草稿，apply 才下发
-    await page.getByLabel(/labels \(replace\)/).click();
+    await page.getByLabel(/标签（覆盖）/).click();
     await page.getByRole("option", { name: /e2e-label/i }).click();
     await page.keyboard.press("Escape"); // 关掉下拉，避免遮住 apply 按钮
-    await page.getByRole("button", { name: /^apply$/i }).click();
+    await page.getByRole("button", { name: /^应用$/ }).click();
 
     // 受理提示（202 + 轮询）
     await expect(page.getByRole("status")).toContainText(/批量改标签/, { timeout: 15_000 });
@@ -140,7 +140,7 @@ test.describe("批量部分失败 → 只重试失败的", () => {
       await page.getByLabel(`select E2E-${issue.sequenceId}`, { exact: true }).check();
     }
 
-    const toolbar = page.getByRole("toolbar", { name: /bulk actions/i });
+    const toolbar = page.getByRole("toolbar", { name: /批量操作/ });
     await expect(toolbar).toContainText("03");
 
     // 在 UI 背后删掉第三条 —— 界面上它还在，所以这一批会有一条 404
@@ -153,7 +153,7 @@ test.describe("批量部分失败 → 只重试失败的", () => {
     await api.dispose();
 
     // 用操作条改状态（这条路径是前端编排的 N 次串行请求，不是异步任务）
-    await toolbar.getByRole("button", { name: /set state/i }).click();
+    await toolbar.getByRole("button", { name: /设置状态/ }).click();
     await page.getByRole("option", { name: /^Todo$/i }).click();
 
     // ★ 断言 1：如实报「2/3 成功 · 1 个失败」，而不是笼统说"失败"
@@ -162,8 +162,8 @@ test.describe("批量部分失败 → 只重试失败的", () => {
     await expect(toast).toContainText("1 个失败");
 
     // ★ 断言 2：操作条上出现重试入口，并写明还有几条
-    await expect(toolbar).toContainText("1 failed");
-    const retryBtn = toolbar.getByRole("button", { name: /retry failed/i });
+    await expect(toolbar).toContainText("1 条失败");
+    const retryBtn = toolbar.getByRole("button", { name: /重试失败项/ });
     await expect(retryBtn).toBeVisible();
 
     // 成功的那两条真的写进去了
@@ -181,6 +181,6 @@ test.describe("批量部分失败 → 只重试失败的", () => {
       timeout: 20_000,
     });
     // 被删掉的那条依然失败（它真的不存在了），所以入口保留，用户不会以为已经修好
-    await expect(toolbar).toContainText("1 failed");
+    await expect(toolbar).toContainText("1 条失败");
   });
 });

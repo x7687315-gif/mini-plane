@@ -212,7 +212,7 @@ function ProjectIssues() {
         {canCreate && (
           <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
             <PlusIcon size={12} />
-            <span>new issue</span>
+            <span>新建任务</span>
           </Button>
         )}
       </div>
@@ -410,7 +410,7 @@ function EmptyIssues({
         {!filtered && canCreate && (
           <Button variant="primary" onClick={onCreate}>
             <PlusIcon size={12} />
-            <span>new issue</span>
+            <span>新建任务</span>
           </Button>
         )}
       </div>

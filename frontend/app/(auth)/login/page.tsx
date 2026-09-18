@@ -3,7 +3,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginAlt, LoginForm } from "@/features/auth/components/LoginForm";
 
 export const metadata: Metadata = {
-  title: "Sign in · Mini Plane",
+  title: "登录 · Mini Plane",
 };
 
 /**

@@ -31,7 +31,7 @@ test.describe("实时推送", () => {
       timeout: 20_000,
     });
     // 握手成功 → 顶栏指示器变 live（08 契约的 connected 帧）
-    await expect(page.locator("header")).toContainText(/live/i, { timeout: 20_000 });
+    await expect(page.locator("header")).toContainText(/已连接/, { timeout: 20_000 });
 
     const rowB = issueRow(page, target.sequenceId);
 

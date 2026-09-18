@@ -133,10 +133,10 @@ export function CreateIssueModal({
       footer={
         <>
           <Button variant="secondary" onClick={close}>
-            cancel
+            取消
           </Button>
           <Button variant="primary" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
-            {isSubmitting ? "creating…" : "create issue"}
+            {isSubmitting ? "创建中…" : "创建任务"}
           </Button>
         </>
       }
@@ -147,12 +147,12 @@ export function CreateIssueModal({
         </div>
       )}
 
-      <Field label="Title" htmlFor="i-title" error={errors.title?.message ?? serverFields.title}>
-        <Input id="i-title" placeholder="登录页验证码不显示" autoFocus {...register("title")} />
+      <Field label="标题" htmlFor="i-title" error={errors.title?.message ?? serverFields.title}>
+        <Input id="i-title" placeholder="一句话说清问题" autoFocus {...register("title")} />
       </Field>
 
       <Field
-        label="Description"
+        label="描述"
         htmlFor="i-desc"
         error={errors.description?.message ?? serverFields.description}
       >

@@ -144,7 +144,7 @@ export function MultiSelect({
               onClick={onClear}
               className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-[12px] text-[color:var(--color-ink-3)] italic font-serif hover:bg-[color:var(--color-paper-2)]"
             >
-              clear selection
+              清除选择
             </button>
           )}
 

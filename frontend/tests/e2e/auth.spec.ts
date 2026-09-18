@@ -24,9 +24,9 @@ test.describe("认证闭环", () => {
     const password = `Pw!${stamp}aaaa`;
 
     await page.goto("/register");
-    await page.getByLabel(/Username/i).fill(username);
-    await page.getByLabel(/Email/i).fill(`${username}@example.com`);
-    await page.getByLabel(/Password/i).fill(password);
+    await page.getByLabel(/用户名/).fill(username);
+    await page.getByLabel(/邮箱/).fill(`${username}@example.com`);
+    await page.getByLabel(/密码/).fill(password);
     await page.locator('form button[type="submit"]').click();
 
     // 注册即自动登录：应离开 /register
@@ -58,8 +58,8 @@ test.describe("认证闭环", () => {
 
   test("/login?redirect= 登录后回到目标页", async ({ page }) => {
     await page.goto("/login?redirect=%2Fme");
-    await page.getByLabel(/Username/i).fill(DEMO.username);
-    await page.getByLabel(/Password/i).fill(DEMO.password);
+    await page.getByLabel(/用户名/).fill(DEMO.username);
+    await page.getByLabel(/密码/).fill(DEMO.password);
     await page.locator('form button[type="submit"]').click();
 
     // useRedirectTarget 只在同源相对路径上生效（开放重定向防护）

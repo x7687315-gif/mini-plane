@@ -81,7 +81,7 @@ export function RegisterForm() {
       {formError && <AuthFormError>{formError}</AuthFormError>}
 
       <div className="mb-4">
-        <AuthFieldLabel htmlFor="username">Username</AuthFieldLabel>
+        <AuthFieldLabel htmlFor="username">用户名</AuthFieldLabel>
         <AuthInput
           id="username"
           autoComplete="username"
@@ -94,7 +94,7 @@ export function RegisterForm() {
       </div>
 
       <div className="mb-4">
-        <AuthFieldLabel htmlFor="email">Email</AuthFieldLabel>
+        <AuthFieldLabel htmlFor="email">邮箱</AuthFieldLabel>
         <AuthInput
           id="email"
           type="email"
@@ -107,9 +107,7 @@ export function RegisterForm() {
       </div>
 
       <div className="mb-7">
-        <AuthFieldLabel htmlFor="password" hint="≥ 8 chars">
-          Password
-        </AuthFieldLabel>
+        <AuthFieldLabel htmlFor="password" hint="≥ 8 chars">密码</AuthFieldLabel>
         <AuthInput
           id="password"
           type="password"
@@ -121,9 +119,7 @@ export function RegisterForm() {
         {serverFields.password && <AuthFieldError>{serverFields.password}</AuthFieldError>}
       </div>
 
-      <AuthSubmit pending={isSubmitting} disabled={isSubmitting}>
-        create account
-      </AuthSubmit>
+      <AuthSubmit pending={isSubmitting} disabled={isSubmitting}>创建账号</AuthSubmit>
     </form>
   );
 }

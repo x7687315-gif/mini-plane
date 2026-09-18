@@ -22,11 +22,11 @@ test.describe("Issue 列表与详情", () => {
     await page.goto(projectUrl(fixture));
 
     // 打开新建弹窗（按钮文案 /new issue/）
-    await page.getByRole("button", { name: /new issue/i }).first().click();
+    await page.getByRole("button", { name: /新建任务/ }).first().click();
 
     // 弹窗里的标题输入（CreateIssueModal: Field label="Title" 对应 #i-title）
-    await page.getByLabel("Title").fill(title);
-    await page.getByRole("button", { name: /^create/i }).click();
+    await page.getByLabel("标题").fill(title);
+    await page.getByRole("button", { name: /^创建/ }).click();
 
     // 创建成功后会直接打开该 Issue 的抽屉；先关掉，回到列表核对
     await expect(page).toHaveURL(/issue=/, { timeout: 20_000 });
@@ -90,7 +90,7 @@ test.describe("Issue 列表与详情", () => {
     await expect(drawer).toBeVisible({ timeout: 20_000 });
 
     // 抽屉里首先看到的是 Activity tab
-    const activityTab = drawer.getByRole("button", { name: /^activity/i });
+    const activityTab = drawer.getByRole("button", { name: /^动态/ });
     await expect(activityTab).toBeVisible({ timeout: 20_000 });
 
     /**
@@ -111,11 +111,11 @@ test.describe("Issue 列表与详情", () => {
     const before = await readCount();
 
     // 切到 Comments 发一条评论
-    await drawer.getByRole("button", { name: /^comments/i }).click();
+    await drawer.getByRole("button", { name: /^评论/ }).click();
     const body = `E2E 评论 ${Date.now().toString(36)}`;
-    const composer = drawer.getByLabel("new comment");
+    const composer = drawer.getByLabel("写评论");
     await composer.fill(body);
-    await drawer.getByRole("button", { name: /^post$/i }).click();
+    await drawer.getByRole("button", { name: /^发布$/ }).click();
 
     // 断言 1：评论出现在列表里。
     // ⚠️ 必须限定到 `li`（评论行）—— 直接 getByRole("dialog").getByText(body) 会同时命中
@@ -143,9 +143,9 @@ test.describe("Issue 列表与详情", () => {
 
     // 现在编辑这条评论
     const edited = `${body}（已编辑）`;
-    await drawer.getByRole("button", { name: /^edit$/i }).first().click();
+    await drawer.getByRole("button", { name: /^编辑$/ }).first().click();
     await drawer.getByLabel("edit comment").fill(edited);
-    await drawer.getByRole("button", { name: /^save$/i }).click();
+    await drawer.getByRole("button", { name: /^保存$/ }).click();
     await expect(drawer.locator("li").filter({ hasText: edited })).toBeVisible({
       timeout: 20_000,
     });
@@ -166,7 +166,7 @@ test.describe("Issue 列表与详情", () => {
     await api.dispose();
 
     await page.goto(`${projectUrl(fixture)}?issue=${fixture.issues[0]!.id}&tab=comments`);
-    await expect(page.getByRole("button", { name: /^comments/i })).toBeVisible({
+    await expect(page.getByRole("button", { name: /^评论/ })).toBeVisible({
       timeout: 20_000,
     });
 
@@ -187,8 +187,8 @@ test.describe("列表行的选择框", () => {
     await expect(row).toBeVisible({ timeout: 20_000 });
 
     await page.getByLabel(`select E2E-${fixture.issues[0]!.sequenceId}`, { exact: true }).check();
-    await expect(page.getByRole("toolbar", { name: /bulk actions/i })).toBeVisible();
-    await expect(page.getByRole("toolbar", { name: /bulk actions/i })).toContainText(
+    await expect(page.getByRole("toolbar", { name: /批量操作/ })).toBeVisible();
+    await expect(page.getByRole("toolbar", { name: /批量操作/ })).toContainText(
       /01|selected/i,
     );
   });

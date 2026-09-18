@@ -252,7 +252,7 @@ export function BulkActionBar({
           "px-4 py-3 flex flex-wrap items-end gap-3 max-w-[min(1000px,92vw)]",
         )}
         role="toolbar"
-        aria-label="bulk actions"
+        aria-label="批量操作"
       >
         <span className="flex items-center gap-2 pr-3 mr-1 border-r border-[color:var(--color-rule)] self-stretch">
           <span className="font-serif italic text-[22px] text-[color:var(--color-accent)] leading-none">
@@ -267,7 +267,7 @@ export function BulkActionBar({
             type="button"
             onClick={onClearSelection}
             className="ml-1 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
-            aria-label="clear selection"
+            aria-label="清除选择"
           >
             <XIcon size={12} />
           </button>
@@ -279,7 +279,7 @@ export function BulkActionBar({
           value={null}
           options={stateOptions}
           disabled={busy}
-          placeholder="set state…"
+          placeholder="设置状态…"
           onSelect={(v) => v && handleSetState(v)}
         />
 
@@ -309,7 +309,7 @@ export function BulkActionBar({
             replaces the whole set, so firing per click would issue N partial batches. */}
         <span className="flex items-end gap-2">
           <MultiSelect
-            label="labels (replace)"
+            label="标签（覆盖）"
             className="w-[190px]"
             values={labelDraft}
             options={labelOptions}
@@ -329,7 +329,7 @@ export function BulkActionBar({
             disabled={busy || !count}
             onClick={() => void handleApplyLabels()}
           >
-            apply
+            应用
           </Button>
         </span>
 
@@ -344,7 +344,7 @@ export function BulkActionBar({
           {retry && !progress && (
             <span className="flex items-center gap-2">
               <span className="bp-hint text-[color:var(--color-urgent)]">
-                {retry.ids.length} failed
+                {retry.ids.length} 条失败
               </span>
               <Button
                 variant="secondary"
@@ -352,7 +352,7 @@ export function BulkActionBar({
                 disabled={busy}
                 onClick={() => void execute(retry.op, retry.ids)}
               >
-                retry failed
+                重试失败项
               </Button>
             </span>
           )}

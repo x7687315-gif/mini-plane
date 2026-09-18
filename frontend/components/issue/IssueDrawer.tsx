@@ -251,7 +251,7 @@ export function IssueDrawer({
             {/* editable metadata */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               <EditableField
-                label="State"
+                label="状态"
                 value={issue.state.id}
                 options={stateOptions}
                 disabled={!writable}
@@ -262,7 +262,7 @@ export function IssueDrawer({
               />
 
               <EditableField
-                label="Priority"
+                label="优先级"
                 value={issue.priority}
                 options={priorityOptions}
                 disabled={!writable}
@@ -273,7 +273,7 @@ export function IssueDrawer({
               />
 
               <EditableField
-                label="Assignee"
+                label="指派"
                 value={issue.assignee?.id ?? null}
                 options={assigneeOptions}
                 clearable
@@ -292,7 +292,7 @@ export function IssueDrawer({
               />
 
               <EditableField
-                label="Add label"
+                label="添加标签"
                 value={null}
                 options={labelOptions.filter(
                   (o) => !issue.labels.some((l) => l.id === o.value),
@@ -389,15 +389,15 @@ export function IssueDrawer({
                 so a truncated first page still shows the honest total. */}
             <div className="flex items-center gap-6 border-b border-[color:var(--color-rule)]">
               <Tab active={tab === "activity"} onClick={() => onTabChange("activity")}>
-                activity
+                动态
                 <TabCount count={activityCount} />
               </Tab>
               <Tab active={tab === "comments"} onClick={() => onTabChange("comments")}>
-                comments
+                评论
                 <TabCount count={commentCount} />
               </Tab>
               <Tab active={tab === "refs"} onClick={() => onTabChange("refs")}>
-                refs
+                关联
               </Tab>
             </div>
 
@@ -445,7 +445,7 @@ export function IssueDrawer({
                   disabled={deleteMutation.isPending}
                   className="border-[color:var(--color-urgent)] text-[color:var(--color-urgent)]"
                 >
-                  {deleteMutation.isPending ? "deleting…" : "delete issue"}
+                  {deleteMutation.isPending ? "删除中…" : "删除任务"}
                 </Button>
               </div>
             )}
@@ -471,7 +471,7 @@ export function IssueDrawer({
               disabled={deleteMutation.isPending}
               className="border-[color:var(--color-urgent)] text-[color:var(--color-urgent)]"
             >
-              delete issue
+              删除任务
             </Button>
           </>
         }

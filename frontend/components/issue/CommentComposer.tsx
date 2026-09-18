@@ -78,8 +78,8 @@ export function CommentComposer({ onSubmit, canWrite }: CommentComposerProps) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="leave a note …"
-          aria-label="new comment"
+          placeholder="写条评论…"
+          aria-label="写评论"
           error={Boolean(error)}
           className="min-h-[72px] text-[12px]"
         />
@@ -95,7 +95,7 @@ export function CommentComposer({ onSubmit, canWrite }: CommentComposerProps) {
           onClick={() => void post()}
           disabled={!trimmed || pending}
         >
-          {pending ? "posting…" : "post"}
+          {pending ? "发布中…" : "发布"}
           {!pending && <ArrowRightIcon size={11} />}
         </Button>
       </div>

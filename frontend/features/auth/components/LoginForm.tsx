@@ -82,9 +82,7 @@ export function LoginForm() {
       {formError && <AuthFormError>{formError}</AuthFormError>}
 
       <div className="mb-5">
-        <AuthFieldLabel htmlFor="username" hint="or email">
-          Username
-        </AuthFieldLabel>
+        <AuthFieldLabel htmlFor="username" hint="或邮箱">用户名</AuthFieldLabel>
         <AuthInput
           id="username"
           autoComplete="username"
@@ -97,7 +95,7 @@ export function LoginForm() {
       </div>
 
       <div className="mb-7">
-        <AuthFieldLabel htmlFor="password">Password</AuthFieldLabel>
+        <AuthFieldLabel htmlFor="password">密码</AuthFieldLabel>
         <AuthInput
           id="password"
           type="password"
@@ -110,7 +108,7 @@ export function LoginForm() {
       </div>
 
       <AuthSubmit pending={isSubmitting} disabled={isSubmitting || locked}>
-        sign in
+        登录
       </AuthSubmit>
     </form>
   );
@@ -120,7 +118,7 @@ export function LoginForm() {
 export function LoginAlt() {
   return (
     <>
-      No account? <AuthAltLink href="/register">Register &rarr;</AuthAltLink>
+      还没有账号？ <AuthAltLink href="/register">Register &rarr;</AuthAltLink>
     </>
   );
 }

@@ -30,9 +30,9 @@ export interface LeftRailProps {
 
 function roleLabel(r: number | undefined): string {
   if (r == null) return "";
-  if (r === 20) return "ADMIN";
-  if (r === 15) return "MEMBER";
-  if (r === 5) return "VIEWER";
+  if (r === 20) return "管理员";
+  if (r === 15) return "成员";
+  if (r === 5) return "只读";
   return "";
 }
 
@@ -44,9 +44,9 @@ const RAIL_WORKSPACES: RailWorkspace[] = [
 
 export function LeftRail({ workspaces = RAIL_WORKSPACES, current = "amiya" }: LeftRailProps) {
   return (
-    <aside className="bp-border-r relative w-24 py-5 px-3 flex flex-col bg-[color:var(--color-paper)]">
+    <aside className="bp-border-r relative w-32 py-5 px-3 flex flex-col flex-shrink-0 bg-[color:var(--color-paper)]">
       <div className="text-[9px] uppercase tracking-[0.26em] text-[color:var(--color-ink-3)] font-sans font-medium mb-3.5 px-1.5">
-        Workspaces
+        工作区
       </div>
       <nav className="flex flex-col gap-1">
         {workspaces.map((w) => {
@@ -71,12 +71,12 @@ export function LeftRail({ workspaces = RAIL_WORKSPACES, current = "amiya" }: Le
               >
                 {w.initial}
               </span>
-              <span className="leading-tight overflow-hidden">
-                <span className="block text-[10px] tracking-[0.1em] uppercase text-[color:var(--color-ink)] font-sans font-medium truncate">
+              <span className="leading-tight overflow-hidden min-w-0">
+                <span className="block text-[10px] tracking-[0.1em] uppercase text-[color:var(--color-ink)] font-sans font-medium truncate whitespace-nowrap">
                   {w.name}
                 </span>
                 {w.role != null && (
-                  <span className="block text-[8px] tracking-[0.16em] uppercase text-[color:var(--color-ink-3)] font-sans font-medium">
+                  <span className="block text-[8px] tracking-[0.16em] text-[color:var(--color-ink-3)] font-sans font-medium whitespace-nowrap">
                     {roleLabel(w.role)}
                   </span>
                 )}

@@ -153,7 +153,7 @@ export function FilterBar({
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             placeholder="search title / description"
-            aria-label="search issues"
+            aria-label="搜索任务"
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[11px] text-[color:var(--color-ink)] placeholder:italic placeholder:text-[color:var(--color-ink-3)]"
           />
           {searchDraft && (

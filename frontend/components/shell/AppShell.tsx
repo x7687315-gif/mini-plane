@@ -42,7 +42,7 @@ export function AppShell({
   mainClassName,
 }: AppShellProps) {
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 min-w-[1180px]">
       <TopBar {...topbar} />
       <div className="flex flex-1 min-h-0">
         <LeftRail {...(rail ?? {})} />

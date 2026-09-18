@@ -217,17 +217,13 @@ function CommentRow({ comment, currentUserId, role, onUpdate, onDelete }: Commen
                   setRowError(null);
                 }}
                 className="text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
-              >
-                edit
-              </button>
+              >编辑</button>
               <button
                 type="button"
                 onClick={() => (isMine ? void remove() : setConfirming(true))}
                 disabled={pending}
                 className="text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-3)] hover:text-[color:var(--color-urgent)] disabled:opacity-40"
-              >
-                delete
-              </button>
+              >删除</button>
             </>
           )}
         </span>
@@ -262,9 +258,7 @@ function CommentRow({ comment, currentUserId, role, onUpdate, onDelete }: Commen
                 setRowError(null);
               }}
               disabled={pending}
-            >
-              cancel
-            </Button>
+            >取消</Button>
             <span className="bp-hint">⌘/ctrl · enter to save</span>
           </div>
         </div>
@@ -286,9 +280,7 @@ function CommentRow({ comment, currentUserId, role, onUpdate, onDelete }: Commen
         subtitle={`by ${comment.author?.username ?? "?"} · you are acting as Admin`}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirming(false)}>
-              cancel
-            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>取消</Button>
             <Button
               variant="secondary"
               onClick={() => void remove()}
