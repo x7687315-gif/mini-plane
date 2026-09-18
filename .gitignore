@@ -36,3 +36,4 @@ frontend/.env.production.local
 .vscode/
 .DS_Store
 Thumbs.db
+dist/
