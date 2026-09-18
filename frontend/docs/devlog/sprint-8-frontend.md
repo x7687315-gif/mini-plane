@@ -245,6 +245,10 @@ frontend/docs/devlog/sprint-8-frontend.md   # 本文件
 
 ## 六、收尾盘点：留给二期的账
 
+> **后续进展**：这 5 笔账已在 2026-09-18 逐条推进，逐项状态与证据见
+> [integration-verification.md §六](integration-verification.md)。其中第 1 笔（端到端验收）已完全结清，
+> 并顺带挖出并修复了一个发布级 bug（host 不一致 → 所有写请求 403）。
+
 按"影响面 × 需要的环境"排序。**前三条都是同一个根因：本机没有可跑的后端。**
 
 ### 1. 端到端验收（最大的账）

@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright (E2E)
+# .auth/ 里是**真实会话 cookie**（storageState），等同于凭据，绝不入库；
+# CI 每次现生成，本地每次跑 global.setup 覆盖。
+/.auth/
+/playwright-report/
+/test-results/
+/blob-report/

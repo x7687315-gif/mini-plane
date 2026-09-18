@@ -10,7 +10,21 @@
  * - 403 on write requests → one-shot CSRF retry
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
+/**
+ * API 基址。
+ *
+ * ⚠️ 默认值必须是 `localhost` 而**不是** `127.0.0.1` —— 这是 2026-09-18 由 E2E
+ * 实测发现的真 bug（见 docs/devlog/integration-verification.md）：
+ *
+ * 页面在 `localhost:3000`，若 API 指向 `127.0.0.1:8000`，两者是**不同的 host**：
+ * 1. 后端 `SESSION_COOKIE_SAMESITE="Lax"`，跨站的 XHR/fetch **不会带上会话 cookie**；
+ * 2. 更致命的是 `csrftoken` cookie 落在 `127.0.0.1` 域上，而下面 `readCookie()`
+ *    读的是 `document.cookie`（当前页面的域）→ 恒为空 → 所有写请求 403。
+ *
+ * 端口不同不影响（SameSite 只看 host），所以 `localhost:3000` → `localhost:8000`
+ * 是同站跨源，一切正常。
+ */
+const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
 export class ApiError extends Error {
   constructor(

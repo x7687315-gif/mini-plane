@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import ./tests/register-loader.mjs --test \"tests/unit/**/*.test.mts\""
+    "test": "node --import ./tests/register-loader.mjs --test \"tests/unit/**/*.test.mts\"",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
@@ -26,12 +28,14 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "lighthouse": "^13.4.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

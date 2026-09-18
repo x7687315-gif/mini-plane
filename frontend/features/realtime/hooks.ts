@@ -72,7 +72,9 @@ export function useProjectRealtime(
 
     useWsStore.getState().setConnecting(projectId);
 
-    const base = process.env.NEXT_PUBLIC_WS_BASE ?? "ws://127.0.0.1:8000";
+    // 与 lib/api.ts 同理：默认必须与页面同 host（localhost），否则跨站的
+    // WebSocket 握手带不上 Session Cookie，会直接收到 4401 关闭码。
+    const base = process.env.NEXT_PUBLIC_WS_BASE ?? "ws://localhost:8000";
     const ctx: RealtimeContext = {
       qc: latest.current.qc,
       slug,

@@ -19,6 +19,12 @@
 | 7 | WebSocket Realtime | ✅ 已完成 | [sprint-7-frontend.md](devlog/sprint-7-frontend.md) |
 | 8 | Docker + CI + 收尾 | ✅ 已完成 | [sprint-8-frontend.md](devlog/sprint-8-frontend.md) |
 
+## 发布后的验收报告
+
+| 文档 | 内容 |
+|------|------|
+| [integration-verification.md](devlog/integration-verification.md) | **前后端集成验收 + 二期 5 笔账**（2026-09-18）：后端冒烟 54/54、实时冒烟 7 项、浏览器 E2E 13/13；**挖出并修复 host 不一致导致所有写请求 403 的发布级 bug**；Lighthouse 生产构建 79/96/100 |
+
 ## 状态
 
 **Sprint 0–8 全部完成**（2026-09-17），8 份接口契约全部冻结，四绿为
