@@ -63,19 +63,34 @@ function Wait-Ready([string[]]$Urls, [int]$Seconds = 90) {
 function Start-Stack([bool]$OpenBrowser) {
     if (-not (Test-Prerequisites)) { return $false }
 
-    if ((Test-PortUp 8000) -or (Test-PortUp 3000)) {
-        Write-Info "[skip] stack is already up (8000/3000 listening) - not starting twice"
-        return $true
+    # 逐个服务判断，而不是"有一个端口在听就全部跳过"：
+    # 半途死了一半时（前端崩了、后端还在），要能只补起缺的那一半。
+    if (Test-PortUp 8000) {
+        Write-Info "[skip] backend already up (8000 listening)"
+    } else {
+        Write-Info "[1/3] starting backend   (http://127.0.0.1:8000) ..."
+        Start-Process -FilePath $Py -ArgumentList 'manage.py', 'runserver', '127.0.0.1:8000', '--noreload' `
+            -WorkingDirectory $Backend -WindowStyle Hidden
     }
 
-    Write-Info "[1/3] starting backend   (http://127.0.0.1:8000) ..."
-    Start-Process -FilePath $Py -ArgumentList 'manage.py', 'runserver', '127.0.0.1:8000', '--noreload' `
-        -WorkingDirectory $Backend -WindowStyle Hidden
-
-    Write-Info "[2/3] starting frontend  (http://localhost:3000) ..."
-    $pnpm = (Get-Command pnpm).Source
-    Start-Process -FilePath $pnpm -ArgumentList 'dev' `
-        -WorkingDirectory $Frontend -WindowStyle Minimized
+    if (Test-PortUp 3000) {
+        Write-Info "[skip] frontend already up (3000 listening)"
+    } else {
+        Write-Info "[2/3] starting frontend  (http://localhost:3000) ..."
+        #
+        # ⚠️ pnpm 在 Windows 上装的是 pnpm.ps1 垫片。**不能用 Start-Process 直接启动 .ps1**：
+        #    Windows 会用默认编辑器把它打开（用户看到的不是日志而是脚本源码），
+        #    前端根本不会启动 —— 2026-09-18 用户实测抓到。
+        #    所以优先用 pnpm.cmd（同目录的 cmd 垫片），退而求其次让 cmd.exe 去解析 PATH。
+        $pnpmCmd = (Get-Command pnpm.cmd -ErrorAction SilentlyContinue).Source
+        if ($pnpmCmd) {
+            Start-Process -FilePath $pnpmCmd -ArgumentList 'dev' `
+                -WorkingDirectory $Frontend -WindowStyle Minimized
+        } else {
+            Start-Process -FilePath $env:ComSpec -ArgumentList '/c', 'pnpm', 'dev' `
+                -WorkingDirectory $Frontend -WindowStyle Minimized
+        }
+    }
 
     Write-Info "[3/3] waiting for both to answer (first start compiles, ~30s) ..."
     if (-not (Wait-Ready @($BackendUrl, $FrontendUrl))) {
