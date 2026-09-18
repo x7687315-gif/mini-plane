@@ -29,7 +29,20 @@ class CookieAuthChainTests(RealtimeTestCase):
         communicator = await ws_communicator_with_session(
             self.stranger, self.workspace.slug, self.project.id
         )
-        connected, close_code = await communicator.connect(timeout=CONNECT_TIMEOUT)
+        connected, _ = await communicator.connect(timeout=CONNECT_TIMEOUT)
 
-        self.assertFalse(connected)
-        self.assertEqual(close_code, CLOSE_NOT_FOUND)
+        # ⚠️ 这里断言"连上了、随即被关闭"，而不是"没连上"。
+        #
+        # 契约 08 规定的是**关闭码**（4401/4404）。而关闭码只有在 `accept()` 之后
+        # 才可能送达客户端：若在 accept() 前 close()，daphne 会把它当成"拒绝握手"，
+        # 直接回 `HTTP 403 Access denied`，客户端只会看到 1006。
+        # 早期实现正是"先 close"，而 WebsocketCommunicator **照样能读到 close_code**，
+        # 所以这个偏差在测试里完全隐形 —— 直到 scripts/smoke_realtime.py 对着
+        # 真 daphne 跑才暴露出来（2026-09-18）。
+        self.assertTrue(connected, "被拒绝的连接也需先完成握手，否则关闭码送不到客户端")
+        # accept 之后的 close 是**独立的一帧输出**，必须显式取：
+        # 旧实现（accept 前 close）会让 communicator.connect() 直接回 (False, code)，
+        # 所以这里从"读 connect() 的第二个返回值"改成"收帧"。
+        closed = await communicator.receive_output(timeout=CONNECT_TIMEOUT)
+        self.assertEqual(closed["type"], "websocket.close")
+        self.assertEqual(closed["code"], CLOSE_NOT_FOUND)

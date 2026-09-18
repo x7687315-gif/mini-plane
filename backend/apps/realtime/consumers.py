@@ -29,7 +29,7 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
         if user is None or not getattr(user, "is_authenticated", False):
-            await self.close(code=CLOSE_UNAUTHENTICATED)
+            await self.reject_with(CLOSE_UNAUTHENTICATED)
             return
 
         kwargs = self.scope["url_route"]["kwargs"]
@@ -39,7 +39,7 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
 
         role = await self._effective_role(workspace_slug, project_id)
         if role is None:
-            await self.close(code=CLOSE_NOT_FOUND)
+            await self.reject_with(CLOSE_NOT_FOUND)
             return
 
         self.group_name = project_group(project_id)
@@ -48,6 +48,25 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {"event": "connected", "payload": {"project_id": project_id, "role": role}}
         )
+
+    async def reject_with(self, code: int) -> None:
+        """拒绝一个连接时，**先 accept 再 close** —— 否则关闭码到不了客户端。
+
+        这是个很容易写错、且测试看不出来的细节：
+        Channels 里若在 `accept()` **之前** `close()`，daphne 会把它当成"拒绝握手"，
+        直接回 `HTTP 1.1 403 Access denied` 把升级挡掉。客户端于是只看到
+        1006（异常关闭），**拿不到 4401 / 4404**。
+
+        后果不是"文档不准"，而是前端行为错：前端 `features/realtime/policy.ts`
+        按关闭码分流（4401 → 跳登录、4404 → 停止重连），收到 1006 会被归为
+        "可重连"，于是**会话过期或项目不可见时会无限重连**，既不去登录也不停。
+
+        契约 08 明确写的是关闭码，所以这里必须先 accept。
+        用 `WebsocketCommunicator` 的测试**看不到**这个差异（它照样能读到 close code），
+        所以 2026-09-18 之前一直没被发现 —— 由 scripts/smoke_realtime.py 首次真跑抓到。
+        """
+        await self.accept()
+        await self.close(code=code)
 
     async def disconnect(self, code):
         group_name = getattr(self, "group_name", None)

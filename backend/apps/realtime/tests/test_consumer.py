@@ -36,17 +36,43 @@ class ProjectConsumerTests(RealtimeTestCase):
         await communicator.disconnect()
 
     async def test_anonymous_user_is_rejected_with_4401(self):
-        communicator, connected, close_code = await self._connect(AnonymousUser())
+        communicator, connected, _ = await self._connect(AnonymousUser())
 
-        self.assertFalse(connected)
-        self.assertEqual(close_code, CLOSE_UNAUTHENTICATED)
+        # ⚠️ 这里断言"连上了、随即被关闭"，而不是"没连上"。
+        #
+        # 契约 08 规定的是**关闭码**（4401/4404）。而关闭码只有在 `accept()` 之后
+        # 才可能送达客户端：若在 accept() 前 close()，daphne 会把它当成"拒绝握手"，
+        # 直接回 `HTTP 403 Access denied`，客户端只会看到 1006。
+        # 早期实现正是"先 close"，而 WebsocketCommunicator **照样能读到 close_code**，
+        # 所以这个偏差在测试里完全隐形 —— 直到 scripts/smoke_realtime.py 对着
+        # 真 daphne 跑才暴露出来（2026-09-18）。
+        self.assertTrue(connected, "被拒绝的连接也需先完成握手，否则关闭码送不到客户端")
+        # accept 之后的 close 是**独立的一帧输出**，必须显式取：
+        # 旧实现（accept 前 close）会让 communicator.connect() 直接回 (False, code)，
+        # 所以这里从"读 connect() 的第二个返回值"改成"收帧"。
+        closed = await communicator.receive_output(timeout=CONNECT_TIMEOUT)
+        self.assertEqual(closed["type"], "websocket.close")
+        self.assertEqual(closed["code"], CLOSE_UNAUTHENTICATED)
 
     async def test_stranger_is_rejected_at_handshake(self):
         """非工作区成员在握手阶段就被拒（计划 §Sprint 7 验收点：不接受隐性失败）。"""
-        communicator, connected, close_code = await self._connect(self.stranger)
+        communicator, connected, _ = await self._connect(self.stranger)
 
-        self.assertFalse(connected)
-        self.assertEqual(close_code, CLOSE_NOT_FOUND)
+        # ⚠️ 这里断言"连上了、随即被关闭"，而不是"没连上"。
+        #
+        # 契约 08 规定的是**关闭码**（4401/4404）。而关闭码只有在 `accept()` 之后
+        # 才可能送达客户端：若在 accept() 前 close()，daphne 会把它当成"拒绝握手"，
+        # 直接回 `HTTP 403 Access denied`，客户端只会看到 1006。
+        # 早期实现正是"先 close"，而 WebsocketCommunicator **照样能读到 close_code**，
+        # 所以这个偏差在测试里完全隐形 —— 直到 scripts/smoke_realtime.py 对着
+        # 真 daphne 跑才暴露出来（2026-09-18）。
+        self.assertTrue(connected, "被拒绝的连接也需先完成握手，否则关闭码送不到客户端")
+        # accept 之后的 close 是**独立的一帧输出**，必须显式取：
+        # 旧实现（accept 前 close）会让 communicator.connect() 直接回 (False, code)，
+        # 所以这里从"读 connect() 的第二个返回值"改成"收帧"。
+        closed = await communicator.receive_output(timeout=CONNECT_TIMEOUT)
+        self.assertEqual(closed["type"], "websocket.close")
+        self.assertEqual(closed["code"], CLOSE_NOT_FOUND)
 
     async def test_unknown_project_is_rejected_the_same_way(self):
         """不存在的项目与非成员**同样 4404**——防枚举语义跨协议一致（00 契约 §4.3）。"""
@@ -57,8 +83,21 @@ class ProjectConsumerTests(RealtimeTestCase):
         )
         connected, close_code = await communicator.connect(timeout=CONNECT_TIMEOUT)
 
-        self.assertFalse(connected)
-        self.assertEqual(close_code, CLOSE_NOT_FOUND)
+        # ⚠️ 这里断言"连上了、随即被关闭"，而不是"没连上"。
+        #
+        # 契约 08 规定的是**关闭码**（4401/4404）。而关闭码只有在 `accept()` 之后
+        # 才可能送达客户端：若在 accept() 前 close()，daphne 会把它当成"拒绝握手"，
+        # 直接回 `HTTP 403 Access denied`，客户端只会看到 1006。
+        # 早期实现正是"先 close"，而 WebsocketCommunicator **照样能读到 close_code**，
+        # 所以这个偏差在测试里完全隐形 —— 直到 scripts/smoke_realtime.py 对着
+        # 真 daphne 跑才暴露出来（2026-09-18）。
+        self.assertTrue(connected, "被拒绝的连接也需先完成握手，否则关闭码送不到客户端")
+        # accept 之后的 close 是**独立的一帧输出**，必须显式取：
+        # 旧实现（accept 前 close）会让 communicator.connect() 直接回 (False, code)，
+        # 所以这里从"读 connect() 的第二个返回值"改成"收帧"。
+        closed = await communicator.receive_output(timeout=CONNECT_TIMEOUT)
+        self.assertEqual(closed["type"], "websocket.close")
+        self.assertEqual(closed["code"], CLOSE_NOT_FOUND)
 
     async def test_ping_pong(self):
         communicator, connected, _ = await self._connect(self.member)
