@@ -31,6 +31,10 @@ frontend/.env.production.local
 .mimosa/
 .workbuddy/
 
+# 桌面单机版：运行时数据（SQLite 库 / SECRET_KEY / 日志）与打包产物，一律不入库
+runtime/
+desktop/build/
+
 # IDE & OS
 .idea/
 .vscode/
