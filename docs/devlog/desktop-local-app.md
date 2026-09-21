@@ -64,3 +64,45 @@
 - 第 2 部分：桌面**快捷方式** + **打包独立 `.exe`**（PyInstaller 冻结启动器）。
 - 第 3 部分：修 Playwright E2E「测试窗口」并跑通。
 - 收尾：p3c 代码质量检查 + 整体回归。
+
+---
+
+## 第 2 部分：桌面快捷方式 + 打包独立 .exe
+
+### 做了什么
+
+1. **快捷方式生成器 `desktop/make_shortcut.ps1`**：在桌面建 `Mini Plane.lnk`。
+   默认指向 `pythonw.exe + launcher.py`（源码运行）；给 `-Exe` 则指向打包好的
+   `MiniPlane.exe`（分发）。工作目录、图标、描述都写全。**必须以 UTF-8 BOM 存盘**
+   —— 本机 PowerShell 5.1 读 UTF-8 无 BOM 的 .ps1 会把中文注释解析错、脚本行为诡异
+   （第一轮 `$desktop` 变 null 就是这个坑，与旧 `start.cmd` 闪退同源）。
+2. **打包脚本 `desktop/build.py`**：用 PyInstaller 把 `launcher.py` 冻结成**单文件**
+   `MiniPlane.exe`（`--onefile --windowed --collect-all webview`），落到 `dist/MiniPlane/`；
+   `--portable` 可选把 app + 后端源码一并拷成分发目录。
+3. **启动器路径解析升级**（`desktop/launcher.py`）：`repo_root()` 从 exe 所在目录**逐级向上**
+   找含 `backend/manage.py` 的仓库根，`app_dir()` 就近找 `app/` 或 `dist/*/app/server.js`。
+   → 单文件 exe 放仓库内任意层级都能双击跑（复用本机 backend/.venv + dist 前端），
+   避免"拷贝 .venv 会因 venv 绝对路径重定向而损坏"的老问题。
+4. **`MINIPLANE_CHECK_WEBVIEW=1` 自检模式**：只验证冻结版能否 import `webview`（GUI 就绪），
+   无需真开窗口即可在打包后做冒烟——补上"GUI 无法在无桌面环境验证"的盲区。
+
+### 验证（对**编译产物 MiniPlane.exe** 真跑，非源码）
+
+- `MINIPLANE_CHECK_WEBVIEW=1 dist\MiniPlane\MiniPlane.exe` → `[webview-ok]`（webview 已正确
+  冻结进包，双击可弹原生窗口）。
+- `MINIPLANE_NO_WINDOW=1 dist\MiniPlane\MiniPlane.exe` → `stack ready` 后 `services stopped`、
+  退出码 0（冻结版编排器成功拉起仓库内的 Daphne 后端 + node 前端，向上定位路径生效）。
+- 桌面快捷方式 `Mini Plane.lnk` 的 Target = `C:\palne\dist\MiniPlane\MiniPlane.exe`（存在），
+  Workdir = 其目录；双击即弹本地原生窗口。
+
+### 说明与边界
+
+- 冻结的是**启动器**；后端 Django、前端 Next 仍以子进程用本机 `backend/.venv` 与 `node` 运行。
+  把 `MiniPlane.exe` 拷到干净机器独立运行需带 `--portable`（含后端源码 + 前端产物），
+  目标机再建一次 venv 并装 Node（见 `desktop/build.py` 末尾提示）。`dist/` 已 gitignore，
+  故 exe / 前端产物不入库，仅提交 `build.py` 等可复现脚本。
+
+### 下一步
+
+- 第 3 部分：修 Playwright E2E「测试窗口」并跑通。
+- 收尾：p3c 代码质量检查 + 整体回归。

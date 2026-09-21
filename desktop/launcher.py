@@ -34,32 +34,53 @@ READY_TIMEOUT_S = int(os.environ.get("MINIPLANE_READY_TIMEOUT", "180"))
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 
 
-def base_dir() -> Path:
-    """软件根：冻结后 = exe 所在目录；脚本运行 = desktop/ 的上一级（仓库根）。"""
+def _candidate_roots() -> list[Path]:
+    """按优先级列出"可能装着 backend/ + app/ 的根目录"。
+
+    冻结版：先 exe 所在目录，再逐级向上找仓库根（打包 exe 放在仓库内任意层级、
+    或放在自带 backend/ + app/ 的分发目录里，都能被定位）；脚本版：desktop/ 上一级。
+    """
     if IS_FROZEN:
-        return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent
+        exe = Path(sys.executable).resolve()
+        return [exe.parent, *exe.parents]
+    return [Path(__file__).resolve().parent.parent]
+
+
+def repo_root() -> Path:
+    """第一个含 backend/manage.py 的候选根；找不到则退回首个候选。"""
+    cands = _candidate_roots()
+    for r in cands:
+        if (r / "backend" / "manage.py").exists():
+            return r
+    return cands[0]
+
+
+def base_dir() -> Path:
+    return repo_root()
 
 
 def backend_dir() -> Path:
-    return base_dir() / "backend"
+    return repo_root() / "backend"
 
 
 def app_dir() -> Path:
-    """Next standalone 前端目录（含 server.js）。
+    """Next standalone 前端目录（含 server.js），在候选根里就近找。
 
-    解析优先级：MINIPLANE_APP_DIR 环境变量 → base/app → 就近的 dist/*/app。
+    优先级：MINIPLANE_APP_DIR 环境变量 → <根>/app → <根>/dist/*/app。
     """
     env = os.environ.get("MINIPLANE_APP_DIR")
     if env:
         return Path(env).resolve()
-    cand = base_dir() / "app"
-    if (cand / "server.js").exists():
-        return cand
-    for p in sorted((base_dir() / "dist").glob("*/app")) if (base_dir() / "dist").is_dir() else []:
-        if (p / "server.js").exists():
-            return p
-    return cand
+    for r in _candidate_roots():
+        cand = r / "app"
+        if (cand / "server.js").exists():
+            return cand
+        dist = r / "dist"
+        if dist.is_dir():
+            for p in sorted(dist.glob("*/app")):
+                if (p / "server.js").exists():
+                    return p
+    return repo_root() / "app"
 
 
 def venv_python() -> Path:
@@ -68,7 +89,7 @@ def venv_python() -> Path:
 
 
 def runtime_dir() -> Path:
-    d = base_dir() / "runtime"
+    d = repo_root() / "runtime"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -227,6 +248,18 @@ def _fatal(msg: str) -> int:
 
 
 def main() -> int:
+    # 打包自检：只验证 webview 能被冻结版正确 import（GUI 后端就绪），随即退出。
+    # 供无桌面环境 / CI 校验 PyInstaller 是否把 webview 及其依赖打进包里。
+    if os.environ.get("MINIPLANE_CHECK_WEBVIEW") == "1":
+        try:
+            import webview  # type: ignore # noqa: F401  —— 导入即为验证，不引用
+
+            print("[webview-ok] importable; gui backend available")
+            return 0
+        except Exception as e:  # noqa: BLE001 —— 自检就是要捕获一切导入错误并报告
+            print(f"[webview-FAIL] {e!r}")
+            return 2
+
     ad = app_dir()
     py = venv_python()
 

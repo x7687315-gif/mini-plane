@@ -56,3 +56,24 @@ set MINIPLANE_NO_WINDOW=1 && python desktop\launcher.py
 | 就绪超时 | 180s | `MINIPLANE_READY_TIMEOUT` |
 
 改端口需同步 `desktop.py` 里的 `_PAGE_ORIGIN`（CORS/CSRF 白名单）。
+
+## 快捷方式 & 打包 .exe
+
+```bat
+:: 1) 打包单文件启动器 → dist\MiniPlane\MiniPlane.exe
+backend\.venv\Scripts\python.exe desktop\build.py
+::    分发到干净机器： desktop\build.py --portable（连 app + 后端源码一起拷）
+
+:: 2) 桌面建/更新快捷方式（指向上面的 exe）
+powershell -NoProfile -ExecutionPolicy Bypass -File desktop\make_shortcut.ps1 ^
+  -Exe "%CD%\dist\MiniPlane\MiniPlane.exe"
+::    不给 -Exe 则指向源码版（pythonw + launcher.py）
+```
+
+打包后冒烟（无需真开窗口即可验证 GUI 与编排）：
+
+```bat
+set MINIPLANE_CHECK_WEBVIEW=1 && dist\MiniPlane\MiniPlane.exe   :: 期望 [webview-ok]
+set MINIPLANE_NO_WINDOW=1     && dist\MiniPlane\MiniPlane.exe   :: 期望 stack ready→services stopped
+```
+
