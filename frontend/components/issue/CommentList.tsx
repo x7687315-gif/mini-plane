@@ -247,7 +247,7 @@ function CommentRow({ comment, currentUserId, role, onUpdate, onDelete }: Commen
               onClick={() => void save()}
               disabled={pending || !draft.trim()}
             >
-              {pending ? "saving…" : "save"}
+              {pending ? "保存中…" : "保存"}
             </Button>
             <Button
               variant="ghost"
@@ -259,7 +259,7 @@ function CommentRow({ comment, currentUserId, role, onUpdate, onDelete }: Commen
               }}
               disabled={pending}
             >取消</Button>
-            <span className="bp-hint">⌘/ctrl · enter to save</span>
+            <span className="bp-hint">⌘/ctrl · Enter 保存</span>
           </div>
         </div>
       ) : (
@@ -276,8 +276,8 @@ function CommentRow({ comment, currentUserId, role, onUpdate, onDelete }: Commen
       <Modal
         open={confirming}
         onClose={() => setConfirming(false)}
-        title="Delete this comment?"
-        subtitle={`by ${comment.author?.username ?? "?"} · you are acting as Admin`}
+        title="删除这条评论？"
+        subtitle={`${comment.author?.username ?? "?"} 的评论 · 你正以管理员身份操作`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirming(false)}>取消</Button>
@@ -286,7 +286,7 @@ function CommentRow({ comment, currentUserId, role, onUpdate, onDelete }: Commen
               onClick={() => void remove()}
               className="border-[color:var(--color-urgent)] text-[color:var(--color-urgent)]"
             >
-              delete comment
+              删除评论
             </Button>
           </>
         }

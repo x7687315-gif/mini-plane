@@ -106,3 +106,60 @@
 
 - 第 3 部分：修 Playwright E2E「测试窗口」并跑通。
 - 收尾：p3c 代码质量检查 + 整体回归。
+
+---
+
+## 第 3 部分：修复 Playwright E2E「测试窗口」
+
+### 现象（真跑复现）
+
+`scripts/dev.ps1 e2e` 起栈后跑 14 个 Playwright 用例：**13 passed / 1 failed**。
+失败的是 `issue-thread.spec.ts:81 评论 → 编辑评论 → 时间线条目数不变`：
+
+```
+locator.click 超时 30000ms —— waiting for getByRole('button', { name: /^保存$/ })
+at tests/e2e/issue-thread.spec.ts:148
+```
+
+即"点编辑、填好内容后，找不到『保存』按钮"，30 秒超时。
+
+### 根因
+
+`components/issue/CommentList.tsx` 的保存按钮文案是**英文** `{pending ? "saving…" : "save"}`，
+而同组件的 `编辑 / 取消` 都是中文；E2E 按正确的中文语义 `getByRole('button',{name:/^保存$/})`
+匹配，自然命中不到。是 **UI 全面中文化（commit `f5f47ba`）漏改了这一个按钮 + 删除弹窗**，
+不是测试写错、也不是环境 flaky。
+
+### 修法（改组件，不动测试）
+
+按 github-preflight 快速核查结论（Playwright 应以可访问名/语义定位 + 项目中文化方向），
+把漏网的英文标签补齐为中文：`保存 / 保存中…`、`删除这条评论？`、`删除评论`、
+`⌘/ctrl · Enter 保存`。**保持测试不变**——它断言的正是应有的中文 UX。
+（`app/` 页面上 `create your first workspace` / `add member` 属设计语言刻意保留的英文艺术字，
+未动，见 README"部分大标题按设计语言保留英文"。）
+
+### 验证
+
+- 重新 `dev.ps1 e2e`：**14 passed（2.1m）**，原失败用例 10.5s 通过。栈用 `dev.ps1 down` 收净。
+- 组件改动过仓库自有门禁：`eslint` rc=0、`tsc --noEmit` 0 error。
+
+---
+
+## 收尾：代码质量 + 回归
+
+- **P3C 检查**（按原则映射到 Python/TS，落 `docs/测试报告/P3C代码质量检查/`）：
+  一般 1（魔法值 `CREATE_NO_WINDOW` 字面量重复 + 提示硬编码端口 → 已提取常量/改用
+  `BACKEND_PORT/FRONTEND_PORT`）、轻微 1（本部分 i18n 遗漏 → 已修）；2 项 best-effort
+  `except: pass` 与硬编码中文有书面豁免。安全规约全过（无硬编码密钥、无 SQL 拼接、
+  子进程不用 shell=True、只绑 127.0.0.1）。评级"优秀"。
+- **回归**：ruff（仓库 select 规则）All checks passed；`manage.py check` 0 issues；
+  SQLite `migrate` 28 项 OK；E2E 14/14；冻结产物 `MiniPlane.exe` 重建于源码一致，
+  `CHECK_WEBVIEW=[webview-ok]`、`NO_WINDOW=stack ready→stopped`。
+
+## 交付总览
+
+1. 前端 + 后端 + 数据库**合并为一个原生窗口本地软件**（pywebview + 内嵌 SQLite），
+   不再用浏览器打开；关窗干净停服。
+2. 桌面**快捷方式** `Mini Plane.lnk` → 指向打包好的 `dist\MiniPlane\MiniPlane.exe`，双击即用。
+3. 独立 `.exe` 由 `desktop/build.py` 可复现（`--portable` 可带运行时做成可分发目录）。
+4. 修复 E2E「测试窗口」（14/14 全绿）+ P3C 质量收口。

@@ -33,6 +33,9 @@ READY_TIMEOUT_S = int(os.environ.get("MINIPLANE_READY_TIMEOUT", "180"))
 
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 
+# Windows：让子进程不弹黑色控制台窗口（纯 app 观感）。老版本 Python 无此常量，故给字面量兜底。
+CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+
 
 def _candidate_roots() -> list[Path]:
     """按优先级列出"可能装着 backend/ + app/ 的根目录"。
@@ -107,7 +110,7 @@ def _popen_kwargs(hide_console: bool) -> dict:
     kw: dict = {}
     if hide_console and os.name == "nt":
         # CREATE_NO_WINDOW：不弹黑色控制台窗口，纯 app 观感
-        kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        kw["creationflags"] = CREATE_NO_WINDOW
     return kw
 
 
@@ -174,11 +177,7 @@ def first_run_migrate() -> None:
         stdout=logf,
         stderr=subprocess.STDOUT,
         check=True,
-        **(
-            {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)}
-            if os.name == "nt"
-            else {}
-        ),
+        **({"creationflags": CREATE_NO_WINDOW} if os.name == "nt" else {}),
     )
     logf.close()
 
@@ -300,7 +299,7 @@ def main() -> int:
         ok_b = wait_ready(BACKEND_PORT, "/api/v1/health/")
         ok_f = wait_ready(FRONTEND_PORT, "/login")
         if not (ok_b and ok_f):
-            which = "后端(8000)" if not ok_b else "前端(3000)"
+            which = f"后端({BACKEND_PORT})" if not ok_b else f"前端({FRONTEND_PORT})"
             logs = f"{runtime / 'backend.log'} / {runtime / 'frontend.log'}"
             return _fatal(f"{which} 未能就绪，见日志：\n{logs}")
 
