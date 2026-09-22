@@ -234,30 +234,78 @@ def _which_node() -> str:
 
 
 # ──────────────────────────────────────────────────────────────
-def _fatal(msg: str) -> int:
-    print(f"[Mini Plane] 启动失败：\n{msg}", file=sys.stderr)
-    if os.name == "nt" and not IS_FROZEN:
+def _log(msg: str) -> None:
+    """把关键信息同时打到 stderr 和 runtime/launcher.log。
+
+    冻结版（--windowed）没有控制台，崩溃若只 print 到 stderr 用户完全看不到——
+    表现就是"双击→闪一下没了"。所以一切失败都要落这份日志文件，方便事后定位。
+    """
+    ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {msg}"
+    try:
+        print(line, file=sys.stderr)
+    except Exception:
+        pass
+    try:
+        with (runtime_dir() / "launcher.log").open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+    except Exception:
+        pass
+
+
+def _fatal(msg: str, exc_text: str | None = None) -> int:
+    _log("启动失败：\n" + msg + (("\n--- 详细堆栈 ---\n" + exc_text) if exc_text else ""))
+    # Windows 一律弹窗（冻结版没控制台，弹窗是用户唯一能看到的错误渠道）
+    if os.name == "nt":
         try:
             import ctypes
 
-            ctypes.windll.user32.MessageBoxW(0, msg, "Mini Plane 启动失败", 0x10)
+            body = msg + f"\n\n详细日志：{runtime_dir() / 'launcher.log'}" if exc_text else msg
+            ctypes.windll.user32.MessageBoxW(0, body, "Mini Plane 启动失败", 0x10)
         except Exception:
             pass
     return 1
 
 
-def main() -> int:
-    # 打包自检：只验证 webview 能被冻结版正确 import（GUI 后端就绪），随即退出。
-    # 供无桌面环境 / CI 校验 PyInstaller 是否把 webview 及其依赖打进包里。
-    if os.environ.get("MINIPLANE_CHECK_WEBVIEW") == "1":
-        try:
-            import webview  # type: ignore # noqa: F401  —— 导入即为验证，不引用
+def _probe_webview_gui() -> int:
+    """真正的 GUI 自检：开一个空白窗口再自动关掉。
 
-            print("[webview-ok] importable; gui backend available")
-            return 0
-        except Exception as e:  # noqa: BLE001 —— 自检就是要捕获一切导入错误并报告
-            print(f"[webview-FAIL] {e!r}")
-            return 2
+    只做 `import webview` 不足以验证冻结包可用——Windows 的窗口后端
+    （EdgeChromium/WebView2 + pythonnet）是 create_window/start 时才**惰性加载**的，
+    冻结包里缺 DLL/程序集正是在这一步炸。这里逼它真跑一遍，失败即回真实堆栈。
+    """
+    import threading
+
+    try:
+        import webview  # type: ignore
+    except Exception as e:
+        _log(f"[webview-FAIL] import 失败：{e!r}")
+        return 2
+    try:
+        win = webview.create_window("Mini Plane 自检", "about:blank", width=320, height=200)
+
+        def _close() -> None:
+            time.sleep(2.5)
+            try:
+                win.destroy()
+            except Exception:
+                pass
+
+        threading.Thread(target=_close, daemon=True).start()
+        webview.start()
+        _log("[webview-ok] GUI 后端可初始化、窗口创建/关闭正常")
+        return 0
+    except Exception as e:
+        import traceback
+
+        _log(f"[webview-FAIL] GUI 初始化失败：{e!r}\n{traceback.format_exc()}")
+        return 2
+
+
+def main() -> int:
+    # 打包自检：验证冻结包能否真正创建窗口（含 GUI 后端惰性加载），随即退出。
+    if os.environ.get("MINIPLANE_CHECK_WEBVIEW") == "1":
+        return _probe_webview_gui()
 
     ad = app_dir()
     py = venv_python()
@@ -313,11 +361,10 @@ def main() -> int:
 
     except subprocess.CalledProcessError as e:
         return _fatal(f"迁移失败：{e}\n见 {log_path('backend-setup')}")
-    except Exception as e:  # 兜底：窗口/子进程异常都要停服
+    except Exception as e:  # 兜底：窗口/子进程异常都要停服，且把堆栈落日志
         import traceback
 
-        traceback.print_exc()
-        return _fatal(f"未预期错误：{e!r}")
+        return _fatal(f"未预期错误：{e!r}", exc_text=traceback.format_exc())
     finally:
         for p in procs:
             kill_tree(p)
@@ -327,21 +374,37 @@ def main() -> int:
 def open_window(url: str) -> int:
     try:
         import webview  # type: ignore
-    except Exception:
+    except Exception as e:
+        import traceback
+
         return _fatal(
-            "未安装 pywebview。请：  .\\backend\\.venv\\Scripts\\python -m pip install pywebview"
+            "无法加载 pywebview。请安装：\n"
+            "  .\\backend\\.venv\\Scripts\\python -m pip install pywebview\n\n"
+            f"错误：{e!r}",
+            exc_text=traceback.format_exc(),
         )
-    window = webview.create_window(
-        APP_TITLE,
-        url,
-        width=1280,
-        height=820,
-        min_size=(900, 600),
-        background_color="#F7FAFF",
-    )
-    # Windows 优先 EdgeChromium(WebView2)；无则 webview 自行回退
-    webview.start(func=None, window=window, debug=False)
-    return 0
+    try:
+        # pywebview 6.x：create_window 登记的窗口由 start() 统一驱动；start() 不接 window 参数
+        webview.create_window(
+            APP_TITLE,
+            url,
+            width=1280,
+            height=820,
+            min_size=(900, 600),
+            background_color="#F7FAFF",
+        )
+        # Windows 优先 EdgeChromium(WebView2)；无则 webview 自行回退
+        webview.start(debug=False)
+        return 0
+    except Exception as e:
+        import traceback
+
+        return _fatal(
+            "打开本地窗口失败（WebView2 初始化异常）。\n"
+            "请确认已安装「Microsoft Edge WebView2 运行时」（Win11 自带；Win10 可能需单独装）。\n\n"
+            f"错误：{e!r}",
+            exc_text=traceback.format_exc(),
+        )
 
 
 if __name__ == "__main__":

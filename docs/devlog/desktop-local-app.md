@@ -156,6 +156,51 @@ at tests/e2e/issue-thread.spec.ts:148
   SQLite `migrate` 28 项 OK；E2E 14/14；冻结产物 `MiniPlane.exe` 重建于源码一致，
   `CHECK_WEBVIEW=[webview-ok]`、`NO_WINDOW=stack ready→stopped`。
 
+## 追加 · 第 4 部分：修复桌面版「闪退」+ 自定义图标
+
+### 现象
+
+用户双击桌面「Mini Plane」快捷方式 → 窗口一闪即退（闪退）。
+
+### 根因（真跑抓到，非猜）
+
+之前的无窗自检（`MINIPLANE_NO_WINDOW`）只跑到"栈起 + 就绪"就返回，`CHECK_WEBVIEW` 只
+`import webview`——**都没真正调用 `open_window`**，所以漏掉了里面的一行 API 误用：
+
+```
+TypeError: start() got an unexpected keyword argument 'window'
+  at launcher.py open_window: webview.start(func=None, window=window, debug=False)
+```
+
+pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_window` 登记的窗口由
+`start()` 统一驱动）。而且旧 `_fatal` 有 `if os.name == "nt" and not IS_FROZEN` 守卫——
+**冻结版（--windowed 无控制台）根本不弹框、stderr 又被丢弃**，于是任何启动期异常都表现为
+"静默闪退"，用户毫无线索。
+
+### 修法（两处）
+
+1. `open_window`：`webview.create_window(...)` 后调 `webview.start(debug=False)`（去掉非法 `window=`）。
+2. **让失败不再静默**（防同类问题复发）：
+   - 新增 `_log()`，所有失败写 `runtime/launcher.log`（带时间戳）；
+   - `_fatal` 在 Windows 上**一律弹 MessageBox**（不再 `not IS_FROZEN` 短路），附日志路径；
+   - `open_window` 单独 try/except，WebView2 初始化失败给出"请装 Edge WebView2 运行时"的明确指引；
+   - `CHECK_WEBVIEW` 升级为**真开一个窗口再自动关**的 GUI 探针（逼出 create_window/start 的惰性后端加载），
+     这样打包冒烟能真正覆盖到这条路径。
+
+### 自定义图标
+
+`desktop/build.py` 的 `--icon` 与 `make_shortcut.ps1` 早已支持 `desktop/miniplane.ico`；
+本轮生成了一枚蓝白纸飞机徽标（ImageGen 出图 → 裁掉角标水印 → Pillow 导出 16~256 多尺寸 .ico），
+并放了 `frontend/public/icon-512.png` 作 favicon。重打包后 exe 与桌面快捷方式都用上它。
+
+### 验证
+
+- 真跑冻结版完整启动：MiniPlane 进程存活（窗口在）、8000/3000 均 200、`launcher.log` 无失败记录 →
+  闪退消除。
+- `MINIPLANE_CHECK_WEBVIEW=1 MiniPlane.exe` → `[webview-ok] GUI 后端可初始化、窗口创建/关闭正常`（rc0）。
+
+---
+
 ## 交付总览
 
 1. 前端 + 后端 + 数据库**合并为一个原生窗口本地软件**（pywebview + 内嵌 SQLite），
@@ -163,3 +208,4 @@ at tests/e2e/issue-thread.spec.ts:148
 2. 桌面**快捷方式** `Mini Plane.lnk` → 指向打包好的 `dist\MiniPlane\MiniPlane.exe`，双击即用。
 3. 独立 `.exe` 由 `desktop/build.py` 可复现（`--portable` 可带运行时做成可分发目录）。
 4. 修复 E2E「测试窗口」（14/14 全绿）+ P3C 质量收口。
+5. 修复桌面版「闪退」（`webview.start` 非法参数 + 冻结版静默失败）+ 自定义应用图标。
