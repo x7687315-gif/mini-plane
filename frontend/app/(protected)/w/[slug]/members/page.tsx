@@ -93,7 +93,7 @@ export default function WorkspaceMembersPage() {
         {admin && (
           <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
             <PlusIcon size={12} />
-            <span>add member</span>
+            <span>添加成员</span>
           </Button>
         )}
       </div>
@@ -118,9 +118,9 @@ export default function WorkspaceMembersPage() {
         <div className="border-t border-[color:var(--color-rule)]">
           <div className="grid grid-cols-[40px_1fr_140px_1fr_40px] gap-4 py-2.5 px-2 text-[9px] uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium border-b border-[color:var(--color-rule)]">
             <span />
-            <span>member</span>
-            <span>role</span>
-            <span>joined</span>
+            <span>成员</span>
+            <span>角色</span>
+            <span>加入时间</span>
             <span />
           </div>
 
@@ -157,9 +157,9 @@ export default function WorkspaceMembersPage() {
                       disabled={roleMutation.isPending}
                       className="bg-transparent border border-[color:var(--color-rule)] px-1.5 py-1 text-[10px] uppercase tracking-[0.14em] font-sans font-medium text-[color:var(--color-ink-2)] outline-none focus:border-[color:var(--color-accent)]"
                     >
-                      <option value={ROLE.ADMIN}>Admin</option>
-                      <option value={ROLE.MEMBER}>Member</option>
-                      <option value={ROLE.VIEWER}>Viewer</option>
+                      <option value={ROLE.ADMIN}>管理员</option>
+                      <option value={ROLE.MEMBER}>成员</option>
+                      <option value={ROLE.VIEWER}>访客</option>
                     </select>
                   ) : (
                     <RoleBadge role={m.role} size="xs" />
@@ -251,8 +251,8 @@ function AddMemberModal({
     <Modal
       open={open}
       onClose={close}
-      title="Add member"
-      subtitle="the email must already be registered"
+      title="添加成员"
+      subtitle="该邮箱需已注册"
       footer={
         <>
           <Button variant="secondary" onClick={close}>
@@ -270,7 +270,7 @@ function AddMemberModal({
         </div>
       )}
 
-      <Field label="Email" htmlFor="m-email" error={errors.email?.message ?? serverFields.email}>
+      <Field label="邮箱" htmlFor="m-email" error={errors.email?.message ?? serverFields.email}>
         <Input
           id="m-email"
           type="email"
@@ -280,7 +280,7 @@ function AddMemberModal({
         />
       </Field>
 
-      <Field label="Role" htmlFor="m-role" error={serverFields.role}>
+      <Field label="角色" htmlFor="m-role" error={serverFields.role}>
         <select
           id="m-role"
           {...register("role")}

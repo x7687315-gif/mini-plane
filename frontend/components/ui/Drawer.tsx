@@ -103,7 +103,7 @@ export function Drawer({
               type="button"
               onClick={onClose}
               className="w-7 h-7 inline-flex items-center justify-center border border-[color:var(--color-rule)] text-[color:var(--color-ink-2)] hover:text-[color:var(--color-ink)] hover:border-[color:var(--color-ink-2)] bp-transition"
-              aria-label="close"
+              aria-label="关闭"
             >
               <XIcon size={14} />
             </button>

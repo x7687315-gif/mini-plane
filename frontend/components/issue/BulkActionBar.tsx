@@ -274,7 +274,7 @@ export function BulkActionBar({
         </span>
 
         <EditableField
-          label="state"
+          label="状态"
           className="w-[150px]"
           value={null}
           options={stateOptions}
@@ -284,24 +284,24 @@ export function BulkActionBar({
         />
 
         <EditableField
-          label="priority"
+          label="优先级"
           className="w-[140px]"
           value={null}
           options={priorityOptions}
           disabled={busy}
-          placeholder="set priority…"
+          placeholder="设置优先级…"
           onSelect={(v) => v && handleSetPriority(v as IssuePriority)}
         />
 
         <EditableField
-          label="assignee"
+          label="负责人"
           className="w-[160px]"
           value={null}
           options={memberOptions}
           clearable
           clearLabel="unassign all"
           disabled={busy}
-          placeholder="assign to…"
+          placeholder="指派给…"
           onSelect={(v) => handleSetAssignee(v)}
         />
 
@@ -320,7 +320,7 @@ export function BulkActionBar({
             }
             onClear={() => setLabelDraft([])}
             disabled={busy || labelConfirmationPending}
-            placeholder="choose the new set…"
+            placeholder="选择新的集合…"
           />
           <Button
             variant="primary"

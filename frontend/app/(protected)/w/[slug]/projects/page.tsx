@@ -38,7 +38,7 @@ export default function ProjectsPage() {
           <Link href={`/w/${slug}/projects/new`}>
             <Button variant="primary" size="sm">
               <PlusIcon size={12} />
-              <span>new project</span>
+              <span>新建项目</span>
             </Button>
           </Link>
         )}
@@ -79,10 +79,10 @@ export default function ProjectsPage() {
         <div className="border-t border-[color:var(--color-rule)]">
           {/* header row */}
           <div className="grid grid-cols-[80px_1fr_120px_100px_40px] gap-4 py-2.5 px-2 text-[9px] uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium border-b border-[color:var(--color-rule)]">
-            <span>identifier</span>
-            <span>name</span>
-            <span>description</span>
-            <span>your role</span>
+            <span>标识</span>
+            <span>名称</span>
+            <span>描述</span>
+            <span>你的角色</span>
             <span />
           </div>
 

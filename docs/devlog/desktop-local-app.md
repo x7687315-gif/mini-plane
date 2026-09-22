@@ -201,6 +201,58 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 
 ---
 
+## 追加 · 第 5 部分：UI 中文化走查与补齐
+
+针对两个问题做核查：**① UI 是否已中文化；② 保留英文之处是否沿用了原英文字体、整体是否协调。**
+
+### 设计语言的判定基准（DESIGN.md §2）
+
+- **Cormorant Garamond（衬线斜体）** 专用于「装饰性英文」：Hero/页面大标题、Drawer 区块标题、
+  编号 ID（AMI-7）、坐标读数、`Plane` 字标、登录页 `Sign in`/`Create account` 等。
+  这些**本就该是英文**——Cormorant 无中文字形，硬塞中文会掉回系统字体、破坏「蓝图编辑风」。
+- **Inter（无衬线）** 承载正文 / UI / 表单 / 按钮 / 提示——**这一层必须是中文**。
+
+所以"漏中文化"的判定 = **sans 语境里残留的英文功能文案**；serif 语境的英文是设计，不算漏。
+
+### 走查结论
+
+- Issue 主流程（抽屉、评论、批量、筛选、状态/优先级）此前已中文化（E2E 断言 `用户名/保存/新建任务/
+  批量操作/应用/设置状态/重试失败项/发布/编辑/标签（覆盖）` 等中文即为证）。
+- 但**工作区 / 项目 / 成员 / 设置 / 认证页 / 404 / 筛选与批量占位符**里散落一批 sans 英文功能文案，
+  是「全面中文化」(`f5f47ba`) 的漏网。
+
+### 本次补齐（54 处，均为 sans 功能文案，且经核对不被任何测试引用）
+
+- 表单标签：`Name/Slug/Email/Role/State/Priority/Assignee/labels/assignee/sort` → 名称/标识（Slug）/邮箱/
+  角色/状态/优先级/负责人/标签/排序。
+- 按钮 / 弹窗标题 / 副标题：`new workspace / New workspace / add member / Add member / new project /
+  New issue / Delete workspace / this cannot be undone / the email must already be registered /
+  a shelf for your projects` → 对应中文。
+- 占位符：`search title / description / any label / anyone / set priority… / assign to… /
+  choose the new set… / unassigned` → 中文。
+- 表头 / 角色选项 / 侧栏：`member/role/joined`、`Admin/Member/Viewer`、`closed/days` → 中文。
+- 交叉链接与 404 正文：`Register →`→`注册 →`、`Already have an account? … Sign in →`→`已有账号？… 登录 →`、
+  404 正文与"删除工作区级联"说明句 → 中文。
+- 抽屉关闭 `aria-label="close"`→`关闭`。
+
+### 有意保留的英文（属设计，且确认沿用 serif/mono 字体）
+
+- 页面大标题 `Workspaces / Projects / Members / Settings / New project`（`bp-display` = Cormorant 斜体）。
+- 认证页 `Sign in / Create account`（`font-serif` h1）、`Plane` 字标、坐标读数、`sheet 01/12`、`fig · identify`。
+- 404 的 `FIG`、`Resource not found`（`bp-title` serif）、`back to dashboard`（内联 serif 斜体）。
+- 设置页 `Danger zone`（`font-serif italic` 区块标题）。
+- 示例值 / 等宽：`Amiya Workspace`、`amiya-ws`、`AMI`、`amiya@example.com`、`•••••`、`00° N · 00° E`。
+- 状态枚举 `Backlog/Todo/In Progress/Done` 与 `aria-label="status"`、`"edit comment"`：
+  **被 E2E 以英文匹配**（`option /^Todo$/i`、`getByLabel("status"/"edit comment")`），
+  属"改则须同步改测试"的耦合项，本轮**未动**，留作后续与测试一起处理。
+
+### 验证
+
+- `tsc --noEmit` 0 error；`eslint` 改动文件 rc=0。
+- `dev.ps1 e2e` 复跑：**14/14**（见下条命令输出）。
+
+---
+
 ## 交付总览
 
 1. 前端 + 后端 + 数据库**合并为一个原生窗口本地软件**（pywebview + 内嵌 SQLite），
@@ -209,3 +261,4 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 3. 独立 `.exe` 由 `desktop/build.py` 可复现（`--portable` 可带运行时做成可分发目录）。
 4. 修复 E2E「测试窗口」（14/14 全绿）+ P3C 质量收口。
 5. 修复桌面版「闪退」（`webview.start` 非法参数 + 冻结版静默失败）+ 自定义应用图标。
+6. UI 中文化走查：补齐 54 处 sans 功能文案，确认设计性英文沿用 Cormorant 衬线字体、整体协调。

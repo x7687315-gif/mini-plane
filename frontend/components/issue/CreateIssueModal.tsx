@@ -127,7 +127,7 @@ export function CreateIssueModal({
     <Modal
       open={open}
       onClose={close}
-      title="New issue"
+      title="新建任务"
       subtitle={`a new entry in ${projectId ? "this project" : "the archive"}`}
       width={560}
       footer={
@@ -161,7 +161,7 @@ export function CreateIssueModal({
 
       <div className="grid grid-cols-3 gap-3 mt-2">
         <EditableField
-          label="State"
+          label="状态"
           value={stateId}
           options={stateOptions}
           placeholder="Backlog"
@@ -169,7 +169,7 @@ export function CreateIssueModal({
         />
 
         <EditableField
-          label="Priority"
+          label="优先级"
           value={priority}
           options={PRIORITY_VALUES.map((p) => ({
             value: p,
@@ -180,12 +180,12 @@ export function CreateIssueModal({
         />
 
         <EditableField
-          label="Assignee"
+          label="负责人"
           value={assigneeId}
           options={assigneeOptions}
           clearable
           clearLabel="Unassigned"
-          placeholder="unassigned"
+          placeholder="未指派"
           onSelect={setAssigneeId}
         />
       </div>

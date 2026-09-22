@@ -94,7 +94,7 @@ export default function NewProjectPage() {
             )}
 
             <Field
-              label="Name"
+              label="名称"
               htmlFor="p-name"
               error={errors.name?.message ?? serverFields.name}
             >
@@ -102,7 +102,7 @@ export default function NewProjectPage() {
             </Field>
 
             <Field
-              label="Identifier"
+              label="标识"
               htmlFor="p-identifier"
               hint="用于 Issue 前缀，如 AMI-1、AMI-2；同一工作区内唯一"
               error={errors.identifier?.message ?? serverFields.identifier}
@@ -117,7 +117,7 @@ export default function NewProjectPage() {
             </Field>
 
             <Field
-              label="Description"
+              label="描述"
               htmlFor="p-description"
               error={errors.description?.message ?? serverFields.description}
             >

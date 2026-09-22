@@ -53,7 +53,7 @@ export default function WorkspacesPage() {
         </div>
         <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
           <PlusIcon size={12} />
-          <span>new workspace</span>
+          <span>新建工作区</span>
         </Button>
       </div>
 
@@ -142,7 +142,7 @@ function EmptyWorkspaces({ onCreate }: { onCreate: () => void }) {
       <div className="mt-8">
         <Button variant="primary" onClick={onCreate}>
           <PlusIcon size={12} />
-          <span>create your first workspace</span>
+          <span>创建你的第一个工作区</span>
         </Button>
       </div>
     </div>
@@ -211,8 +211,8 @@ function CreateWorkspaceModal({ open, onClose }: { open: boolean; onClose: () =>
     <Modal
       open={open}
       onClose={close}
-      title="New workspace"
-      subtitle="a shelf for your projects"
+      title="新建工作区"
+      subtitle="为项目准备的一层搁架"
       footer={
         <>
           <Button variant="secondary" onClick={close}>
@@ -230,12 +230,12 @@ function CreateWorkspaceModal({ open, onClose }: { open: boolean; onClose: () =>
         </div>
       )}
 
-      <Field label="Name" htmlFor="ws-name" error={errors.name?.message ?? serverFields.name}>
+      <Field label="名称" htmlFor="ws-name" error={errors.name?.message ?? serverFields.name}>
         <Input id="ws-name" placeholder="Amiya Workspace" autoFocus {...register("name")} />
       </Field>
 
       <Field
-        label="Slug"
+        label="标识（Slug）"
         htmlFor="ws-slug"
         hint="留空自动生成；冲突时自动追加 -2 / -3 后缀"
         error={errors.slug?.message ?? serverFields.slug}

@@ -152,7 +152,7 @@ export function FilterBar({
           <input
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
-            placeholder="search title / description"
+            placeholder="搜索标题 / 描述"
             aria-label="搜索任务"
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[11px] text-[color:var(--color-ink)] placeholder:italic placeholder:text-[color:var(--color-ink-3)]"
           />
@@ -161,7 +161,7 @@ export function FilterBar({
               type="button"
               onClick={() => setSearchDraft("")}
               className="text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
-              aria-label="clear search"
+              aria-label="清除搜索"
             >
               <XIcon size={11} />
             </button>
@@ -196,29 +196,29 @@ export function FilterBar({
       {/* Row 3: labels + assignee + ordering + clear */}
       <div className="flex flex-wrap items-end gap-3">
         <MultiSelect
-          label="labels"
+          label="标签"
           className="w-[190px]"
           values={selectedLabels}
-          placeholder="any label"
+          placeholder="任意标签"
           options={labels.map((l) => ({ value: l.id, label: l.name, color: l.color }))}
           onToggle={toggleLabel}
           onClear={() => onPatch({ labels: undefined })}
         />
 
         <EditableField
-          label="assignee"
+          label="负责人"
           className="w-[190px]"
           value={query.assignee ?? null}
           options={assigneeOptions}
           clearable
           clearLabel="anyone"
-          placeholder="anyone"
+          placeholder="任何人"
           onSelect={(v) => onPatch({ assignee: v ?? undefined })}
         />
 
         <span className="ml-auto flex items-end gap-3">
           <EditableField
-            label="sort"
+            label="排序"
             className="w-[170px]"
             value={query.ordering ?? "-created_at"}
             options={ISSUE_ORDERING_OPTIONS.map((o) => ({

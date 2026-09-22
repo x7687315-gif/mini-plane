@@ -65,7 +65,7 @@ export function DefaultKpi() {
           Throughput &middot; 7d
         </div>
         <div className="font-serif text-[32px] leading-none text-[color:var(--color-ink)]">
-          29 <small className="text-[12px] text-[color:var(--color-ink-3)] italic ml-1">closed</small>
+          29 <small className="text-[12px] text-[color:var(--color-ink-3)] italic ml-1">已关闭</small>
         </div>
       </div>
       <div>
@@ -73,7 +73,7 @@ export function DefaultKpi() {
           Cycle time
         </div>
         <div className="font-serif text-[32px] leading-none text-[color:var(--color-ink)]">
-          3.2 <small className="text-[12px] text-[color:var(--color-ink-3)] italic ml-1">days</small>
+          3.2 <small className="text-[12px] text-[color:var(--color-ink-3)] italic ml-1">天</small>
         </div>
       </div>
     </>

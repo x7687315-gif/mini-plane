@@ -27,8 +27,8 @@ export default function NotFound() {
         <h2 className="bp-title mt-6 text-3xl">Resource not found</h2>
 
         <p className="mt-4 max-w-md text-[13px] leading-relaxed text-[color:var(--color-ink-2)]">
-          The sheet you asked for is not in this archive.
-          Either it has been moved, or it never existed.
+          你要找的这一页不在档案里，
+          它可能已被移动，或从未存在。
         </p>
 
         <Link

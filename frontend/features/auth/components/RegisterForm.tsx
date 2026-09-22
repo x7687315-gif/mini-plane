@@ -128,7 +128,7 @@ export function RegisterForm() {
 export function RegisterAlt() {
   return (
     <>
-      Already have an account? <AuthAltLink href="/login">Sign in &rarr;</AuthAltLink>
+      已有账号？ <AuthAltLink href="/login">登录 &rarr;</AuthAltLink>
     </>
   );
 }

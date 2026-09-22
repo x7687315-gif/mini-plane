@@ -118,7 +118,7 @@ export function LoginForm() {
 export function LoginAlt() {
   return (
     <>
-      还没有账号？ <AuthAltLink href="/register">Register &rarr;</AuthAltLink>
+      还没有账号？ <AuthAltLink href="/register">注册 &rarr;</AuthAltLink>
     </>
   );
 }

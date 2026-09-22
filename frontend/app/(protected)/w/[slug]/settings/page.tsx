@@ -126,12 +126,12 @@ export default function WorkspaceSettingsPage() {
               </div>
             )}
 
-            <Field label="Name" htmlFor="s-name" error={errors.name?.message ?? serverFields.name}>
+            <Field label="名称" htmlFor="s-name" error={errors.name?.message ?? serverFields.name}>
               <Input id="s-name" {...register("name")} />
             </Field>
 
             <Field
-              label="Slug"
+              label="标识（Slug）"
               htmlFor="s-slug"
               hint="⚠ 改了 slug 会改变所有 URL（/w/&lt;slug&gt;/…），旧链接会失效"
               error={errors.slug?.message ?? serverFields.slug}
@@ -155,8 +155,8 @@ export default function WorkspaceSettingsPage() {
             Danger zone
           </h2>
           <p className="text-[12px] text-[color:var(--color-ink-2)] mb-4">
-            Deleting this workspace <b>cascades</b> to every project, member, state and issue
-            inside it. There is no soft delete and no undo (BACKEND_PLAN §D7).
+            删除该工作区会<b>级联</b>影响其中所有项目、成员、状态与任务。
+            没有软删除，也无法撤销（BACKEND_PLAN §D7）。
           </p>
           <Button
             variant="secondary"
@@ -211,8 +211,8 @@ function DeleteWorkspaceModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Delete workspace"
-      subtitle="this cannot be undone"
+      title="删除工作区"
+      subtitle="此操作不可撤销"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
