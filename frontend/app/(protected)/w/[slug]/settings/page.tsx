@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AppShell } from "@/components/shell/AppShell";
 import { Button, Card, Field, Input, MeasureLine, Modal } from "@/components/ui";
 import { useDeleteWorkspace, useUpdateWorkspace, useWorkspace } from "@/features/workspace";
+import { useChrome } from "@/stores/chrome";
 import { ApiError } from "@/lib/api";
 import { flattenErrors } from "@/types/auth";
 import { isAdmin } from "@/types/workspace";
@@ -48,6 +48,12 @@ export default function WorkspaceSettingsPage() {
 
   const admin = isAdmin(ws.data?.current_role);
 
+  useChrome({
+    topbar: { workspace: ws.data?.name, role: ws.data?.current_role },
+    railCurrent: slug,
+    hideAside: true,
+  });
+
   const {
     register,
     handleSubmit,
@@ -84,7 +90,7 @@ export default function WorkspaceSettingsPage() {
 
   if (!admin && !ws.isLoading) {
     return (
-      <AppShell topbar={{ workspace: ws.data?.name, role: ws.data?.current_role }} rail={{ current: slug }} hideAside>
+      <>
         <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">Settings</h1>
         <MeasureLine left="FIG · 01" right="ACCESS · DENIED" />
         <Card>
@@ -93,12 +99,12 @@ export default function WorkspaceSettingsPage() {
             {ws.data?.current_role}。
           </p>
         </Card>
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell topbar={{ workspace: ws.data?.name, role: ws.data?.current_role }} rail={{ current: slug }} hideAside>
+    <>
       <div className="mb-2">
         <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">Settings</h1>
         <p className="font-serif italic text-[14px] text-[color:var(--color-ink-3)] mt-1 tracking-[0.04em]">
@@ -187,7 +193,7 @@ export default function WorkspaceSettingsPage() {
           pending={deleteMutation.isPending}
         />
       )}
-    </AppShell>
+    </>
   );
 }
 

@@ -344,6 +344,37 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 
 ---
 
+## 追加 · 第 8 部分：AppShell 上提到 layout 常驻（消除换页重挂）
+
+### 目标
+
+落地第 7 部分审计里那条 [MEDIUM] 冗余：8 个页面各自渲染 `<AppShell>`，换页时整块外壳
+（TopBar/LeftRail/Aside/Footer）跟着卸载重挂。把外壳提到 `(protected)/layout` 常驻。
+
+### 做法
+
+- 新增 `stores/chrome.ts`：一个只存**原始值**的 zustand store（`topbar{workspace,project,role}`、
+  `railCurrent`、`hideAside`）+ `useChrome(cfg)` 钩子。之所以不存 ReactNode —— 走查确认所有页面
+  都 `hideAside`、右侧 Aside 无动态内容，无需把节点塞进 store。
+- `app/(protected)/layout.tsx` 改为 `"use client"`，渲染 `AuthGuard → 常驻 AppShell → {children}`，
+  AppShell 的 topbar/rail/hideAside 从 chrome store 读。
+- 8 个页面：删掉 `<AppShell>` 外壳（改返回 `<>…</>`）+ 顶层调用 `useChrome({…})` 声明本屏外壳。
+  依赖全是原始值 → 稳定不死循环；数据异步到位（如 `ws.data.name`）值变 → 外壳随之更新。
+- 关键正确性：`setChrome` **整屏替换**而非浅合并，避免继承上一页残留（如从工作区页到 dashboard
+  的 topbar 清空）。
+
+### 权衡
+
+硬刷新某个受保护页时，顶栏面包屑/角色会在页面 effect 跑后填充，理论上有一帧空档；但品牌字标、
+WS 状态点、头像菜单是常驻的，顶栏不会"空"，只是面包屑晚一帧。相比每页重挂整块 chrome，这是净收益。
+
+### 验证
+
+- `AppShell` 现仅出现在 `layout.tsx`（页面全部解包）；tsc 0 error、eslint 0 error；
+  Playwright E2E **15/15 全过**（覆盖跨页导航、登录、实时、抽屉）；`scripts/package.py` 重建 dist。
+
+---
+
 ## 交付总览
 
 1. 前端 + 后端 + 数据库**合并为一个原生窗口本地软件**（pywebview + 内嵌 SQLite），
@@ -356,3 +387,4 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 7. 登录改造：昵称优先建号、免密直入、密码/邮箱在设置里自助绑定；后端三分支登录 + bind 端点；
    15/15 E2E、305 后端测试全过。
 8. 修成员页角色切换卡顿（乐观更新 + 仅锁当前行）+ 左上角改本机日历日期；附前端架构冗余审计报告。
+9. AppShell 上提到 `(protected)/layout` 常驻（chrome store + useChrome），8 页解包，消除换页重挂外壳；15/15 E2E。

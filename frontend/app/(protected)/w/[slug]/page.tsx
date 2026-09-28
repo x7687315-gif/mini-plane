@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AppShell } from "@/components/shell/AppShell";
 import { Avatar, Button, Card, MeasureLine, RoleBadge } from "@/components/ui";
 import { ArrowRightIcon, PlusIcon, SettingsIcon, UserIcon } from "@/components/icons";
 import { useWorkspace, useWorkspaceMembers } from "@/features/workspace";
 import { useProjects } from "@/features/project";
+import { useChrome } from "@/stores/chrome";
 import { ROLE, isAdmin } from "@/types/workspace";
 import { ApiError } from "@/lib/api";
 
@@ -29,12 +29,10 @@ export default function WorkspacePage() {
   const recent = (projects.data?.results ?? []).slice(0, 6);
   const memberList = members.data?.results ?? [];
 
+  useChrome({ topbar: { workspace: ws.data?.name, role }, railCurrent: slug, hideAside: true });
+
   return (
-    <AppShell
-      topbar={{ workspace: ws.data?.name, role }}
-      rail={{ current: slug }}
-      hideAside
-    >
+    <>
       <div className="flex items-end justify-between mb-2">
         <div>
           <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">
@@ -173,7 +171,7 @@ export default function WorkspacePage() {
           )}
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }
 

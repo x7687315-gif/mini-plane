@@ -5,9 +5,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AppShell } from "@/components/shell/AppShell";
 import { Avatar, Button, Field, Input, MeasureLine, Modal, RoleBadge } from "@/components/ui";
 import { PlusIcon, XIcon } from "@/components/icons";
+import { useChrome } from "@/stores/chrome";
 import {
   useAddWorkspaceMember,
   useRemoveWorkspaceMember,
@@ -49,6 +49,12 @@ export default function WorkspaceMembersPage() {
   const removeMutation = useRemoveWorkspaceMember(slug);
   const roleMutation = useUpdateWorkspaceMemberRole(slug);
 
+  useChrome({
+    topbar: { workspace: ws.data?.name, role: ws.data?.current_role },
+    railCurrent: slug,
+    hideAside: true,
+  });
+
   const list = members.data?.results ?? [];
   const ownerId = ws.data?.owner;
 
@@ -78,11 +84,7 @@ export default function WorkspaceMembersPage() {
   };
 
   return (
-    <AppShell
-      topbar={{ workspace: ws.data?.name, role: ws.data?.current_role }}
-      rail={{ current: slug }}
-      hideAside
-    >
+    <>
       <div className="flex items-end justify-between mb-2">
         <div>
           <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">Members</h1>
@@ -196,7 +198,7 @@ export default function WorkspaceMembersPage() {
       )}
 
       <AddMemberModal slug={slug} open={addOpen} onClose={() => setAddOpen(false)} />
-    </AppShell>
+    </>
   );
 }
 

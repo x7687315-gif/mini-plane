@@ -5,10 +5,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AppShell } from "@/components/shell/AppShell";
 import { Button, Card, MeasureLine, Modal, RoleBadge, Field, Input } from "@/components/ui";
 import { PlusIcon, ArrowRightIcon } from "@/components/icons";
 import { useCreateWorkspace, useWorkspaces } from "@/features/workspace";
+import { useChrome } from "@/stores/chrome";
 import { ApiError } from "@/lib/api";
 import { flattenErrors } from "@/types/auth";
 import { ROLE, type Workspace } from "@/types/workspace";
@@ -40,8 +40,10 @@ export default function WorkspacesPage() {
 
   const workspaces = data?.results ?? [];
 
+  useChrome({ topbar: {}, hideAside: workspaces.length === 0 });
+
   return (
-    <AppShell topbar={{}} hideAside={workspaces.length === 0}>
+    <>
       <div className="flex items-end justify-between mb-2">
         <div>
           <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">Workspaces</h1>
@@ -83,7 +85,7 @@ export default function WorkspacesPage() {
       )}
 
       <CreateWorkspaceModal open={createOpen} onClose={() => setCreateOpen(false)} />
-    </AppShell>
+    </>
   );
 }
 

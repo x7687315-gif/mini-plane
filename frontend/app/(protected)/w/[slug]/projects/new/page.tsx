@@ -5,10 +5,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AppShell } from "@/components/shell/AppShell";
 import { Button, Card, Field, Input, MeasureLine, Textarea } from "@/components/ui";
 import { useCreateProject } from "@/features/project";
 import { useWorkspace } from "@/features/workspace";
+import { useChrome } from "@/stores/chrome";
 import { ApiError } from "@/lib/api";
 import { flattenErrors } from "@/types/auth";
 
@@ -73,8 +73,14 @@ export default function NewProjectPage() {
     }
   };
 
+  useChrome({
+    topbar: { workspace: ws.data?.name, role: ws.data?.current_role },
+    railCurrent: slug,
+    hideAside: true,
+  });
+
   return (
-    <AppShell topbar={{ workspace: ws.data?.name, role: ws.data?.current_role }} rail={{ current: slug }} hideAside>
+    <>
       <div className="mb-2">
         <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">New project</h1>
         <p className="font-serif italic text-[14px] text-[color:var(--color-ink-3)] mt-1 tracking-[0.04em]">
@@ -147,6 +153,6 @@ export default function NewProjectPage() {
           </form>
         </Card>
       </div>
-    </AppShell>
+    </>
   );
 }

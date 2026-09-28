@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AppShell } from "@/components/shell/AppShell";
 import { Button, Card, MeasureLine } from "@/components/ui";
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { FilterBar } from "@/components/issue/FilterBar";
@@ -14,6 +13,7 @@ import { useIssueFilters, useIssues, useLabels } from "@/features/issue";
 import { useProject, useProjectMembers, useProjectStates } from "@/features/project";
 import { useProjectRealtime } from "@/features/realtime";
 import { useWorkspace } from "@/features/workspace";
+import { useChrome } from "@/stores/chrome";
 import { ApiError } from "@/lib/api";
 import { hasActiveFilters } from "@/lib/url";
 import { flattenErrors } from "@/types/auth";
@@ -190,16 +190,18 @@ function ProjectIssues() {
     return `${project.data.name} · ${total} issues · ${states.length} states`;
   }, [project.isLoading, project.data, total, states.length]);
 
+  useChrome({
+    topbar: {
+      workspace: ws.data?.name,
+      project: project.data ? `${project.data.name} · ${identifier}` : undefined,
+      role: ws.data?.current_role,
+    },
+    railCurrent: slug,
+    hideAside: true,
+  });
+
   return (
-    <AppShell
-      topbar={{
-        workspace: ws.data?.name,
-        project: project.data ? `${project.data.name} · ${identifier}` : undefined,
-        role: ws.data?.current_role,
-      }}
-      rail={{ current: slug }}
-      hideAside
-    >
+    <>
       <div className="flex items-end justify-between mb-2">
         <div>
           <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">
@@ -371,7 +373,7 @@ function ProjectIssues() {
           onClearSelection={() => setSelectedIds([])}
         />
       )}
-    </AppShell>
+    </>
   );
 }
 

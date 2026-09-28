@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AppShell } from "@/components/shell/AppShell";
 import { Button, Card, MeasureLine, RoleBadge } from "@/components/ui";
 import { PlusIcon } from "@/components/icons";
 import { useProjects } from "@/features/project";
 import { useWorkspace } from "@/features/workspace";
+import { useChrome } from "@/stores/chrome";
 import { canWrite } from "@/types/workspace";
 import { ApiError } from "@/lib/api";
 
@@ -25,8 +25,10 @@ export default function ProjectsPage() {
   const role = ws.data?.current_role;
   const list = projects.data?.results ?? [];
 
+  useChrome({ topbar: { workspace: ws.data?.name, role }, railCurrent: slug, hideAside: true });
+
   return (
-    <AppShell topbar={{ workspace: ws.data?.name, role }} rail={{ current: slug }} hideAside>
+    <>
       <div className="flex items-end justify-between mb-2">
         <div>
           <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">Projects</h1>
@@ -109,6 +111,6 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
-    </AppShell>
+    </>
   );
 }

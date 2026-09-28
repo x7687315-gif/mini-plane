@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AppShell } from "@/components/shell/AppShell";
 import {
   Avatar,
   Button,
@@ -14,6 +13,7 @@ import {
   MeasureLine,
 } from "@/components/ui";
 import { useBind, useLogout } from "@/features/auth/hooks";
+import { useChrome } from "@/stores/chrome";
 import { useAuthStore } from "@/stores/auth";
 
 /**
@@ -27,6 +27,11 @@ export default function MePage() {
   const user = useAuthStore((s) => s.user);
   const logoutMutation = useLogout();
 
+  useChrome({
+    topbar: { workspace: "Amiya Workspace", project: "Amiya Project", role: 20 },
+    hideAside: true,
+  });
+
   const handleLogout = async () => {
     try {
       await logoutMutation.mutateAsync();
@@ -36,10 +41,7 @@ export default function MePage() {
   };
 
   return (
-    <AppShell
-      topbar={{ workspace: "Amiya Workspace", project: "Amiya Project", role: 20 }}
-      hideAside
-    >
+    <>
       <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">My settings</h1>
       <p className="font-serif italic text-[14px] text-[color:var(--color-ink-3)] mt-1 tracking-[0.04em]">
         SHEET 12 · 只属于你的这一页
@@ -100,7 +102,7 @@ export default function MePage() {
           </Button>
         </CardBody>
       </Card>
-    </AppShell>
+    </>
   );
 }
 
