@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { DEMO } from "./helpers";
+import { DEMO, uiLogin } from "./helpers";
 
 /**
  * Sprint 1 验收（`sprint-1-frontend.md` 里标 ⬜ 的那条）：
@@ -57,12 +57,26 @@ test.describe("认证闭环", () => {
   });
 
   test("/login?redirect= 登录后回到目标页", async ({ page }) => {
-    await page.goto("/login?redirect=%2Fme");
-    await page.getByLabel(/用户名/).fill(DEMO.username);
-    await page.getByLabel(/密码/).fill(DEMO.password);
-    await page.locator('form button[type="submit"]').click();
+    await uiLogin(page, DEMO.username, DEMO.password, "/login?redirect=%2Fme");
 
     // useRedirectTarget 只在同源相对路径上生效（开放重定向防护）
     await expect(page).toHaveURL(/\/me$/, { timeout: 20_000 });
+  });
+
+  test("昵称优先：未注册昵称 → 一键新建 → 免密直接进入", async ({ page }) => {
+    const nickname = `e2e_free_${Date.now().toString(36)}`;
+    await page.goto("/login");
+    await page.getByLabel(/昵称/).fill(nickname);
+    await page.getByRole("button", { name: "进入" }).click();
+
+    // 昵称不存在 → 出现"新建"引导，一键用该昵称建号
+    await expect(page.getByText(/还没有昵称/)).toBeVisible({ timeout: 10_000 });
+    await page.locator('form button[type="submit"]').click();
+
+    // 建号即登录：离开 /login，顶栏渲染出该昵称
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
+    await expect(page.locator('header button[aria-haspopup="menu"]')).toContainText(nickname, {
+      timeout: 15_000,
+    });
   });
 });

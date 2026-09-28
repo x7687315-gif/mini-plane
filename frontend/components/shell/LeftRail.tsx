@@ -44,7 +44,7 @@ const RAIL_WORKSPACES: RailWorkspace[] = [
 
 export function LeftRail({ workspaces = RAIL_WORKSPACES, current = "amiya" }: LeftRailProps) {
   return (
-    <aside className="bp-border-r relative w-32 py-5 px-3 flex flex-col flex-shrink-0 bg-[color:var(--color-paper)]">
+    <aside className="bp-border-r relative w-44 py-5 px-3 flex flex-col flex-shrink-0 bg-[color:var(--color-paper)]">
       <div className="text-[9px] uppercase tracking-[0.26em] text-[color:var(--color-ink-3)] font-sans font-medium mb-3.5 px-1.5">
         工作区
       </div>
@@ -72,7 +72,7 @@ export function LeftRail({ workspaces = RAIL_WORKSPACES, current = "amiya" }: Le
                 {w.initial}
               </span>
               <span className="leading-tight overflow-hidden min-w-0">
-                <span className="block text-[10px] tracking-[0.1em] uppercase text-[color:var(--color-ink)] font-sans font-medium truncate whitespace-nowrap">
+                <span className="block text-[10px] tracking-[0.1em] uppercase text-[color:var(--color-ink)] font-sans font-medium whitespace-nowrap">
                   {w.name}
                 </span>
                 {w.role != null && (

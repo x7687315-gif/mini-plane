@@ -3,29 +3,20 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginAlt, LoginForm } from "@/features/auth/components/LoginForm";
 
 export const metadata: Metadata = {
-  title: "登录 · Mini Plane",
+  title: "进入 · Mini Plane",
 };
 
 /**
- * /login — see SCREEN_BLUEPRINTS §2.1.
+ * /login — 本地单机版昵称优先入口（见 SCREEN_BLUEPRINTS §2.1）。
  *
- * No Suspense boundary needed: the form reads `?redirect=` via
- * `useRedirectTarget()` (an effect on window.location) instead of
- * `useSearchParams()`, so the real form is server-rendered — no skeleton flash.
+ * 大标题保留 Cormorant 衬线英文（设计语言，见 DESIGN.md §2）；引导文案一律中文。
  */
 export default function LoginPage() {
   return (
     <AuthCard
       sheet="01"
-      title="Sign in"
-      subtitle={
-        <>
-          Welcome back &middot;{" "}
-          <em className="font-serif italic text-[color:var(--color-ink-3)]">
-            between user and system
-          </em>
-        </>
-      }
+      title="Enter"
+      subtitle={<span>输入昵称即可开始 · 数据只留在本机</span>}
       alt={<LoginAlt />}
     >
       <LoginForm />

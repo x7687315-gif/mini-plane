@@ -9,22 +9,34 @@
 export interface User {
   id: string;
   username: string;
-  email: string;
+  /** 本地单机版：邮箱可选，未绑定为 null。 */
+  email: string | null;
   avatar: string | null;
   created_at: string;
+  /** 是否已绑定密码（决定登录是否需二级验证）。 */
+  has_password: boolean;
+  /** 是否已绑定邮箱。 */
+  has_email: boolean;
 }
 
-/** POST /api/v1/auth/register/ */
+/** POST /api/v1/auth/register/ —— 昵称必填，密码 / 邮箱可选。 */
 export interface RegisterPayload {
   username: string;
-  email: string;
-  password: string;
+  email?: string;
+  password?: string;
 }
 
-/** POST /api/v1/auth/login/ */
+/** POST /api/v1/auth/login/ —— 昵称必填；免密账户可不带密码直入。 */
 export interface LoginPayload {
   username: string;
-  password: string;
+  password?: string;
+}
+
+/** POST /api/v1/auth/bind/ —— 设置页自助绑定 / 修改。 */
+export interface BindPayload {
+  password?: string;
+  email?: string | null;
+  remove_password?: boolean;
 }
 
 /**

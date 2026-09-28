@@ -12,9 +12,9 @@ export const ROLE = {
 export type RoleValue = (typeof ROLE)[keyof typeof ROLE];
 
 export function roleLabel(role: number | null | undefined): string {
-  if (role === ROLE.ADMIN) return "Admin";
-  if (role === ROLE.MEMBER) return "Member";
-  if (role === ROLE.VIEWER) return "Viewer";
+  if (role === ROLE.ADMIN) return "管理员";
+  if (role === ROLE.MEMBER) return "成员";
+  if (role === ROLE.VIEWER) return "只读";
   return "—";
 }
 

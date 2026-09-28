@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import { isUnauthorized } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
-import type { LoginPayload, RegisterPayload, User } from "@/types/auth";
-import { fetchCsrf, fetchMe, login, logout, register } from "./api";
+import type { BindPayload, LoginPayload, RegisterPayload, User } from "@/types/auth";
+import { bind, fetchCsrf, fetchMe, login, logout, register } from "./api";
 
 /**
  * Auth hooks — the bridge between React Query (server state) and the Zustand auth store.
@@ -65,6 +65,20 @@ export function useRegister() {
     mutationFn: (payload: RegisterPayload) => register(payload),
     onSuccess: (user) => {
       // Register already signs the user in (backend contract: 201 + session cookie).
+      setUser(user);
+      qc.setQueryData(meQueryKey, user);
+    },
+  });
+}
+
+export function useBind() {
+  const qc = useQueryClient();
+  const setUser = useAuthStore((s) => s.setUser);
+
+  return useMutation({
+    mutationFn: (payload: BindPayload) => bind(payload),
+    onSuccess: (user) => {
+      // 绑定后刷新 store + me 缓存，让"是否已设密码/已绑邮箱"即时反映到设置页。
       setUser(user);
       qc.setQueryData(meQueryKey, user);
     },

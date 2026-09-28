@@ -1,5 +1,5 @@
 import { test as setup, expect } from "@playwright/test";
-import { apiClient, createDemoProject, DEMO, purgeE2EWorkspaces } from "./helpers";
+import { apiClient, createDemoProject, DEMO, purgeE2EWorkspaces, uiLogin } from "./helpers";
 
 /**
  * E2E 全局准备（跑一次，其余 project 依赖它）。
@@ -39,12 +39,8 @@ setup("重置 E2E 数据、建账号与演示项目、保存登录态", async ({
     await api.dispose();
   }
 
-  // 走 UI 登录：同时验证登录闭环本身
-  await page.goto("/login");
-  await page.getByLabel(/用户名/i).fill(DEMO.username);
-  await page.getByLabel(/密码/i).fill(DEMO.password);
-  // 用「表单的提交按钮」而不是按钮文案：文案会改，语义不会
-  await page.locator('form button[type="submit"]').click();
+  // 走 UI 登录：同时验证昵称优先两步登录闭环本身
+  await uiLogin(page, DEMO.username, DEMO.password);
 
   // ⚠️ 这里断言"账号菜单显示用户名"，而不是"URL 不再是 /login"。
   // 早期版本用后者，结果**假绿**了：登录其实失败，但 URL 会先短暂变成 "/"

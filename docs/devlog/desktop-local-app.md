@@ -253,6 +253,52 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 
 ---
 
+## 追加 · 第 6 部分：登录改造为"昵称优先 / 免密 / 可选绑定"
+
+### 需求
+
+本地单机应用，登录别太复杂：入口不再摆"账户+密码/邮箱"。新逻辑——
+① 首次进入只填昵称即建号；② 密码 / 邮箱由账户所有人之后在设置里自助绑定；
+③ 未绑定密码者登录时不出现验证界面、直接进入，绑定者才需二级验证。
+
+### 后端（`apps/users`）
+
+- 模型 `email` 由 `unique=True` 改为 `unique=True, null=True, blank=True`（迁移 `0002_alter_user_email`）。
+  关键：**可空唯一必须用 NULL 而非空串**——空串会互相撞唯一约束；且 Django `create_user` 的
+  `normalize_email(None)` 会把 None 变成 `''`，故 `RegisterSerializer.create` 不走 `create_user`、
+  直接建实例确保存 NULL（测试 `test_register_nickname_only` 抓到并修好了这个坑）。
+- `register`：昵称必填，密码 / 邮箱可选；无密码 → `set_unusable_password()`（免密账户）。
+  显式声明 email 字段会丢自动 UniqueValidator，已手动补回（否则重复邮箱 500）。
+- `login` 三分支：免密账户 → 直接 `login()` 返回 200；有密码账户只给昵称 → 401 `password_required`；
+  昵称不存在 → 404 `not_found`（前端据此提示可新建）。有密码时仍走防暴力锁定 + `authenticate`。
+- 新增 `POST /auth/bind/`（仅本人）：设 / 改密码、绑 / 换邮箱、`remove_password` 回到免密；
+  改密后 `update_session_auth_hash` 保住当前会话；邮箱占用冲突显式拒绝。
+- `UserSerializer` 增 `has_password` / `has_email`，供前端判断是否需二级验证、设置页显示状态。
+
+### 前端
+
+- `LoginForm` 重写为**昵称优先三步状态机**：entry（只填昵称 + "进入"）→ 后端 code 决定
+  进入 password 步（补密码）或 create 步（一键用该昵称新建）→ 成功即进。入口不再有邮箱/密码栏。
+- `/me` 设置页新增 **Security 卡**：自助"保存密码 / 移除密码 / 保存邮箱"，实时显示"已设置 / 未设置"。
+- 中文化 + 统一：登录页引导文案、AuthGuard 加载/错误提示、`roleLabel`（types/workspace）改中文；
+  大标题 / 区块标题按设计语言保留 Cormorant 衬线英文。
+- 按钮挤压修复：`LeftRail` 工作区栏 `w-32 → w-44` 且去掉名字 `truncate`，昵称 / 角色完整显示。
+
+### 测试
+
+- 后端新增 `NicknameFirstAuthTests` 6 例（免密直入 / 需二级验证 / 不存在可新建 / 绑密码后收紧 /
+  绑邮箱 / 邮箱冲突），并更新 1 个旧断言；`apps.users` 23 例全过、全量 305 例 OK。
+- E2E：UI 登录改两步 `uiLogin`；新增"昵称优先 → 一键新建 → 免密直接进入"用例；**15/15 全过**。
+- 门禁：ruff / tsc / eslint / Django check 全绿；迁移在 Postgres 与 SQLite 双库应用成功。
+
+### 边界与说明
+
+- 免密账户无口令，故不适用防暴力锁定（无秘密可猜）；这是本地单机、数据不出设备的合理取舍。
+- 桌面版加载的是 `dist/` 预构建前端——本轮已 `scripts/package.py` 重建，并对手工跑过迁移的
+  SQLite 运行库应用了 `0002`，确保打包 App 反映新登录流。
+
+---
+
 ## 交付总览
 
 1. 前端 + 后端 + 数据库**合并为一个原生窗口本地软件**（pywebview + 内嵌 SQLite），
@@ -262,3 +308,5 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 4. 修复 E2E「测试窗口」（14/14 全绿）+ P3C 质量收口。
 5. 修复桌面版「闪退」（`webview.start` 非法参数 + 冻结版静默失败）+ 自定义应用图标。
 6. UI 中文化走查：补齐 54 处 sans 功能文案，确认设计性英文沿用 Cormorant 衬线字体、整体协调。
+7. 登录改造：昵称优先建号、免密直入、密码/邮箱在设置里自助绑定；后端三分支登录 + bind 端点；
+   15/15 E2E、305 后端测试全过。

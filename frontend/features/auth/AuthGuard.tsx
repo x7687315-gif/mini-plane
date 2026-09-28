@@ -29,7 +29,7 @@ function AuthSkeleton() {
       <div className="flex flex-col items-center gap-3">
         <div className="flex items-center gap-3">
           <div className="h-px w-10 bg-[color:var(--color-rule)]" />
-          <span className="bp-hint">identifying</span>
+          <span className="bp-hint">正在识别身份</span>
           <div className="h-px w-10 bg-[color:var(--color-rule)]" />
         </div>
         <div className="h-1 w-24 bg-[color:var(--color-paper-2)]" />
@@ -62,9 +62,9 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="bp-hint">connection · failed</span>
+          <span className="bp-hint">连接失败</span>
           <p className="text-[13px] text-[color:var(--color-ink-2)] max-w-sm">
-            无法连接到后端服务。请确认后端已启动（<code className="font-mono">python manage.py runserver</code>）。
+            无法连接到本地服务。请关闭并重新启动 Mini Plane。
           </p>
         </div>
       </div>

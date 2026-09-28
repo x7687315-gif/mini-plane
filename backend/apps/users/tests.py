@@ -57,13 +57,18 @@ class RegisterTests(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=weak)
             self.assertIn("password", response.json())
 
-    def test_register_missing_fields(self):
+    def test_register_nickname_only_creates_passwordless_account(self):
+        """本地单机版新契约：仅昵称即可建号（免密直入）。
+
+        旧断言"缺 email/password 应 400"的前提已随登录流程改版作废——昵称即身份是刻意设计。
+        """
         response = self.client.post(REGISTER_URL, {"username": "amiya"}, format="json")
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         body = response.json()
-        self.assertIn("email", body)
-        self.assertIn("password", body)
+        self.assertIsNone(body["email"])
+        self.assertFalse(body["has_password"])
+        self.assertIn("sessionid", response.cookies)  # 建号即登录
 
     def test_register_password_is_hashed_and_never_in_response(self):
         response = self.client.post(REGISTER_URL, PAYLOAD, format="json")
@@ -126,6 +131,82 @@ class LoginTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("username", response.json())
+
+
+class NicknameFirstAuthTests(APITestCase):
+    """本地单机版登录流：昵称优先 + 免密直入 + 二级验证 + 自助绑定。"""
+
+    BIND_URL = "/api/v1/auth/bind/"
+
+    def setUp(self):
+        services.clear_all()
+        self.addCleanup(services.clear_all)
+
+    def test_passwordless_account_direct_entry(self):
+        """未绑密码的账户：只给昵称即直接登录，无验证界面。"""
+        self.client.post(REGISTER_URL, {"username": "solo"}, format="json")
+        self.client.logout()
+
+        response = self.client.post(LOGIN_URL, {"username": "solo"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("sessionid", response.cookies)
+
+    def test_password_account_requires_second_factor(self):
+        """已绑密码的账户：只给昵称 → 401 password_required（前端补密码框）。"""
+        self.client.post(REGISTER_URL, PAYLOAD, format="json")
+        self.client.logout()
+
+        response = self.client.post(LOGIN_URL, {"username": "amiya"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.json()["code"], "password_required")
+
+    def test_unknown_nickname_offers_create(self):
+        """昵称不存在且未给密码 → 404 not_found（前端提示可新建）。"""
+        response = self.client.post(LOGIN_URL, {"username": "ghost"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.json()["code"], "not_found")
+
+    def test_bind_password_then_entry_needs_it(self):
+        """设置里自助加密码后：免密直入失效，需密码登录；加密码不踢掉当前会话。"""
+        self.client.post(REGISTER_URL, {"username": "solo"}, format="json")
+
+        bind = self.client.post(
+            self.BIND_URL, {"password": "Str0ng-Pass!2026"}, format="json"
+        )
+        self.assertEqual(bind.status_code, status.HTTP_200_OK)
+        self.assertTrue(bind.json()["has_password"])
+        # 改密后当前会话仍有效（update_session_auth_hash）
+        self.assertEqual(self.client.get(ME_URL).status_code, status.HTTP_200_OK)
+
+        self.client.logout()
+        self.assertEqual(
+            self.client.post(LOGIN_URL, {"username": "solo"}, format="json").status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+        ok = self.client.post(
+            LOGIN_URL, {"username": "solo", "password": "Str0ng-Pass!2026"}, format="json"
+        )
+        self.assertEqual(ok.status_code, status.HTTP_200_OK)
+
+    def test_bind_email(self):
+        self.client.post(REGISTER_URL, {"username": "solo"}, format="json")
+
+        bind = self.client.post(
+            self.BIND_URL, {"email": "solo@example.com"}, format="json"
+        )
+        self.assertEqual(bind.status_code, status.HTTP_200_OK)
+        self.assertEqual(bind.json()["email"], "solo@example.com")
+        self.assertTrue(bind.json()["has_email"])
+
+    def test_bind_email_conflict_rejected(self):
+        self.client.post(REGISTER_URL, PAYLOAD, format="json")  # amiya 占用了邮箱
+        self.client.logout()
+        self.client.post(REGISTER_URL, {"username": "solo"}, format="json")
+
+        bind = self.client.post(
+            self.BIND_URL, {"email": "amiya@example.com"}, format="json"
+        )
+        self.assertEqual(bind.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class RateLimiterMemoryTests(TestCase):

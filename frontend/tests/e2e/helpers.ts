@@ -246,3 +246,25 @@ export function issueRow(page: import("@playwright/test").Page, sequenceId: numb
     .getByLabel(`select E2E-${sequenceId}`, { exact: true })
     .locator("xpath=../..");
 }
+
+/**
+ * UI 登录（本地单机版昵称优先两步流）。
+ *
+ * 入口只有"昵称" → 点"进入"；若该账户设过密码，才出现"密码"步。
+ * DEMO 账户都带密码，所以这里走 昵称 → 进入 → 密码 → 登录。
+ * `path` 默认 /login；测 ?redirect= 时传入带查询的路径。
+ */
+export async function uiLogin(
+  page: import("@playwright/test").Page,
+  username: string,
+  password: string,
+  path = "/login",
+): Promise<void> {
+  await page.goto(path);
+  await page.getByLabel(/昵称/).fill(username);
+  await page.getByRole("button", { name: "进入" }).click();
+  const pw = page.getByLabel(/密码/);
+  await pw.waitFor({ timeout: 10_000 });
+  await pw.fill(password);
+  await page.getByRole("button", { name: "登录" }).click();
+}
