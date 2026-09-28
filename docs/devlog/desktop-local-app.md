@@ -299,6 +299,51 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 
 ---
 
+## 追加 · 第 7 部分：角色切换卡顿排查（架构审计）+ 左上角本机日期
+
+### 现象
+
+用户反馈在「我 / 管理员 / 成员 / 只读」之间切换时有比较明显的卡顿，要求查底层架构是否冗余。
+
+### 根因（analyze-code 审计定位）
+
+「管理员/成员/只读」= 工作区**成员页的角色下拉**。它有三重叠加问题：
+1. 受控 `<select value={m.role}>` 绑的是查询缓存值，改角色只发异步 PATCH、不更新本地值 →
+   往返期间下拉**回弹**；
+2. `disabled={roleMutation.isPending}` 用的是**整表共享**的 pending → 改一行把**所有行**下拉一起置灰；
+3. `onSuccess` 直接 `invalidate(members)` → 整表 refetch。
+三者叠加就是肉眼可见的"卡顿 + 闪"。
+
+### 修复
+
+- `useUpdateWorkspaceMemberRole` 改**乐观更新**：`onMutate` 立即把该成员 role 写进缓存
+  （`cancelQueries` + `setQueryData`）、`onError` 回滚快照、`onSettled` 再 invalidate 校准。
+- 下拉只锁"当前正在提交的那一行"（`variables?.memberId === m.id`），不再锁全表。
+- 结果：改角色即时生效、不回弹、不灰全表。UI 视觉零改动。
+
+### 架构级冗余（审计发现，建议单独排期，非本次卡顿主因）
+
+- **[MEDIUM] 持久外壳被每页各自渲染**：`app/(protected)/layout.tsx` 只包 `AuthGuard`，8 个页面各自
+  `return <AppShell>`。App Router 下换页会重挂页面 → 其内 TopBar/LeftRail/Aside/Footer 一并重建，
+  跨页导航有"闪/重排"。建议把 `AppShell` 上提到 layout 常驻，各页用一个轻量 chrome store 声明本屏
+  外壳配置（topbar/rail/hideAside）。属结构性改动、需回归 e2e。详见
+  `docs/架构分析/前端架构冗余审计_20260928_175755.md`。
+- **[LOW] `useUpdateProjectMemberRole` 同构**（暂无内联角色下拉，将来加需同样乐观更新）；
+  **[LOW] Issue 列表 `staleTime: 0`**（每次进项目页 refetch，本地无妨，外壳上提后可收紧）。
+
+### 左上角日期
+
+`TopBar` 的 `mini · sheet 03 / 12` 改为**本机日历日期** `mini · YYYY.MM.DD`。渲染期读取 `new Date()`
+并加 `suppressHydrationWarning`（首版用 `useEffect`+`setState` 被 `react-hooks/set-state-in-effect`
+规则拦下，改渲染期读取更合规、无级联渲染）。
+
+### 验证
+
+- tsc 0 error；eslint 改动文件 0 error；Playwright E2E **15/15 全过**（含换页/登录）；
+  `scripts/package.py` 重建 dist，桌面版加载新前端。
+
+---
+
 ## 交付总览
 
 1. 前端 + 后端 + 数据库**合并为一个原生窗口本地软件**（pywebview + 内嵌 SQLite），
@@ -310,3 +355,4 @@ pywebview 6.2.1 的 `webview.start()` **不接受 `window=` 参数**（`create_w
 6. UI 中文化走查：补齐 54 处 sans 功能文案，确认设计性英文沿用 Cormorant 衬线字体、整体协调。
 7. 登录改造：昵称优先建号、免密直入、密码/邮箱在设置里自助绑定；后端三分支登录 + bind 端点；
    15/15 E2E、305 后端测试全过。
+8. 修成员页角色切换卡顿（乐观更新 + 仅锁当前行）+ 左上角改本机日历日期；附前端架构冗余审计报告。

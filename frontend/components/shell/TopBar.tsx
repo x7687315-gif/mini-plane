@@ -49,6 +49,13 @@ const DOT_COLOR: Record<WsStatus, string> = {
   error: "var(--color-urgent)",
 };
 
+/** 本机日历日期 YYYY.MM.DD。渲染期读取，配 suppressHydrationWarning 处理 SSR/CSR 差异。 */
+function localDate(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+}
+
 export function TopBar({ workspace, project, role }: TopBarProps) {
   // Selected as primitives: zustand v5 requires a stable snapshot, and an object
   // selector would allocate a new one on every store read.
@@ -68,8 +75,11 @@ export function TopBar({ workspace, project, role }: TopBarProps) {
           <span className="font-serif italic text-[28px] font-medium tracking-[-0.01em] text-[color:var(--color-ink)]">
             P<span className="opacity-50">l</span>ane
           </span>
-          <span className="font-serif text-[10px] uppercase tracking-[0.34em] text-[color:var(--color-ink-2)] hidden sm:inline">
-            mini &middot; sheet 03 / 12
+          <span
+            className="font-serif text-[10px] uppercase tracking-[0.34em] text-[color:var(--color-ink-2)] hidden sm:inline"
+            suppressHydrationWarning
+          >
+            mini &middot; {localDate()}
           </span>
         </Link>
       </div>

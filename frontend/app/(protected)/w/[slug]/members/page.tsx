@@ -154,7 +154,7 @@ export default function WorkspaceMembersPage() {
                     <select
                       value={m.role}
                       onChange={(e) => handleRoleChange(m.id, Number(e.target.value))}
-                      disabled={roleMutation.isPending}
+                      disabled={roleMutation.isPending && roleMutation.variables?.memberId === m.id}
                       className="bg-transparent border border-[color:var(--color-rule)] px-1.5 py-1 text-[10px] uppercase tracking-[0.14em] font-sans font-medium text-[color:var(--color-ink-2)] outline-none focus:border-[color:var(--color-accent)]"
                     >
                       <option value={ROLE.ADMIN}>管理员</option>
