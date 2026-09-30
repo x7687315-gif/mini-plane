@@ -393,8 +393,12 @@ def open_window(url: str) -> int:
             min_size=(900, 600),
             background_color="#F7FAFF",
         )
-        # Windows 优先 EdgeChromium(WebView2)；无则 webview 自行回退
-        webview.start(debug=False)
+        # private_mode 默认 True → 不保留 cookie/localStorage，导致每次启动都要重新登录。
+        # 关掉私有模式 + 指定持久 storage_path（runtime/ 下），sessionid cookie 跨启动保留，
+        # 重开应用即直入已登录态。Windows 走 EdgeChromium(WebView2)，无则自行回退。
+        profile_dir = runtime_dir() / "webview-profile"
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        webview.start(debug=False, private_mode=False, storage_path=str(profile_dir))
         return 0
     except Exception as e:
         import traceback

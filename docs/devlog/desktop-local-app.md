@@ -375,6 +375,35 @@ WS 状态点、头像菜单是常驻的，顶栏不会"空"，只是面包屑晚
 
 ---
 
+## 追加 · 第 9 部分：修「每次都要重新登录」+ CI 红灯 + 产品机会调研
+
+### 「重复登录」根因与修复
+
+用户反馈：重开应用又回到"输入昵称"界面，担心账号丢了。查证：账号**没丢**（SQLite `runtime/miniplane.sqlite3`
+里 4 个用户都在，含免密账户），问题是 pywebview `webview.start()` 的 **`private_mode` 默认 True**
+→ 不保留 cookie/localStorage → 每次启动都是全新 WebView2 配置，`sessionid` cookie 丢失 → 被迫重登。
+
+修复（`desktop/launcher.py`）：`webview.start(debug=False, private_mode=False,
+storage_path=runtime/webview-profile)`。持久化 WebView2 用户数据目录后，会话 cookie 跨启动保留，
+重开即直入已登录态。实测：窗口化启动后 `runtime/webview-profile/EBWebView` 已生成、前后端 200。
+（`runtime/` 已 gitignore；Django session cookie 默认 2 周有效期。）
+
+### CI 红灯（另一次推送反馈）
+
+远端 backend job 自登录改造起连红，失败步 `ruff format --check`：改后端只跑了 `ruff check` 没跑
+`ruff format`（tests.py 未格式化）；且新增 `/auth/bind/`、改序列化器后 `docs/api/openapi.yaml` 快照
+未同步（CI 第5步 diff 会红，被前面的 format 步挡住没暴露）。修：`ruff format` + 重新生成 openapi 快照。
+本地把 CI 全套后端门禁复跑全绿（ruff/format/makemigrations/spectacular --fail-on-warn/diff/305 测试）。
+教训沉淀：**改后端后本地必跑 `ruff format` + 重新生成 openapi 快照再 push**。
+
+### 产品机会调研（github-preflight）
+
+产出 `docs/调研/产品机会调研_*.md`：三类清单（日常痛点 / 缺失功能 / 上下游问题）+ 检索台账 + 可信度，
+供你挑选做成特色。低成本高频收益首选：命令面板+快速捕获、"我的工作"个人视图、主题/字号可定制；
+差异化候选：本地 AI 助手、Git 即备份/同步。
+
+---
+
 ## 交付总览
 
 1. 前端 + 后端 + 数据库**合并为一个原生窗口本地软件**（pywebview + 内嵌 SQLite），
@@ -388,3 +417,5 @@ WS 状态点、头像菜单是常驻的，顶栏不会"空"，只是面包屑晚
    15/15 E2E、305 后端测试全过。
 8. 修成员页角色切换卡顿（乐观更新 + 仅锁当前行）+ 左上角改本机日历日期；附前端架构冗余审计报告。
 9. AppShell 上提到 `(protected)/layout` 常驻（chrome store + useChrome），8 页解包，消除换页重挂外壳；15/15 E2E。
+10. 修「每次都要重新登录」：pywebview `private_mode=False + storage_path` 持久化会话，重开直入；修 CI 红灯（ruff format + 重新生成 openapi 快照）。
+11. 产品机会调研（痛点/缺失功能/上下游）落 `docs/调研/`，供挑选特色。
