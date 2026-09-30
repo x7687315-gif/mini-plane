@@ -170,9 +170,7 @@ class NicknameFirstAuthTests(APITestCase):
         """设置里自助加密码后：免密直入失效，需密码登录；加密码不踢掉当前会话。"""
         self.client.post(REGISTER_URL, {"username": "solo"}, format="json")
 
-        bind = self.client.post(
-            self.BIND_URL, {"password": "Str0ng-Pass!2026"}, format="json"
-        )
+        bind = self.client.post(self.BIND_URL, {"password": "Str0ng-Pass!2026"}, format="json")
         self.assertEqual(bind.status_code, status.HTTP_200_OK)
         self.assertTrue(bind.json()["has_password"])
         # 改密后当前会话仍有效（update_session_auth_hash）
@@ -191,9 +189,7 @@ class NicknameFirstAuthTests(APITestCase):
     def test_bind_email(self):
         self.client.post(REGISTER_URL, {"username": "solo"}, format="json")
 
-        bind = self.client.post(
-            self.BIND_URL, {"email": "solo@example.com"}, format="json"
-        )
+        bind = self.client.post(self.BIND_URL, {"email": "solo@example.com"}, format="json")
         self.assertEqual(bind.status_code, status.HTTP_200_OK)
         self.assertEqual(bind.json()["email"], "solo@example.com")
         self.assertTrue(bind.json()["has_email"])
@@ -203,9 +199,7 @@ class NicknameFirstAuthTests(APITestCase):
         self.client.logout()
         self.client.post(REGISTER_URL, {"username": "solo"}, format="json")
 
-        bind = self.client.post(
-            self.BIND_URL, {"email": "amiya@example.com"}, format="json"
-        )
+        bind = self.client.post(self.BIND_URL, {"email": "amiya@example.com"}, format="json")
         self.assertEqual(bind.status_code, status.HTTP_400_BAD_REQUEST)
 
 
