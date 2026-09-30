@@ -24,13 +24,16 @@
 
 ## 使用指南
 
-> 界面为中文；部分衬线大标题（Workspace / Recent projects / Members 等）按设计语言保留英文艺术字体。
+> 📖 完整、分角色的使用说明（只想用 / 换机安装 / 开发）见 **[docs/使用指南.md](docs/使用指南.md)**。
+> 下面是速览。界面为中文；部分衬线大标题（Workspace / Members 等）按设计语言保留英文艺术字体。
 
-### 1. 注册与登录
+### 1. 登录与账户（本地单机版：昵称优先）
 
-- 打开首页会自动跳到 **/register（注册）**：填 **用户名 / 邮箱 / 密码（≥ 8 位）**，提交后**立即自动登录**。
-- 已有账号走 **/login（登录）**：用户名（或邮箱）+ 密码。连续失败会触发限流提示。
-- 右上角头像菜单：**my settings（个人设置）** 与 **退出登录**。会话过期时访问任何页面都会被送回登录页，登录后回到原页面。
+- 打开应用只让你填一个**昵称**：没注册过就一键用它**新建账户并直接进入**，开头**不要邮箱/密码**。
+- 默认**免密**：之后每次打开**无需验证**直接进（会话已持久化，不用重复登录）。
+- 想要更私密：去 **设置（/me）→ Security** 自助**加密码 / 绑邮箱**；设了密码后下次进入才多一步验证，可随时移除回到免密。
+- 右上角头像菜单：**我的工作**、**我的设置**、主题快切、**退出登录**。
+- 特色入口：**Ctrl+K** 命令面板（跳转我的工作/设置/各工作区）；设置里可切**暗色/明色主题**与**显示大小**。
 
 ### 2. 工作区（Workspace）—— 一切从这里开始
 
@@ -104,34 +107,29 @@
 
 ## 快速开始
 
-> 前置：Windows 10/11；Python 3.12+；Node.js 20+；PostgreSQL 16（本机服务）。
 > **host 一致性规则（重要）**：页面与 API 必须同 host，端口可不同——
-> 开发模式统一用 `localhost`（页面 3000 / API 8000）；
-> 单机版软件包统一用 `127.0.0.1`（已内置，无需配置）。
-> 混用（页面 localhost + API 127.0.0.1）会话 Cookie 与 CSRF 会全部失效。
+> 开发模式统一用 `localhost`（页面 3000 / API 8000）；桌面版统一用 `127.0.0.1`（已内置）。
+> 混用会导致会话 Cookie / CSRF 失效。
 
-### 方式一：本地单机版软件包（推荐给"只想用起来"的场景）
+### 方式一：桌面 App（推荐给"只想用起来"的场景）
 
-> 不想自己构建？直接从 [Releases v0.2.0](https://github.com/x7687315-gif/mini-plane/releases/tag/v0.2.0)
-> 下载 **mini-plane-0.2.0-local.zip**（22 MB，含启动器与中文说明）——
-> 注意包里**不含** `backend\.env`（含数据库口令），收包人用 `setup.cmd` 在自己机器上生成。
+**本机已配好时：直接双击桌面「Mini Plane」图标即可**——原生窗口、内嵌 SQLite（**不用装
+PostgreSQL**）、首次运行自动建库、会话持久化（重开免登录）、关窗即干净停服。
 
-```bash
-python scripts/package.py     # 组装 dist/mini-plane-<版本>-local/（约 40MB）
+换一台新电脑从零安装（需 Python 3.12+ / Node 20+ / WebView2[Win11 自带]）：
+
+```bat
+cd backend && python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements\local.txt -r requirements\desktop.txt
+cd ..
+python scripts\package.py                                   :: 构建前端单机产物到 dist\
+backend\.venv\Scripts\python.exe desktop\build.py           :: 打包 dist\MiniPlane\MiniPlane.exe
+powershell -NoProfile -ExecutionPolicy Bypass -File desktop\make_shortcut.ps1 -Exe "%CD%\dist\MiniPlane\MiniPlane.exe"
 ```
 
-产物目录：
-
-```
-dist/mini-plane-0.2.0-local/
-├── setup.cmd    # 首次运行：随机 SECRET_KEY → 写配置 → 建 venv → 装依赖 → 迁移
-├── start.cmd    # 日常启动：daphne(8000) + Next standalone(3000)，自动开浏览器
-├── stop.cmd     # 一键停止
-└── README-本地版.md
-```
-
-首次：双击 `setup.cmd`（按提示填一次 PostgreSQL 连接串）→ 之后每次：双击 `start.cmd`。
-安全基线：全部服务**只绑 127.0.0.1**（不暴露局域网）、DEBUG 关闭、SECRET_KEY 随机生成存本机。
+数据/会话/日志都在 `runtime\`（含 SQLite 库、SECRET_KEY、WebView2 配置），备份=拷走该目录。
+完整分步说明见 **[docs/使用指南.md](docs/使用指南.md)**。
+安全基线：服务只绑 `127.0.0.1`、DEBUG 关闭、SECRET_KEY 随机生成存本机、数据不出设备。
 
 ### 方式二：开发模式（改代码用这个）
 
@@ -179,7 +177,7 @@ docker compose up --build -d
 ```bash
 # 后端
 cd backend
-python manage.py test --settings=config.settings.test --noinput   # 299 用例
+python manage.py test --settings=config.settings.test --noinput   # 310 用例
 ruff check . && ruff format --check .
 
 # 前端
@@ -188,7 +186,7 @@ pnpm test        # 单元测试 98 用例（node --test，零依赖）
 pnpm typecheck && pnpm lint
 pnpm build       # 生产构建（standalone）
 
-# 浏览器端到端（14 用例；需栈已起，见 scripts/dev.cmd e2e）
+# 浏览器端到端（18 用例；需栈已起，见 scripts/dev.cmd e2e）
 cd frontend && pnpm test:e2e
 ```
 
@@ -199,10 +197,11 @@ cd frontend && pnpm test:e2e
 | 后端 MVP（Auth / 工作区 / 项目 / Issue / 评论 / 动态 / 缓存 / 异步 / 实时） | ✅ [Sprint 0–8](docs/devlog/) |
 | 后端 CI + Docker + Release v0.1.0 | ✅ |
 | 前端设计系统 + Sprint 0–8（Auth / 工作区 / 项目 / 任务 / 评论 / 动态 / 筛选 / 批量 / 实时 / 工程化） | ✅ [devlog](frontend/docs/devlog/) |
-| 前端单元测试 98 + 浏览器 E2E 14 | ✅ |
+| 前端单元测试 98 + 浏览器 E2E 18 + 后端测试 310 | ✅ |
 | 界面全面中文化 + 思源字体匹配 | ✅ |
-| 本地单机版软件包（`scripts/package.py`） | ✅ v0.2.0 |
-| 组件测试（Vitest）/ Lighthouse 90 / 内嵌 PostgreSQL | ⏳ 二期 |
+| **桌面单机 App**（pywebview 原生窗口 + 内嵌 SQLite + 快捷方式 + exe + 会话持久化） | ✅ |
+| 登录改造（昵称优先 / 免密 / 可选绑定）+ 特色 A 命令面板 / B 我的工作 / H 暗色与显示大小 | ✅ |
+| 组件测试（Vitest）/ Lighthouse 90 / 任务截止日期与逾期 / 数据导出备份 | ⏳ 后续 |
 
 每个 Sprint 的取舍、踩坑与验收清单见开发日志：后端 [docs/devlog/](docs/devlog/)、前端 [frontend/docs/devlog/](frontend/docs/devlog/)。
 
@@ -221,7 +220,7 @@ cd frontend && pnpm test:e2e
 
 整套 UI 走 **Blueprint Editorial（蓝图编辑风）**：暖灰白底 `#F4F1EA` + 钴蓝细线 `#1F3FA8` + 古典衬线 Cormorant Garamond italic 做装饰 + 思源宋体/黑体承接中文 + Inter 做西文正文 + 0.5px 直角边框 + 32px 网格底纹。完整规格见 [frontend/DESIGN.md](frontend/DESIGN.md)。
 
-> **反模板**：不引入组件库（shadcn/MUI 都拒）、不引入图标库（14 个图标全部自绘 SVG）、不做暗色模式、不使用渐变 / 阴影 / 毛玻璃 / emoji。
+> **反模板**：不引入组件库（shadcn/MUI 都拒）、不引入图标库（图标全部自绘 SVG）、不使用渐变 / 阴影 / 毛玻璃 / emoji。暗色模式与显示大小作为特色已支持（令牌化实现，见设置页 Appearance）。
 
 ## 技术栈
 
@@ -239,19 +238,28 @@ cd frontend && pnpm test:e2e
 ```text
 mini-plane/
 ├── backend/                          # Django + DRF + Channels + Celery（MVP 完成）
+│   └── config/settings/desktop.py    # 桌面版配置（内嵌 SQLite、免装 PostgreSQL）
 ├── frontend/                         # Next.js 16（MVP 完成，界面中文）
 │   ├── app/ components/ features/ lib/ stores/ types/
 │   ├── tests/unit/                   # 单元测试 98（node --test 零依赖）
-│   ├── tests/e2e/                    # Playwright 浏览器端到端 14 用例
+│   ├── tests/e2e/                    # Playwright 浏览器端到端 18 用例
 │   ├── docs/devlog/                  # 每个 Sprint 一份 + 集成验收报告
 │   └── docs/assets/                  # 真实截图 + 设计稿
+├── desktop/                          # 桌面单机 App（pywebview 原生窗口）
+│   ├── launcher.py                   # 编排器：起后端+前端→开原生窗口→关窗停服
+│   ├── build.py                      # PyInstaller 打包 MiniPlane.exe
+│   ├── make_shortcut.ps1             # 生成桌面快捷方式
+│   └── MiniPlane.cmd                 # 双击入口
 ├── scripts/
 │   ├── dev.cmd / dev.ps1             # 一键开发启动器（up/down/status/e2e）
-│   └── package.py                    # 组装本地单机版软件包
+│   └── package.py                    # 构建前端单机产物（桌面 App 加载它）
+├── runtime/                          # 桌面版运行时数据：SQLite/密钥/会话/日志（gitignore）
 ├── dist/                             # 打包产物（gitignore）
 ├── docs/
+│   ├── 使用指南.md                    # ★ 怎么用（分角色：只用/换机安装/开发）
 │   ├── API.md · api/                 # 接口契约 00–09（前后端唯一事实源）
-│   └── devlog/                       # 后端 Sprint 日志
+│   ├── devlog/ · 架构分析/ · 调研/    # 开发日志 / 架构审计 / 产品机会调研
+│   └── 测试报告/                      # P3C 代码质量报告
 ├── docker-compose.yml                # db / redis / web / asgi / worker / frontend
 ├── ARCHITECTURE.md · BACKEND_PLAN.md
 ```
@@ -260,6 +268,7 @@ mini-plane/
 
 | 你想知道 | 看这里 |
 |---------|--------|
+| **这个应用怎么用（最常用）** | [docs/使用指南.md](docs/使用指南.md) |
 | 使用中的已知边界与二期计划 | [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md) |
 | 后端 / 前端执行计划 | [BACKEND_PLAN.md](BACKEND_PLAN.md) · [frontend/FRONTEND_ROADMAP.md](frontend/FRONTEND_ROADMAP.md) |
 | 设计系统 / 屏幕蓝图 / 设计决策 | [frontend/DESIGN.md](frontend/DESIGN.md) 等（见上方目录结构） |
