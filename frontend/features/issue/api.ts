@@ -21,6 +21,8 @@ import type {
   Issue,
   IssueListQuery,
   Label,
+  MyIssue,
+  MyIssuesScope,
   UpdateIssuePayload,
   UpdateLabelPayload,
 } from "@/types/issue";
@@ -35,6 +37,14 @@ function labelsBase(slug: string, projectId: string): string {
 }
 
 /* ---------------- issues ---------------- */
+
+/** GET /api/v1/issues/mine/ —— 跨项目聚合「指派给我 / 我创建的」（特色 B）。 */
+export async function listMyIssues(
+  scope: MyIssuesScope = "all",
+): Promise<Paginated<MyIssue>> {
+  const qs = scope && scope !== "all" ? `?scope=${scope}` : "";
+  return api<Paginated<MyIssue>>(`/issues/mine${qs}`);
+}
 
 export async function listIssues(
   slug: string,

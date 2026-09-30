@@ -45,9 +45,9 @@ test.describe("认证闭环", () => {
       timeout: 15_000,
     });
 
-    // 登出：账号菜单 → 最后一项（"sign out"，见 AvatarMenu）
+    // 登出：账号菜单 → 退出登录项（AvatarMenu 文案「退出登录」，兼容旧英文 out）
     await page.locator('header button[aria-haspopup="menu"]').click();
-    await page.getByRole("menuitem").filter({ hasText: /out|登出/i }).click();
+    await page.getByRole("menuitem").filter({ hasText: /out|退出|登出/i }).click();
 
     await expect(page, "登出后应回到 /login").toHaveURL(/\/login/, { timeout: 15_000 });
 

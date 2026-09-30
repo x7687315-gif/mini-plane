@@ -82,6 +82,15 @@ export function TopBar({ workspace, project, role }: TopBarProps) {
             mini &middot; {localDate()}
           </span>
         </Link>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("mp:open-palette"))}
+          aria-label="打开命令面板"
+          className="hidden md:inline-flex items-center gap-2 px-2.5 py-1 border border-[color:var(--color-rule)] text-[10px] uppercase tracking-[0.14em] font-sans font-medium text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)] hover:border-[color:var(--color-ink-2)] transition-colors"
+        >
+          搜索
+          <kbd className="font-mono text-[9px] normal-case tracking-normal">Ctrl K</kbd>
+        </button>
       </div>
 
       <div className="flex items-center gap-5">

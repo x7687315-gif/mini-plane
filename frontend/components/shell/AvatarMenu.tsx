@@ -91,6 +91,16 @@ export function AvatarMenu() {
           </div>
 
           <Link
+            href="/me/issues"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] uppercase tracking-[0.16em] text-[color:var(--color-ink-2)] font-sans font-medium hover:bg-[color:var(--color-paper-2)] hover:text-[color:var(--color-ink)]"
+          >
+            <UserIcon size={13} />
+            我的工作
+          </Link>
+
+          <Link
             href="/me"
             role="menuitem"
             onClick={() => setOpen(false)}

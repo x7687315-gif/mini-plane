@@ -92,3 +92,20 @@ def resolve_project(user, slug: str, project_id) -> tuple[Project, int]:
     if role is None:
         raise Http404
     return project, role
+
+
+def accessible_project_ids(user):
+    """用户可访问的项目 id 集合（是 ProjectMember，或其 workspace 的 WorkspaceMember）。
+
+    与 `effective_role` 同一套可见性规则，供跨项目聚合查询（如「我的工作」）复用，
+    避免在别处再写一份成员判定而漂移。未登录 → 空集。
+    """
+    from django.db.models import Q  # 局部导入，避免与顶部 import 组冲突
+
+    if not user.is_authenticated:
+        return Project.objects.none()
+    member_pids = ProjectMember.objects.filter(user=user).values_list("project_id", flat=True)
+    ws_ids = WorkspaceMember.objects.filter(user=user).values_list("workspace_id", flat=True)
+    return Project.objects.filter(Q(id__in=member_pids) | Q(workspace_id__in=ws_ids)).values_list(
+        "id", flat=True
+    )

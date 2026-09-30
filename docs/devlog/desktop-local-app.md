@@ -440,3 +440,44 @@ storage_path=runtime/webview-profile)`。持久化 WebView2 用户数据目录�
   `my settings/sign out` 等残留英文菜单项中文化。
 
 验证：tsc 0 error、eslint 0 error、`pnpm build` 成功、`pnpm test` 98/98。
+
+---
+
+## 追加 · 第 11 部分（特色 A+B+H）· B「我的工作」+ A 命令面板
+
+### B：我的工作（跨项目聚合）
+
+- 后端 `core/permissions.accessible_project_ids(user)`：复用 `effective_role` 同一套可见性
+  （ProjectMember 或 WS 成员），供跨项目查询用，避免另写成员判定而漂移。
+- `GET /api/v1/issues/mine/?scope=assigned|created|all`（`apps/issues/views.my_issues`）：
+  在用户可访问项目内聚合「指派给我 / 我创建的」Issue，按创建时间倒序 + 分页。
+- 专用 `MyIssueSerializer`（在 IssueSerializer 上补 `project_name` + `workspace_slug`），
+  让前端能显示归属并深链到对应项目。路由 `apps/issues/urls.py` 挂 `/api/v1/issues/`。
+- 前端：`types/issue` 加 `MyIssue`/`MyIssuesScope`；`features/issue` 加 `listMyIssues`/`useMyIssues`；
+  新页 `/me/issues`（全部/指派给我/我创建的 三档筛选 + 列表）；AvatarMenu 加「我的工作」入口。
+- 说明：Issue 模型暂无 due_date，故"逾期"筛选留待加日期字段后再做。
+- 测试：`apps/issues/tests/test_my_issues.py` 5 例（scope 三态 + 外人空结果 + 未登录 401）；
+  后端全量 310 通过；openapi 快照已含新端点。
+
+### A：全局命令面板
+
+- `components/CommandPalette.tsx`：Ctrl/Cmd+K 唤起，跨页常驻（挂在 `(protected)/layout`）；
+  命令 = 固定入口（我的工作 / 设置）+ 每个可访问工作区；输入即时子串过滤；
+  ↑↓ 选择、Enter 执行、Esc 关闭、点遮罩关闭；a11y 用 role=dialog/combobox/listbox/option。
+- TopBar 加「搜索 ⌘K」按钮，通过 `window` 事件 `mp:open-palette` 解耦唤起。
+- 修 lint：`set-state-in-effect`（重置查询/高亮移到事件回调里，effect 只做 DOM 聚焦）；
+  `workspaces` 派生移进 `useMemo` 消除依赖抖动。
+
+### 测试踩坑与修正
+
+- 命令面板键盘测试：Playwright 跑在真实 Chrome，`Ctrl+K` 被浏览器自身搜索快捷键拦截，
+  页面收不到 keydown（按钮唤起则通过）；桌面 WebView2 无浏览器外壳、Ctrl+K 能直达页面。
+  故测试改用按钮唤起验证"打开→搜索→回车导航"，覆盖同一 open 逻辑。
+- 回归自查：AvatarMenu 把 `sign out` 中文化为「退出登录」后，auth.spec 的登出匹配 `/out|登出/`
+  失效 → 同步放宽为 `/out|退出|登出/`（改测试以匹配有意的文案变更）。
+
+### 验证
+
+- 后端：ruff / spectacular --fail-on-warn / makemigrations / 310 测试全绿；openapi 快照同步。
+- 前端：tsc 0、eslint 0、`pnpm test` 98、`pnpm build` 成功；Playwright **18/18 全过**。
+- `scripts/package.py` 重建 dist，桌面版加载 A+B+H 新前端。

@@ -4,6 +4,7 @@
 再按契约的门槛判断——读 ≥ Viewer，写 ≥ Member，评论改删仅作者或 Admin。
 """
 
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -14,6 +15,7 @@ from rest_framework.response import Response
 
 from apps.issues import services
 from apps.issues.filters import apply_issue_filters, apply_issue_ordering
+from apps.issues.models import Issue
 from apps.issues.serializers import (
     CommentSerializer,
     CommentWriteSerializer,
@@ -22,12 +24,13 @@ from apps.issues.serializers import (
     IssueWriteSerializer,
     LabelSerializer,
     LabelWriteSerializer,
+    MyIssueSerializer,
 )
 from apps.jobs import services as job_services
 from apps.jobs.serializers import TaskRunSerializer
 from apps.projects.models import ProjectRoles
 from core.pagination import StandardPagination
-from core.permissions import resolve_project
+from core.permissions import accessible_project_ids, resolve_project
 
 
 def _require_role(role: int, threshold: int) -> None:
@@ -67,6 +70,38 @@ def issue_list_create(request, workspace_slug: str, project_id):
     serializer.is_valid(raise_exception=True)
     issue = services.create_issue(project, request.user, **serializer.validated_data)
     return Response(IssueSerializer(issue).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+    summary="我的工作（跨项目聚合）",
+    responses={200: MyIssueSerializer(many=True)},
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_issues(request):
+    """跨用户可访问的项目，聚合「指派给我 / 我创建的」Issue（特色功能 B）。
+
+    `scope`：`assigned`（指派给我）| `created`（我创建）| `all`（默认，二者并集）。
+    可见性沿用 `accessible_project_ids`（ProjectMember 或 WS 成员），与单项目读取同一套规则；
+    排序按创建时间倒序，分页沿用 StandardPagination。
+    """
+    scope = request.query_params.get("scope", "all")
+    qs = (
+        Issue.objects.filter(project_id__in=accessible_project_ids(request.user))
+        .select_related("project__workspace", "state", "assignee", "created_by")
+        .prefetch_related("labels")
+    )
+    if scope == "assigned":
+        qs = qs.filter(assignee=request.user)
+    elif scope == "created":
+        qs = qs.filter(created_by=request.user)
+    else:
+        qs = qs.filter(Q(assignee=request.user) | Q(created_by=request.user))
+
+    qs = qs.order_by("-created_at", "-sequence_id")
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(qs, request)
+    return paginator.get_paginated_response(MyIssueSerializer(page, many=True).data)
 
 
 @extend_schema_view(

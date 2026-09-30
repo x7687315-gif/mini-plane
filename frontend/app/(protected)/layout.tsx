@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AuthGuard } from "@/features/auth";
 import { AppShell } from "@/components/shell/AppShell";
+import { CommandPalette } from "@/components/CommandPalette";
 import { useChromeStore } from "@/stores/chrome";
 
 /**
@@ -25,6 +26,8 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
       <AppShell topbar={topbar} rail={{ current: railCurrent }} hideAside={hideAside}>
         {children}
       </AppShell>
+      {/* 全局命令面板（Ctrl/Cmd+K）——跨页常驻，故挂在这里 */}
+      <CommandPalette />
     </AuthGuard>
   );
 }

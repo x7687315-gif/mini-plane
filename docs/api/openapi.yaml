@@ -192,6 +192,29 @@ paths:
                     - ok
                     - error
           description: ''
+  /api/v1/issues/mine/:
+    get:
+      operationId: v1_issues_mine_list
+      description: |-
+        跨用户可访问的项目，聚合「指派给我 / 我创建的」Issue（特色功能 B）。
+
+        `scope`：`assigned`（指派给我）| `created`（我创建）| `all`（默认，二者并集）。
+        可见性沿用 `accessible_project_ids`（ProjectMember 或 WS 成员），与单项目读取同一套规则；
+        排序按创建时间倒序，分页沿用 StandardPagination。
+      summary: 我的工作（跨项目聚合）
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyIssue'
+          description: ''
   /api/v1/workspaces/:
     get:
       operationId: v1_workspaces_list
@@ -1842,6 +1865,84 @@ components:
           maxLength: 128
       required:
       - username
+    MyIssue:
+      type: object
+      description: |-
+        「我的工作」专用：在 IssueSerializer 基础上补项目名与工作区 slug，
+        让跨项目聚合列表能显示归属并深链到对应项目（IssueSerializer 本身只有 project id）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sequence_id:
+          type: integer
+          readOnly: true
+          title: 项目内序号
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+          title: 项目
+        title:
+          type: string
+          readOnly: true
+          title: 标题
+        description:
+          type: string
+          readOnly: true
+          title: 描述
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          readOnly: true
+          title: 优先级
+        state:
+          allOf:
+          - $ref: '#/components/schemas/State'
+          readOnly: true
+        assignee:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Label'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project_name:
+          type: string
+          readOnly: true
+        workspace_slug:
+          type: string
+          readOnly: true
+      required:
+      - assignee
+      - created_at
+      - created_by
+      - description
+      - id
+      - labels
+      - priority
+      - project
+      - project_name
+      - sequence_id
+      - state
+      - title
+      - updated_at
+      - workspace_slug
     PatchedCommentWrite:
       type: object
       description: 评论创建 / 更新请求体；content 非空（纯空白也会被 CharField 裁掉后判空）。

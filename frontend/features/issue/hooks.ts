@@ -8,6 +8,7 @@ import type {
   CreateLabelPayload,
   Issue,
   IssueListQuery,
+  MyIssuesScope,
   UpdateIssuePayload,
   UpdateLabelPayload,
 } from "@/types/issue";
@@ -20,6 +21,7 @@ import {
   getIssue,
   listIssues,
   listLabels,
+  listMyIssues,
   updateIssue,
   updateLabel,
 } from "./api";
@@ -32,9 +34,18 @@ export const issueKeys = {
   detail: (slug: string, pid: string, issueId: string) =>
     [...issueKeys.all(slug, pid), "detail", issueId] as const,
   labels: (slug: string, pid: string) => ["labels", slug, pid] as const,
+  mine: (scope: MyIssuesScope) => ["issues", "mine", scope] as const,
 };
 
 /* ---------------- queries ---------------- */
+
+/** 「我的工作」跨项目聚合（特色 B）。 */
+export function useMyIssues(scope: MyIssuesScope = "all") {
+  return useQuery({
+    queryKey: issueKeys.mine(scope),
+    queryFn: () => listMyIssues(scope),
+  });
+}
 
 export function useIssues(
   slug: string | undefined,

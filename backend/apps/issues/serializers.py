@@ -68,6 +68,18 @@ class IssueSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class MyIssueSerializer(IssueSerializer):
+    """「我的工作」专用：在 IssueSerializer 基础上补项目名与工作区 slug，
+    让跨项目聚合列表能显示归属并深链到对应项目（IssueSerializer 本身只有 project id）。
+    """
+
+    project_name = serializers.CharField(source="project.name", read_only=True)
+    workspace_slug = serializers.CharField(source="project.workspace.slug", read_only=True)
+
+    class Meta(IssueSerializer.Meta):
+        fields = [*IssueSerializer.Meta.fields, "project_name", "workspace_slug"]
+
+
 class IssueWriteSerializer(serializers.Serializer):
     """Issue 创建 / 部分更新请求体。
 

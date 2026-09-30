@@ -45,6 +45,15 @@ export interface Issue {
   updated_at: string;
 }
 
+/** 「我的工作」聚合项：Issue + 归属项目名/工作区 slug（便于跨项目展示与深链）。 */
+export interface MyIssue extends Issue {
+  project_name: string;
+  workspace_slug: string;
+}
+
+/** GET /api/v1/issues/mine/ 的 scope。 */
+export type MyIssuesScope = "all" | "assigned" | "created";
+
 /* ---------------- create / update payloads ---------------- */
 
 export interface CreateIssuePayload {
