@@ -57,7 +57,7 @@ export function AuthCard({ title, subtitle, children, alt, sheet = "01" }: AuthC
         W &middot; 121&deg; 28&prime;
       </span>
 
-      <div className="relative w-full max-w-[480px] border border-[color:var(--color-rule)] bg-[rgba(255,255,255,0.55)] px-14 py-12">
+      <div className="relative w-full max-w-[480px] border border-[color:var(--color-rule)] bg-[color:var(--color-panel)] px-14 py-12">
         <div className="font-serif italic text-[76px] leading-none font-medium tracking-[-0.02em] text-[color:var(--color-ink)]">
           P<span className="opacity-45 text-[58px]">l</span>ane
         </div>

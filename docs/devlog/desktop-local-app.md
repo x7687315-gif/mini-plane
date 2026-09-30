@@ -419,3 +419,24 @@ storage_path=runtime/webview-profile)`。持久化 WebView2 用户数据目录�
 9. AppShell 上提到 `(protected)/layout` 常驻（chrome store + useChrome），8 页解包，消除换页重挂外壳；15/15 E2E。
 10. 修「每次都要重新登录」：pywebview `private_mode=False + storage_path` 持久化会话，重开直入；修 CI 红灯（ruff format + 重新生成 openapi 快照）。
 11. 产品机会调研（痛点/缺失功能/上下游）落 `docs/调研/`，供挑选特色。
+12. H 特色功能：暗色/明色主题 + 显示大小可调（localStorage 持久化、首屏无闪白）。
+
+---
+
+## 追加 · 第 10 部分（特色 A+B+H）· H：暗色主题 + 显示大小
+
+落地调研清单里的 H。全部令牌化，前端零后端改动。
+
+- `app/globals.css`：`:root` 增 `--color-panel/--color-panel-2`（半透明面板底）与 `--ui-zoom`；
+  新增 `[data-theme="dark"]` 只翻"表面"令牌（纸/墨/尺线/面板 + 状态色提亮），暗色走深 slate 而非纯黑，
+  保留蓝图编辑风；`html { zoom: var(--ui-zoom) }` 做整屏显示大小；`body` 颜色过渡防切换生硬。
+- `stores/appearance.ts`：zustand 存 theme(light/dark/system)+zoom，读写 localStorage（键 `mp-theme`/`mp-zoom`），
+  `resolveTheme`/`applyAppearance` 幂等应用；SSR 阶段不碰 window。
+- `app/layout.tsx`：**首屏内联脚本**按 localStorage 预设 `data-theme`/`--ui-zoom`（避免暗色用户先闪白——
+  Next 主题化的经典坑），`<html>` 加 `suppressHydrationWarning`；`AppearanceProvider` 运行期对齐 +
+  `system` 模式监听 `prefers-color-scheme` 变化。
+- `AuthCard`/`Aside` 的硬编码 `rgba(255,255,255,.x)` → `var(--color-panel*)`，暗色下正确翻面。
+- 控制入口：`/me` 新增 Appearance 卡（主题三选 + 显示大小四档）；`AvatarMenu` 加主题快切 + 顺手把
+  `my settings/sign out` 等残留英文菜单项中文化。
+
+验证：tsc 0 error、eslint 0 error、`pnpm build` 成功、`pnpm test` 98/98。

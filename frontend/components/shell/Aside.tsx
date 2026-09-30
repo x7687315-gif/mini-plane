@@ -27,7 +27,7 @@ export function Aside({ kpi, children, showAxis = true, className }: AsideProps)
     <aside
       className={clsx(
         "bp-border-l w-60 py-6 px-5 relative hidden lg:flex flex-col gap-5",
-        "bg-[rgba(255,255,255,0.35)]",
+        "bg-[color:var(--color-panel-2)]",
         className,
       )}
     >

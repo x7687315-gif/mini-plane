@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { useBind, useLogout } from "@/features/auth/hooks";
 import { useChrome } from "@/stores/chrome";
+import { ZOOM_PRESETS, useAppearance, type Theme } from "@/stores/appearance";
 import { useAuthStore } from "@/stores/auth";
 
 /**
@@ -83,6 +84,8 @@ export default function MePage() {
           </dl>
         </CardBody>
       </Card>
+
+      <AppearanceCard />
 
       <SecurityCard />
 
@@ -211,6 +214,64 @@ function SecurityCard() {
         </div>
 
         {msg && <p className="text-[12px] text-[color:var(--color-accent)]">{msg}</p>}
+      </CardBody>
+    </Card>
+  );
+}
+
+const THEME_OPTIONS: { value: Theme; label: string }[] = [
+  { value: "light", label: "浅色" },
+  { value: "dark", label: "深色" },
+  { value: "system", label: "跟随系统" },
+];
+
+/** 外观：主题（浅色/深色/跟随系统）+ 显示大小（整屏缩放）。存 localStorage，即时生效。 */
+function AppearanceCard() {
+  const theme = useAppearance((s) => s.theme);
+  const zoom = useAppearance((s) => s.zoom);
+  const setTheme = useAppearance((s) => s.setTheme);
+  const setZoom = useAppearance((s) => s.setZoom);
+
+  return (
+    <Card className="max-w-2xl mb-6">
+      <CardHeader>Appearance</CardHeader>
+      <CardBody className="space-y-6">
+        <div>
+          <div className="text-[12px] font-medium text-[color:var(--color-ink)] mb-2">主题</div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="主题">
+            {THEME_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                variant={theme === opt.value ? "primary" : "secondary"}
+                size="sm"
+                aria-pressed={theme === opt.value}
+                onClick={() => setTheme(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[12px] font-medium text-[color:var(--color-ink)] mb-2">显示大小</div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="显示大小">
+            {ZOOM_PRESETS.map((preset) => (
+              <Button
+                key={preset.value}
+                variant={Math.abs(zoom - preset.value) < 0.001 ? "primary" : "secondary"}
+                size="sm"
+                aria-pressed={Math.abs(zoom - preset.value) < 0.001}
+                onClick={() => setZoom(preset.value)}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-[color:var(--color-ink-3)]">
+            设置保存在本机，重开应用后仍生效。
+          </p>
+        </div>
       </CardBody>
     </Card>
   );

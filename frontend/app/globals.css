@@ -72,6 +72,41 @@
 
   /* Border widths (Tailwind v4 uses arbitrary values for 0.5px) */
   --border-thin: 0.5px;
+
+  /* 半透明面板底（浅色下是纸白；暗色下翻成极淡的亮色叠加，见 [data-theme=dark]） */
+  --color-panel: rgba(255, 255, 255, 0.55);
+  --color-panel-2: rgba(255, 255, 255, 0.35);
+
+  /* 显示大小：整屏缩放（WebView2/Chromium 支持 zoom），配合外观设置切换 */
+  --ui-zoom: 1;
+}
+
+/*
+ * 暗色主题：只翻"表面"令牌（纸/墨/尺线/半透明面板），状态色沿用并微调亮度。
+ * 由 <html data-theme="dark"> 触发（首屏由 app/layout 的内联脚本按 localStorage 预设，避免闪白）。
+ */
+[data-theme="dark"] {
+  --color-paper: #15171B;
+  --color-paper-2: #1C1F25;
+  --color-paper-3: #2A2E36;
+  --color-ink: #E9E7E1;
+  --color-ink-2: #B3AFA5;
+  --color-ink-3: #857F73;
+  --color-rule: #363B44;
+
+  --color-accent: #7C97EC;
+  --color-accent-2: #9DB2F2;
+  --color-accent-soft: #223049;
+
+  --color-urgent: #f87171;
+  --color-high: #fb923c;
+  --color-medium: #facc15;
+  --color-low: #60a5fa;
+  --color-success: #34d399;
+  --color-warning: #d97706;
+
+  --color-panel: rgba(255, 255, 255, 0.05);
+  --color-panel-2: rgba(255, 255, 255, 0.03);
 }
 
 @theme inline {
@@ -93,6 +128,8 @@
   --color-none: var(--color-none);
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
+  --color-panel: var(--color-panel);
+  --color-panel-2: var(--color-panel-2);
 
   /* Fonts (bound from globals.css :root, NOT from next/font/google) */
   --font-serif: var(--font-serif);
@@ -128,6 +165,17 @@ html, body {
   font-feature-settings: "kern" 1, "ss01" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 整屏显示大小（小/标准/大/特大）——由外观设置写入 --ui-zoom */
+html {
+  zoom: var(--ui-zoom);
+}
+
+/* 主题切换时不闪一下（颜色过渡只在非首屏交互时生效） */
+body {
+  transition: background-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
 }
 
 /*
