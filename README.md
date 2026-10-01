@@ -269,6 +269,7 @@ mini-plane/
 | 你想知道 | 看这里 |
 |---------|--------|
 | **这个应用怎么用（最常用）** | [docs/使用指南.md](docs/使用指南.md) |
+| **下一阶段产品重构总计划（Sprint 09–17）** | [docs/PRODUCT_REFACTOR_PLAN.md](docs/PRODUCT_REFACTOR_PLAN.md) |
 | 使用中的已知边界与二期计划 | [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md) |
 | 后端 / 前端执行计划 | [BACKEND_PLAN.md](BACKEND_PLAN.md) · [frontend/FRONTEND_ROADMAP.md](frontend/FRONTEND_ROADMAP.md) |
 | 设计系统 / 屏幕蓝图 / 设计决策 | [frontend/DESIGN.md](frontend/DESIGN.md) 等（见上方目录结构） |
