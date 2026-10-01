@@ -69,6 +69,20 @@ test.describe("工程日志（Sprint 11）", () => {
   });
 });
 
+test.describe("Agent Token（Sprint 12）", () => {
+  test("设置页可创建 Token 并一次性展示明文", async ({ page }) => {
+    await page.goto("/me");
+    await expect(page.getByText("Agent Token", { exact: true }).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByLabel("Token 名称").fill("e2e-agent");
+    await page.getByRole("button", { name: "创建 Token" }).click();
+    // 明文只展示一次
+    await expect(page.getByText(/明文仅显示这一次/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/^mpa_/).first()).toBeVisible({ timeout: 10_000 });
+  });
+});
+
 test.describe("我的工程首页（Sprint 09）", () => {
   test("首页默认是 My Engineering，展示项目工程卡片与进度", async ({ page }) => {
     await page.goto("/");

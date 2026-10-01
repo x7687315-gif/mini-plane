@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.jobs",
     "apps.realtime",
     "apps.worklogs",
+    "apps.agents",
 ]
 
 MIDDLEWARE = [

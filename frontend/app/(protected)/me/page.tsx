@@ -12,6 +12,7 @@ import {
   Input,
   MeasureLine,
 } from "@/components/ui";
+import { AgentTokenCard } from "@/components/AgentTokenCard";
 import { useBind, useLogout } from "@/features/auth/hooks";
 import { useChrome } from "@/stores/chrome";
 import { ZOOM_PRESETS, useAppearance, type Theme } from "@/stores/appearance";
@@ -88,6 +89,8 @@ export default function MePage() {
       <AppearanceCard />
 
       <SecurityCard />
+
+      <AgentTokenCard />
 
       <Card className="max-w-2xl mt-6">
         <CardHeader>Session</CardHeader>

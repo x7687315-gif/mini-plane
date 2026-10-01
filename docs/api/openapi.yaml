@@ -4,6 +4,256 @@ info:
   version: 0.1.0
   description: 仿 Plane 的迷你项目管理软件（学习项目）REST API。
 paths:
+  /api/v1/agent/projects/{workspace_slug}/{project_id}/:
+    get:
+      operationId: v1_agent_projects_retrieve
+      description: project.get：项目 + Global Plan 快照。
+      summary: project.get：项目 + Global Plan 快照
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentProjectSnapshot'
+          description: ''
+  /api/v1/agent/projects/{workspace_slug}/{project_id}/progress/:
+    post:
+      operationId: v1_agent_projects_progress_create
+      description: progress.update / stage.update：改某阶段进度或切换当前阶段。
+      summary: progress.update：改阶段进度 / 切当前阶段（幂等）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentProgress'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentProgress'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentProgress'
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPlan'
+          description: ''
+  /api/v1/agent/tasks/:
+    post:
+      operationId: v1_agent_tasks_create
+      description: task.create：建任务（写 Activity）。幂等键防重复建。
+      summary: task.create：建任务（幂等）
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentTaskCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentTaskCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentTaskCreate'
+        required: true
+      security:
+      - agentTokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+  /api/v1/agent/tasks/{issue_id}/complete/:
+    post:
+      operationId: v1_agent_tasks_complete_create
+      description: task.complete：把任务推进到「已完成」组的首个状态。
+      summary: task.complete：推进到已完成
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+  /api/v1/agent/tasks/{issue_id}/start/:
+    post:
+      operationId: v1_agent_tasks_start_create
+      description: task.start：把任务推进到「进行中」组的首个状态。
+      summary: task.start：推进到进行中
+      parameters:
+      - in: path
+        name: issue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+  /api/v1/agent/tokens/:
+    get:
+      operationId: v1_agent_tokens_list
+      description: GET 我的 Token 列表；POST 新建并**一次性**返回明文。
+      summary: Agent Token 列表 / 创建
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentToken'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentTokenCreated'
+          description: ''
+    post:
+      operationId: v1_agent_tokens_create
+      description: GET 我的 Token 列表；POST 新建并**一次性**返回明文。
+      summary: Agent Token 列表 / 创建
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentTokenCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentTokenCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentTokenCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentToken'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentTokenCreated'
+          description: ''
+  /api/v1/agent/tokens/{token_id}/revoke/:
+    post:
+      operationId: v1_agent_tokens_revoke_create
+      summary: 吊销 Agent Token
+      parameters:
+      - in: path
+        name: token_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentToken'
+          description: ''
+  /api/v1/agent/worklogs/:
+    post:
+      operationId: v1_agent_worklogs_create
+      description: worklog.create：Agent 写工程日志（source=agent）。
+      summary: worklog.create：Agent 写工程日志（幂等）
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentWorklogCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentWorklogCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentWorklogCreate'
+        required: true
+      security:
+      - agentTokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worklog'
+          description: ''
   /api/v1/auth/bind/:
     post:
       operationId: v1_auth_bind_create
@@ -1905,6 +2155,152 @@ components:
       - issue
       - new_value
       - old_value
+    AgentProgress:
+      type: object
+      description: 更新阶段进度 / 切换当前阶段（§13 progress.update / stage.update）。
+      properties:
+        stage_id:
+          type: string
+          format: uuid
+        progress:
+          type: integer
+          maximum: 100
+          minimum: 0
+        set_current:
+          type: boolean
+          default: false
+    AgentProjectSnapshot:
+      type: object
+      description: project.get 的响应：项目 + Global Plan 快照。
+      properties:
+        project:
+          $ref: '#/components/schemas/Project'
+        plan:
+          $ref: '#/components/schemas/ProjectPlan'
+      required:
+      - plan
+      - project
+    AgentTaskCreate:
+      type: object
+      description: Agent 建任务：以"工程动作"为中心，只暴露必要字段。
+      properties:
+        workspace_slug:
+          type: string
+          pattern: ^[-a-zA-Z0-9_]+$
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        priority:
+          type: string
+      required:
+      - project_id
+      - title
+      - workspace_slug
+    AgentToken:
+      type: object
+      description: Token 只读视图：绝不回传哈希/明文。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+          title: 名称
+          description: 如：本地编码 Agent
+        scopes:
+          readOnly: true
+          title: 权限白名单
+        is_active:
+          type: boolean
+          readOnly: true
+        last_used_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: 最近使用
+        revoked_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: 吊销时间
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - is_active
+      - last_used_at
+      - name
+      - revoked_at
+      - scopes
+    AgentTokenCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopesEnum'
+          description: 缺省为默认白名单（read/write task、worklog、progress）
+      required:
+      - name
+    AgentTokenCreated:
+      type: object
+      description: 创建 Token 的响应：明文仅此一次返回。
+      properties:
+        token:
+          type: string
+          description: 明文 Token，仅本次返回，请妥善保存
+        detail:
+          $ref: '#/components/schemas/AgentToken'
+      required:
+      - detail
+      - token
+    AgentWorklogCreate:
+      type: object
+      properties:
+        workspace_slug:
+          type: string
+          pattern: ^[-a-zA-Z0-9_]+$
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 120
+        summary:
+          type: string
+        conclusion:
+          type: string
+        next_step:
+          type: string
+        blocker:
+          type: string
+        stage_id:
+          type: string
+          format: uuid
+          nullable: true
+        date:
+          type: string
+          format: date
+      required:
+      - project_id
+      - summary
+      - title
+      - workspace_slug
     Bind:
       type: object
       description: 设置页自助绑定：加/改密码、绑定/换邮箱、或移除密码（回到免密直入）。
@@ -2769,6 +3165,20 @@ components:
         * `20` - 管理员
         * `15` - 成员
         * `5` - 只读成员
+    ScopesEnum:
+      enum:
+      - read_project
+      - read_task
+      - write_task
+      - write_worklog
+      - update_progress
+      type: string
+      description: |-
+        * `read_project` - 读取项目
+        * `read_task` - 读取任务
+        * `write_task` - 创建/推进任务
+        * `write_worklog` - 写工程日志
+        * `update_progress` - 更新阶段进度
     SourceEnum:
       enum:
       - manual
@@ -3155,6 +3565,10 @@ components:
       required:
       - name
   securitySchemes:
+    agentTokenAuth:
+      type: http
+      scheme: bearer
+      description: Agent Token（mpa_ 前缀），权限受 scopes 白名单限制。
     cookieAuth:
       type: apiKey
       in: cookie
