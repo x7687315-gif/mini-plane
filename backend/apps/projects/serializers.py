@@ -104,6 +104,7 @@ class ProjectEngineeringSerializer(serializers.Serializer):
     )
     now_task = serializers.CharField(allow_null=True, help_text="当前正在做的任务标题")
     next_task = serializers.CharField(allow_null=True, help_text="队列中下一个任务标题")
+    today_logs = serializers.IntegerField(help_text="今日工程日志条数（Sprint 11）")
     last_activity = serializers.DateTimeField(allow_null=True)
 
     def _plan_stages(self, obj):

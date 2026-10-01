@@ -1675,6 +1675,165 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskRun'
           description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/worklogs/:
+    get:
+      operationId: v1_workspaces_projects_worklogs_list
+      description: |-
+        GET：项目日志（倒序：date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD。
+        POST：写一条日志（≥ Member）。
+      summary: 工程日志列表 / 创建
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Worklog'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worklog'
+          description: ''
+    post:
+      operationId: v1_workspaces_projects_worklogs_create
+      description: |-
+        GET：项目日志（倒序：date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD。
+        POST：写一条日志（≥ Member）。
+      summary: 工程日志列表 / 创建
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorklogWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WorklogWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WorklogWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Worklog'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worklog'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/worklogs/{worklog_id}/:
+    patch:
+      operationId: v1_workspaces_projects_worklogs_partial_update
+      summary: 修改工程日志
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: worklog_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorklogWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorklogWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorklogWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worklog'
+          description: ''
+    delete:
+      operationId: v1_workspaces_projects_worklogs_destroy
+      summary: 删除工程日志
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: worklog_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
 components:
   schemas:
     ActionEnum:
@@ -2231,6 +2390,34 @@ components:
         description:
           type: string
           title: 描述
+    PatchedWorklogWrite:
+      type: object
+      description: 新建 / 修改请求体。date 缺省为今天；stage_id 必须属于同一项目（视图校验）。
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        summary:
+          type: string
+        date:
+          type: string
+          format: date
+        details:
+          type: string
+        conclusion:
+          type: string
+        next_step:
+          type: string
+        blocker:
+          type: string
+        stage_id:
+          type: string
+          format: uuid
+          nullable: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          default: manual
     PatchedWorkspaceMemberRole:
       type: object
       properties:
@@ -2359,6 +2546,9 @@ components:
           type: string
           nullable: true
           description: 队列中下一个任务标题
+        today_logs:
+          type: integer
+          description: 今日工程日志条数（Sprint 11）
         last_activity:
           type: string
           format: date-time
@@ -2375,6 +2565,7 @@ components:
       - open_tasks
       - progress
       - started_tasks
+      - today_logs
       - total_tasks
       - workspace_name
       - workspace_slug
@@ -2578,6 +2769,16 @@ components:
         * `20` - 管理员
         * `15` - 成员
         * `5` - 只读成员
+    SourceEnum:
+      enum:
+      - manual
+      - agent
+      - imported
+      type: string
+      description: |-
+        * `manual` - 人工
+        * `agent` - Agent
+        * `imported` - 导入
     State:
       type: object
       description: 状态只读响应体（预置五态）。
@@ -2742,6 +2943,122 @@ components:
       - avatar
       - id
       - username
+    Worklog:
+      type: object
+      description: 只读响应体：含作者摘要与所属阶段名（供前端直接渲染）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+          title: 项目
+        stage:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+          title: 所属阶段
+        stage_name:
+          type: string
+          readOnly: true
+          nullable: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/UserLite'
+          readOnly: true
+        date:
+          type: string
+          format: date
+          readOnly: true
+          title: 日志日期
+        title:
+          type: string
+          readOnly: true
+          title: 标题
+        summary:
+          type: string
+          readOnly: true
+          title: 完成内容
+        details:
+          type: string
+          readOnly: true
+          title: 过程细节
+        conclusion:
+          type: string
+          readOnly: true
+          title: 结论
+        next_step:
+          type: string
+          readOnly: true
+          title: 下一步
+        blocker:
+          type: string
+          readOnly: true
+          title: 阻塞
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          readOnly: true
+          title: 来源
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - blocker
+      - conclusion
+      - created_at
+      - date
+      - details
+      - id
+      - next_step
+      - project
+      - source
+      - stage
+      - stage_name
+      - summary
+      - title
+      - updated_at
+    WorklogWrite:
+      type: object
+      description: 新建 / 修改请求体。date 缺省为今天；stage_id 必须属于同一项目（视图校验）。
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        summary:
+          type: string
+        date:
+          type: string
+          format: date
+        details:
+          type: string
+        conclusion:
+          type: string
+        next_step:
+          type: string
+        blocker:
+          type: string
+        stage_id:
+          type: string
+          format: uuid
+          nullable: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          default: manual
+      required:
+      - summary
+      - title
     Workspace:
       type: object
       description: 工作区响应体；current_role 由视图按请求用户注入。

@@ -6,19 +6,23 @@ import type {
   CreateProjectPayload,
   StagePayload,
   UpdateProjectPayload,
+  WorklogPayload,
 } from "@/types/project";
 import type { UpdateMemberRolePayload } from "@/types/workspace";
 import {
   addProjectMember,
   addStage,
   createProject,
+  createWorklog,
   deleteProject,
+  deleteWorklog,
   getPlan,
   getProject,
   listProjectMembers,
   listProjects,
   listMyProjects,
   listStates,
+  listWorklogs,
   removeProjectMember,
   updateProject,
   updateProjectMemberRole,
@@ -70,6 +74,42 @@ export function useUpdateStage(slug: string, projectId: string) {
       updateStage(slug, projectId, stageId, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...projectKeys.all, "plan", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+    },
+  });
+}
+
+/* ---------------- Worklog（Sprint 11） ---------------- */
+
+export function useWorklogs(
+  slug: string | undefined,
+  projectId: string | undefined,
+  date?: string,
+) {
+  return useQuery({
+    queryKey: [...projectKeys.all, "worklogs", slug ?? "", projectId ?? "", date ?? ""] as const,
+    queryFn: () => listWorklogs(slug!, projectId!, date ? { date } : {}),
+    enabled: Boolean(slug && projectId),
+  });
+}
+
+export function useAddWorklog(slug: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: WorklogPayload) => createWorklog(slug, projectId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...projectKeys.all, "worklogs", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+    },
+  });
+}
+
+export function useDeleteWorklog(slug: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (worklogId: string) => deleteWorklog(slug, projectId, worklogId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...projectKeys.all, "worklogs", slug, projectId] });
       qc.invalidateQueries({ queryKey: projectKeys.mine() });
     },
   });

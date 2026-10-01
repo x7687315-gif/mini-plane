@@ -5,6 +5,7 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import { Button, Card, MeasureLine } from "@/components/ui";
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { PlanPanel } from "@/components/project/PlanPanel";
+import { WorklogPanel } from "@/components/project/WorklogPanel";
 import { FilterBar } from "@/components/issue/FilterBar";
 import { IssueRow } from "@/components/issue/IssueRow";
 import { normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
@@ -230,6 +231,11 @@ function ProjectIssues() {
         <div className="mt-4">
           <PlanPanel slug={slug} projectId={projectId} canWrite={canCreate} />
         </div>
+      )}
+
+      {/* Sprint 11：Engineering Log（Task 是计划、Worklog 是证据） */}
+      {!project.isError && (
+        <WorklogPanel slug={slug} projectId={projectId} canWrite={canCreate} />
       )}
 
       {project.isError && (

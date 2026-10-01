@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.activity",
     "apps.jobs",
     "apps.realtime",
+    "apps.worklogs",
 ]
 
 MIDDLEWARE = [

@@ -24,8 +24,10 @@ test.describe("Issue 列表与详情", () => {
     // 打开新建弹窗（按钮文案 /new issue/）
     await page.getByRole("button", { name: /新建任务/ }).first().click();
 
-    // 弹窗里的标题输入（CreateIssueModal: Field label="Title" 对应 #i-title）
-    await page.getByLabel("标题").fill(title);
+    // 弹窗里的标题输入（CreateIssueModal: Field label="Title" 对应 #i-title）。
+    // 限定在 dialog 内：项目页还有 WorklogPanel 的"日志标题"输入，page 级 getByLabel("标题")
+    // 会因子串匹配命中两个（strict mode 违规）。
+    await page.getByRole("dialog").getByLabel("标题").fill(title);
     await page.getByRole("button", { name: /^创建/ }).click();
 
     // 创建成功后会直接打开该 Issue 的抽屉；先关掉，回到列表核对

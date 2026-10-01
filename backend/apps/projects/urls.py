@@ -34,6 +34,8 @@ urlpatterns = [
     path("<uuid:project_id>/issues/bulk/labels/", issue_views.issue_bulk_labels),
     # ── Activity（Sprint 4）：项目级活动流 + Issue 时间线 ──────────
     path("", include("apps.activity.urls")),
+    # ── Worklog（Sprint 11）：工程日志 ────────────────────────────
+    path("", include("apps.worklogs.urls")),
     # ── 任务状态（Sprint 6）──────────────────────────────────────
     path("", include("apps.jobs.urls")),
 ]

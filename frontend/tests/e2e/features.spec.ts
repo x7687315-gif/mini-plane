@@ -55,6 +55,20 @@ test.describe("Global Plan（Sprint 10）", () => {
   });
 });
 
+test.describe("工程日志（Sprint 11）", () => {
+  test("记一条日志并出现在 Engineering Log", async ({ page }) => {
+    const api = await apiClient();
+    const fixture = await readDemoFixture(api);
+    await api.dispose();
+
+    await page.goto(projectUrl(fixture));
+    await page.getByLabel("日志标题").fill("E2E 工程日志");
+    await page.getByLabel("完成内容").fill("跑通 Sprint 11 验收链路");
+    await page.getByRole("button", { name: "记一条日志" }).click();
+    await expect(page.getByText("E2E 工程日志").first()).toBeVisible({ timeout: 10_000 });
+  });
+});
+
 test.describe("我的工程首页（Sprint 09）", () => {
   test("首页默认是 My Engineering，展示项目工程卡片与进度", async ({ page }) => {
     await page.goto("/");

@@ -32,6 +32,8 @@ export interface ProjectEngineering {
   current_stage: string | null;
   now_task: string | null;
   next_task: string | null;
+  /** 今日工程日志条数（Sprint 11）。 */
+  today_logs: number;
   last_activity: string | null;
 }
 
@@ -67,6 +69,38 @@ export interface StagePayload {
   progress?: number;
   goal?: string;
   is_current?: boolean;
+}
+
+/** 工程日志（Sprint 11）：Task 是计划，Worklog 是证据。 */
+export interface Worklog {
+  id: string;
+  project: string;
+  stage: string | null;
+  stage_name: string | null;
+  author: MemberSummary;
+  date: string;
+  title: string;
+  summary: string;
+  details: string;
+  conclusion: string;
+  next_step: string;
+  blocker: string;
+  source: "manual" | "agent" | "imported";
+  created_at: string;
+  updated_at: string;
+}
+
+/** 新建 / 修改 Worklog 的请求体。 */
+export interface WorklogPayload {
+  title: string;
+  summary: string;
+  date?: string;
+  details?: string;
+  conclusion?: string;
+  next_step?: string;
+  blocker?: string;
+  stage_id?: string | null;
+  source?: "manual" | "agent" | "imported";
 }
 
 export interface ProjectMember {

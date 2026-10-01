@@ -23,6 +23,7 @@ export default function MyEngineeringPage() {
   const active = projects.length;
   const openTasks = projects.reduce((n, p) => n + p.open_tasks, 0);
   const inFlight = projects.reduce((n, p) => n + p.started_tasks, 0);
+  const todayLogs = projects.reduce((n, p) => n + (p.today_logs ?? 0), 0);
 
   return (
     <>
@@ -52,6 +53,9 @@ export default function MyEngineeringPage() {
         </span>
         <span>
           <b className="text-[color:var(--color-ink)] text-[16px] mr-1">{inFlight}</b> 进行中
+        </span>
+        <span>
+          <b className="text-[color:var(--color-ink)] text-[16px] mr-1">{todayLogs}</b> 今日日志
         </span>
       </div>
 

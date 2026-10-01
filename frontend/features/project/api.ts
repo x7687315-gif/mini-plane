@@ -17,6 +17,8 @@ import type {
   ProjectStage,
   StagePayload,
   UpdateProjectPayload,
+  Worklog,
+  WorklogPayload,
 } from "@/types/project";
 import type { UpdateMemberRolePayload } from "@/types/workspace";
 
@@ -51,6 +53,38 @@ export async function updateStage(
   return api<ProjectStage>(`/workspaces/${slug}/projects/${projectId}/plan/stages/${stageId}`, {
     method: "PATCH",
     json: payload,
+  });
+}
+
+/* ---------------- Worklog（Sprint 11） ---------------- */
+
+export async function listWorklogs(
+  slug: string,
+  projectId: string,
+  query: { date?: string } = {},
+): Promise<Paginated<Worklog>> {
+  const qs = query.date ? `?date=${query.date}` : "";
+  return api<Paginated<Worklog>>(`/workspaces/${slug}/projects/${projectId}/worklogs${qs}`);
+}
+
+export async function createWorklog(
+  slug: string,
+  projectId: string,
+  payload: WorklogPayload,
+): Promise<Worklog> {
+  return api<Worklog>(`/workspaces/${slug}/projects/${projectId}/worklogs`, {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function deleteWorklog(
+  slug: string,
+  projectId: string,
+  worklogId: string,
+): Promise<void> {
+  return api<void>(`/workspaces/${slug}/projects/${projectId}/worklogs/${worklogId}`, {
+    method: "DELETE",
   });
 }
 

@@ -16,6 +16,7 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce
 from django.http import Http404
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -40,6 +41,7 @@ from apps.projects.serializers import (
     ProjectWriteSerializer,
     StateSerializer,
 )
+from apps.worklogs.models import Worklog
 from apps.workspaces.models import WorkspaceRoles
 from core.pagination import StandardPagination
 from core.permissions import (
@@ -278,6 +280,18 @@ def my_projects_summary(request):
                 output_field=CharField(),
             ),
             last_activity=_issue_field("updated_at", order=("-updated_at",)),
+            # Sprint 11：今日工程日志条数（首页 Today 维度）
+            today_logs=Coalesce(
+                Subquery(
+                    Worklog.objects.filter(project=OuterRef("pk"), date=timezone.localdate())
+                    .values("project")
+                    .annotate(c=Count("id"))
+                    .values("c")[:1],
+                    output_field=IntegerField(),
+                ),
+                0,
+                output_field=IntegerField(),
+            ),
         )
         # Plan/Stages 用 prefetch 一次取回（2 条额外查询），供 progress/current_stage 优先读 Plan
         .prefetch_related("plan__stages")
