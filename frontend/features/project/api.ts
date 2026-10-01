@@ -13,6 +13,9 @@ import type {
   Project,
   ProjectEngineering,
   ProjectMember,
+  ProjectPlan,
+  ProjectStage,
+  StagePayload,
   UpdateProjectPayload,
 } from "@/types/project";
 import type { UpdateMemberRolePayload } from "@/types/workspace";
@@ -20,6 +23,35 @@ import type { UpdateMemberRolePayload } from "@/types/workspace";
 /** GET /api/v1/projects/mine/ —— 我的工程首页聚合摘要（Sprint 09）。 */
 export async function listMyProjects(): Promise<ProjectEngineering[]> {
   return api<ProjectEngineering[]>("/projects/mine");
+}
+
+/* ---------------- Global Plan / Stage（Sprint 10） ---------------- */
+
+export async function getPlan(slug: string, projectId: string): Promise<ProjectPlan> {
+  return api<ProjectPlan>(`/workspaces/${slug}/projects/${projectId}/plan`);
+}
+
+export async function addStage(
+  slug: string,
+  projectId: string,
+  payload: StagePayload,
+): Promise<ProjectStage> {
+  return api<ProjectStage>(`/workspaces/${slug}/projects/${projectId}/plan`, {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateStage(
+  slug: string,
+  projectId: string,
+  stageId: string,
+  payload: Partial<StagePayload>,
+): Promise<ProjectStage> {
+  return api<ProjectStage>(`/workspaces/${slug}/projects/${projectId}/plan/stages/${stageId}`, {
+    method: "PATCH",
+    json: payload,
+  });
 }
 
 export async function listProjects(slug: string): Promise<Paginated<Project>> {

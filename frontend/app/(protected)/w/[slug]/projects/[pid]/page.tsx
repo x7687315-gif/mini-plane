@@ -4,6 +4,7 @@ import { Suspense, useCallback, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, MeasureLine } from "@/components/ui";
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
+import { PlanPanel } from "@/components/project/PlanPanel";
 import { FilterBar } from "@/components/issue/FilterBar";
 import { IssueRow } from "@/components/issue/IssueRow";
 import { normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
@@ -223,6 +224,13 @@ function ProjectIssues() {
         left={`PROJ · ${identifier}`}
         right={`${total} ITEMS · PAGE ${page}/${totalPages}`}
       />
+
+      {/* Sprint 10：Global Plan / Stage（工程路线 + 加权进度 + 当前/下一阶段） */}
+      {!project.isError && (
+        <div className="mt-4">
+          <PlanPanel slug={slug} projectId={projectId} canWrite={canCreate} />
+        </div>
+      )}
 
       {project.isError && (
         <Card className="mb-5">

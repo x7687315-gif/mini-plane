@@ -420,3 +420,62 @@ class MyProjectsSummaryTests(APITestCase):
     def test_requires_auth(self):
         r = APIClient().get(self.MINE_URL)
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class PlanStageTests(APITestCase):
+    """Sprint 10：Global Plan / Stage（进度加权、current 互斥、权限、跨项目 404）。"""
+
+    def setUp(self):
+        from apps.workspaces import services as ws_services
+
+        self.user = User.objects.create_user(username="owner", email="o@t.cn", password=PASSWORD)
+        self.viewer = User.objects.create_user(username="vw", email="v@t.cn", password=PASSWORD)
+        self.ws = ws_services.create_workspace(self.user, "W", "ww")
+        WorkspaceMember.objects.create(
+            workspace=self.ws, user=self.viewer, role=WorkspaceRoles.VIEWER
+        )
+        self.proj = services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.plan_url = f"/api/v1/workspaces/{self.ws.slug}/projects/{self.proj.id}/plan/"
+        self.client.force_authenticate(self.user)
+
+    def _stage_url(self, stage_id):
+        return f"{self.plan_url}stages/{stage_id}/"
+
+    def test_add_stages_and_weighted_progress(self):
+        self.client.post(self.plan_url, {"name": "S1", "weight": 1, "progress": 100}, format="json")
+        self.client.post(
+            self.plan_url,
+            {"name": "S2", "weight": 3, "progress": 0, "is_current": True},
+            format="json",
+        )
+        plan = self.client.get(self.plan_url).json()
+        # Σ(weight×progress)/Σweight = (1*100 + 3*0)/4 = 25
+        self.assertEqual(plan["progress"], 25)
+        self.assertEqual(plan["current_stage"]["name"], "S2")
+        self.assertEqual([s["name"] for s in plan["stages"]], ["S1", "S2"])
+        self.assertIsNone(plan["next_stage"])  # S2 已是最后一个
+
+    def test_is_current_is_exclusive(self):
+        s1 = self.client.post(self.plan_url, {"name": "S1"}, format="json").json()
+        self.client.post(self.plan_url, {"name": "S2", "is_current": True}, format="json")
+        # 把 S1 设为 current → S2 应自动取消
+        self.client.patch(self._stage_url(s1["id"]), {"is_current": True}, format="json")
+        plan = self.client.get(self.plan_url).json()
+        flags = {s["name"]: s["is_current"] for s in plan["stages"]}
+        self.assertEqual(flags, {"S1": True, "S2": False})
+
+    def test_viewer_cannot_write_stage(self):
+        self.client.force_authenticate(self.viewer)
+        r = self.client.post(self.plan_url, {"name": "X"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_stage_of_other_project_is_404(self):
+        other = services.create_project(self.ws, self.user, name="O", identifier="OO")
+        sid = self.client.post(
+            f"/api/v1/workspaces/{self.ws.slug}/projects/{other.id}/plan/",
+            {"name": "OS"},
+            format="json",
+        ).json()["id"]
+        # 用 P 的 plan 路径去改 O 项目的 stage → 404（防跨项目越权）
+        r = self.client.patch(self._stage_url(sid), {"progress": 50}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)

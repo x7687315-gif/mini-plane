@@ -1,9 +1,18 @@
 """Project 模块序列化器（docs/api/03-projects.md）。"""
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.issues.models import State
-from apps.projects.models import Project, ProjectMember, ProjectRoles, identifier_validator
+from apps.projects import services as project_services
+from apps.projects.models import (
+    Project,
+    ProjectMember,
+    ProjectPlan,
+    ProjectRoles,
+    ProjectStage,
+    identifier_validator,
+)
 from apps.users.serializers import UserLiteSerializer
 
 
@@ -87,14 +96,82 @@ class ProjectEngineeringSerializer(serializers.Serializer):
     open_tasks = serializers.IntegerField()
     done_tasks = serializers.IntegerField()
     started_tasks = serializers.IntegerField()
-    progress = serializers.SerializerMethodField(help_text="0~1，已完成/总数；无任务为 0")
-    current_stage = serializers.CharField(allow_null=True, help_text="NOW 任务所在状态名")
+    progress = serializers.SerializerMethodField(
+        help_text="0~1；有 Global Plan 时=Σ(weight×progress)/Σweight，否则=已完成/总数"
+    )
+    current_stage = serializers.SerializerMethodField(
+        help_text="有 Plan 时为当前 Stage 名，否则回退 NOW 任务所在状态名"
+    )
     now_task = serializers.CharField(allow_null=True, help_text="当前正在做的任务标题")
     next_task = serializers.CharField(allow_null=True, help_text="队列中下一个任务标题")
     last_activity = serializers.DateTimeField(allow_null=True)
 
+    def _plan_stages(self, obj):
+        plan = getattr(obj, "plan", None)
+        if plan is None:
+            return []
+        return list(plan.stages.all())  # prefetch 命中，无额外查询
+
     def get_progress(self, obj) -> float:
+        stages = self._plan_stages(obj)
+        if stages:
+            total_w = sum(s.weight for s in stages)
+            if total_w > 0:
+                return round(sum(s.weight * s.progress for s in stages) / total_w / 100, 4)
         total = obj.total_tasks or 0
         if total <= 0:
             return 0.0
         return round((obj.done_tasks or 0) / total, 4)
+
+    def get_current_stage(self, obj) -> str | None:
+        for s in self._plan_stages(obj):
+            if s.is_current:
+                return s.name
+        return obj.current_stage
+
+
+class ProjectStageSerializer(serializers.ModelSerializer):
+    """Global Plan 的单个阶段（只读响应体）。"""
+
+    class Meta:
+        model = ProjectStage
+        fields = ["id", "order", "name", "goal", "weight", "progress", "is_current", "created_at"]
+        read_only_fields = fields
+
+
+class ProjectStageWriteSerializer(serializers.Serializer):
+    """新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。"""
+
+    name = serializers.CharField(max_length=120)
+    order = serializers.IntegerField(required=False, min_value=0)
+    weight = serializers.IntegerField(required=False, min_value=1)
+    progress = serializers.IntegerField(required=False, min_value=0, max_value=100)
+    goal = serializers.CharField(required=False, allow_blank=True)
+    is_current = serializers.BooleanField(required=False)
+
+
+class ProjectPlanSerializer(serializers.ModelSerializer):
+    """Global Plan 响应体：stages 有序 + 派生的总进度 / 当前 / 下一阶段。"""
+
+    stages = ProjectStageSerializer(many=True, read_only=True)
+    progress = serializers.SerializerMethodField(help_text="Σ(weight×progress)/Σweight，0~100")
+    current_stage = serializers.SerializerMethodField(help_text="当前所处阶段")
+    next_stage = serializers.SerializerMethodField(help_text="当前阶段之后的下一阶段")
+
+    class Meta:
+        model = ProjectPlan
+        fields = ["id", "title", "stages", "progress", "current_stage", "next_stage"]
+        read_only_fields = fields
+
+    def get_progress(self, obj) -> int:
+        return project_services.plan_progress(obj)
+
+    @extend_schema_field(ProjectStageSerializer)
+    def get_current_stage(self, obj):
+        stage = project_services.current_stage(obj)
+        return ProjectStageSerializer(stage).data if stage else None
+
+    @extend_schema_field(ProjectStageSerializer)
+    def get_next_stage(self, obj):
+        stage = project_services.next_stage(obj)
+        return ProjectStageSerializer(stage).data if stage else None

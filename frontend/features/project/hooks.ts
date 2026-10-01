@@ -4,13 +4,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AddProjectMemberPayload,
   CreateProjectPayload,
+  StagePayload,
   UpdateProjectPayload,
 } from "@/types/project";
 import type { UpdateMemberRolePayload } from "@/types/workspace";
 import {
   addProjectMember,
+  addStage,
   createProject,
   deleteProject,
+  getPlan,
   getProject,
   listProjectMembers,
   listProjects,
@@ -19,6 +22,7 @@ import {
   removeProjectMember,
   updateProject,
   updateProjectMemberRole,
+  updateStage,
 } from "./api";
 
 export const projectKeys = {
@@ -36,6 +40,38 @@ export function useMyProjects() {
   return useQuery({
     queryKey: projectKeys.mine(),
     queryFn: listMyProjects,
+  });
+}
+
+/** Global Plan / Stage（Sprint 10）。 */
+export function usePlan(slug: string | undefined, projectId: string | undefined) {
+  return useQuery({
+    queryKey: [...projectKeys.all, "plan", slug ?? "", projectId ?? ""] as const,
+    queryFn: () => getPlan(slug!, projectId!),
+    enabled: Boolean(slug && projectId),
+  });
+}
+
+export function useAddStage(slug: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: StagePayload) => addStage(slug, projectId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...projectKeys.all, "plan", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+    },
+  });
+}
+
+export function useUpdateStage(slug: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ stageId, payload }: { stageId: string; payload: Partial<StagePayload> }) =>
+      updateStage(slug, projectId, stageId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...projectKeys.all, "plan", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+    },
   });
 }
 

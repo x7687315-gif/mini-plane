@@ -27,13 +27,16 @@ from rest_framework.response import Response
 from apps.issues.models import Issue, StateGroups
 from apps.projects import cache as project_cache
 from apps.projects import services
-from apps.projects.models import Project, ProjectMember, ProjectRoles
+from apps.projects.models import Project, ProjectMember, ProjectRoles, ProjectStage
 from apps.projects.serializers import (
     ProjectEngineeringSerializer,
     ProjectMemberAddSerializer,
     ProjectMemberRoleSerializer,
     ProjectMemberSerializer,
+    ProjectPlanSerializer,
     ProjectSerializer,
+    ProjectStageSerializer,
+    ProjectStageWriteSerializer,
     ProjectWriteSerializer,
     StateSerializer,
 )
@@ -276,7 +279,71 @@ def my_projects_summary(request):
             ),
             last_activity=_issue_field("updated_at", order=("-updated_at",)),
         )
+        # Plan/Stages 用 prefetch 一次取回（2 条额外查询），供 progress/current_stage 优先读 Plan
+        .prefetch_related("plan__stages")
         .order_by("-last_activity", "name")
     )
 
     return Response(ProjectEngineeringSerializer(queryset, many=True).data)
+
+
+# ── Sprint 10：Global Plan / Stage（PRODUCT_REFACTOR_PLAN §5/§6）──────────────
+
+
+@extend_schema(
+    summary="Global Plan（读）/ 新增 Stage（写）",
+    request=ProjectStageWriteSerializer,
+    responses={200: ProjectPlanSerializer, 201: ProjectStageSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def plan_detail(request, workspace_slug: str, project_id):
+    """GET：项目 Global Plan（stages 有序 + 总进度 + 当前/下一阶段）；读 ≥ Viewer。
+    POST：追加一个 Stage；写 ≥ Member（§15：Global Plan 结构由人维护）。
+    """
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    plan = services.get_or_create_plan(project)
+
+    if request.method == "GET":
+        return Response(ProjectPlanSerializer(plan).data)
+
+    _require_role(role, ProjectRoles.MEMBER)
+    serializer = ProjectStageWriteSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    v = serializer.validated_data
+    stage = services.add_stage(
+        plan,
+        name=v["name"],
+        order=v.get("order"),
+        weight=v.get("weight", 1),
+        progress=v.get("progress", 0),
+        goal=v.get("goal", ""),
+        is_current=v.get("is_current", False),
+    )
+    return Response(ProjectStageSerializer(stage).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改 Stage",
+        request=ProjectStageWriteSerializer,
+        responses={200: ProjectStageSerializer},
+    ),
+    delete=extend_schema(summary="删除 Stage", responses={204: None}),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def stage_detail(request, workspace_slug: str, project_id, stage_id):
+    """改 / 删某个 Stage；写 ≥ Member。stage 必须属于该项目（否则 404 防枚举）。"""
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    _require_role(role, ProjectRoles.MEMBER)
+    stage = get_object_or_404(ProjectStage, id=stage_id, plan__project=project)
+
+    if request.method == "PATCH":
+        serializer = ProjectStageWriteSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        stage = services.update_stage(stage, **serializer.validated_data)
+        return Response(ProjectStageSerializer(stage).data)
+
+    stage.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

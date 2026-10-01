@@ -15,6 +15,9 @@ urlpatterns = [
     path("<uuid:project_id>/members/", views.project_member_list_create),
     path("<uuid:project_id>/members/<uuid:member_id>/", views.project_member_detail),
     path("<uuid:project_id>/states/", views.state_list),
+    # ── Global Plan / Stage（Sprint 10）───────────────────────────
+    path("<uuid:project_id>/plan/", views.plan_detail),
+    path("<uuid:project_id>/plan/stages/<uuid:stage_id>/", views.stage_detail),
     # ── Issue（Sprint 3）──────────────────────────────────────────
     path("<uuid:project_id>/issues/", issue_views.issue_list_create),
     path("<uuid:project_id>/issues/<uuid:issue_id>/", issue_views.issue_detail),

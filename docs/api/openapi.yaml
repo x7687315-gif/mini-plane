@@ -1455,6 +1455,163 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/plan/:
+    get:
+      operationId: v1_workspaces_projects_plan_retrieve
+      description: |-
+        GET：项目 Global Plan（stages 有序 + 总进度 + 当前/下一阶段）；读 ≥ Viewer。
+        POST：追加一个 Stage；写 ≥ Member（§15：Global Plan 结构由人维护）。
+      summary: Global Plan（读）/ 新增 Stage（写）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPlan'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStage'
+          description: ''
+    post:
+      operationId: v1_workspaces_projects_plan_create
+      description: |-
+        GET：项目 Global Plan（stages 有序 + 总进度 + 当前/下一阶段）；读 ≥ Viewer。
+        POST：追加一个 Stage；写 ≥ Member（§15：Global Plan 结构由人维护）。
+      summary: Global Plan（读）/ 新增 Stage（写）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectStageWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectStageWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectStageWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPlan'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStage'
+          description: ''
+  /api/v1/workspaces/{workspace_slug}/projects/{project_id}/plan/stages/{stage_id}/:
+    patch:
+      operationId: v1_workspaces_projects_plan_stages_partial_update
+      description: 改 / 删某个 Stage；写 ≥ Member。stage 必须属于该项目（否则 404 防枚举）。
+      summary: 修改 Stage
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: stage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectStageWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectStageWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectStageWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStage'
+          description: ''
+    delete:
+      operationId: v1_workspaces_projects_plan_stages_destroy
+      description: 改 / 删某个 Stage；写 ≥ Member。stage 必须属于该项目（否则 404 防枚举）。
+      summary: 删除 Stage
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: stage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/states/:
     get:
       operationId: v1_workspaces_projects_states_list
@@ -2037,6 +2194,27 @@ components:
       properties:
         role:
           $ref: '#/components/schemas/RoleEnum'
+    PatchedProjectStageWrite:
+      type: object
+      description: 新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        order:
+          type: integer
+          minimum: 0
+        weight:
+          type: integer
+          minimum: 1
+        progress:
+          type: integer
+          maximum: 100
+          minimum: 0
+        goal:
+          type: string
+        is_current:
+          type: boolean
     PatchedProjectWrite:
       type: object
       description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。
@@ -2167,11 +2345,12 @@ components:
           type: number
           format: double
           readOnly: true
-          description: 0~1，已完成/总数；无任务为 0
+          description: 0~1；有 Global Plan 时=Σ(weight×progress)/Σweight，否则=已完成/总数
         current_stage:
           type: string
           nullable: true
-          description: NOW 任务所在状态名
+          readOnly: true
+          description: 有 Plan 时为当前 Stage 名，否则回退 NOW 任务所在状态名
         now_task:
           type: string
           nullable: true
@@ -2237,6 +2416,113 @@ components:
           default: 15
       required:
       - user_id
+    ProjectPlan:
+      type: object
+      description: Global Plan 响应体：stages 有序 + 派生的总进度 / 当前 / 下一阶段。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+          title: 计划标题
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectStage'
+          readOnly: true
+        progress:
+          type: integer
+          readOnly: true
+          description: Σ(weight×progress)/Σweight，0~100
+        current_stage:
+          allOf:
+          - $ref: '#/components/schemas/ProjectStage'
+          readOnly: true
+          description: 当前所处阶段
+        next_stage:
+          allOf:
+          - $ref: '#/components/schemas/ProjectStage'
+          readOnly: true
+          description: 当前阶段之后的下一阶段
+      required:
+      - current_stage
+      - id
+      - next_stage
+      - progress
+      - stages
+      - title
+    ProjectStage:
+      type: object
+      description: Global Plan 的单个阶段（只读响应体）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        order:
+          type: integer
+          readOnly: true
+          title: 顺序
+        name:
+          type: string
+          readOnly: true
+          title: 阶段名
+        goal:
+          type: string
+          readOnly: true
+          title: 阶段目标
+        weight:
+          type: integer
+          readOnly: true
+          title: 权重
+          description: 计算项目总进度时的权重
+        progress:
+          type: integer
+          readOnly: true
+          title: 进度(0-100)
+        is_current:
+          type: boolean
+          readOnly: true
+          title: 当前阶段
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - goal
+      - id
+      - is_current
+      - name
+      - order
+      - progress
+      - weight
+    ProjectStageWrite:
+      type: object
+      description: 新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        order:
+          type: integer
+          minimum: 0
+        weight:
+          type: integer
+          minimum: 1
+        progress:
+          type: integer
+          maximum: 100
+          minimum: 0
+        goal:
+          type: string
+        is_current:
+          type: boolean
+      required:
+      - name
     ProjectWrite:
       type: object
       description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。

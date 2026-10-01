@@ -4,13 +4,14 @@ Sprint 4 起，创建/修改项目会写活动留痕（06 契约），与业务�
 """
 
 from django.db import IntegrityError, transaction
+from django.db.models import Max
 from rest_framework.exceptions import ValidationError
 
 from apps.activity import services as activity_services
 from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import create_default_states
 from apps.projects import cache as project_cache
-from apps.projects.models import Project, ProjectMember, ProjectRoles
+from apps.projects.models import Project, ProjectMember, ProjectPlan, ProjectRoles, ProjectStage
 from apps.users.models import User
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
 
@@ -141,3 +142,76 @@ def require_workspace_write_role(workspace: Workspace, role: int) -> None:
     """创建项目要求 WS Member+（WS Viewer 403，矩阵 §4.2）。"""
     if role < WorkspaceRoles.MEMBER:
         raise ValidationError({"detail": "您没有执行该操作的权限。"})
+
+
+# ── Sprint 10：Global Plan / Stage（PRODUCT_REFACTOR_PLAN §5/§6）──────────────
+
+
+def get_or_create_plan(project: Project) -> ProjectPlan:
+    """一个项目一份 Global Plan；读时惰性创建，避免给老项目补数据迁移。"""
+    plan, _ = ProjectPlan.objects.get_or_create(project=project)
+    return plan
+
+
+@transaction.atomic
+def add_stage(
+    plan: ProjectPlan,
+    *,
+    name: str,
+    order: int | None = None,
+    weight: int = 1,
+    progress: int = 0,
+    goal: str = "",
+    is_current: bool = False,
+) -> ProjectStage:
+    """追加一个 Stage；order 缺省为现有最大 +1。is_current 互斥（同 plan 仅一个）。"""
+    if order is None:
+        last = plan.stages.aggregate(m=Max("order"))["m"]
+        order = (last or 0) + 1
+    if is_current:
+        plan.stages.update(is_current=False)
+    return ProjectStage.objects.create(
+        plan=plan,
+        order=order,
+        name=name,
+        weight=weight,
+        progress=progress,
+        goal=goal,
+        is_current=is_current,
+    )
+
+
+@transaction.atomic
+def update_stage(stage: ProjectStage, **fields) -> ProjectStage:
+    """更新 Stage 字段；若把 is_current 置真则先清掉同 plan 的其他 current。"""
+    if fields.get("is_current"):
+        stage.plan.stages.exclude(pk=stage.pk).update(is_current=False)
+    for key, value in fields.items():
+        setattr(stage, key, value)
+    stage.save()
+    return stage
+
+
+def plan_progress(plan: ProjectPlan) -> int:
+    """项目总进度 = Σ(weight×progress)/Σweight（§6），无 Stage 时为 0。"""
+    stages = list(plan.stages.all())
+    total_weight = sum(s.weight for s in stages)
+    if total_weight <= 0:
+        return 0
+    weighted = sum(s.weight * s.progress for s in stages)
+    return round(weighted / total_weight)
+
+
+def current_stage(plan: ProjectPlan) -> ProjectStage | None:
+    return plan.stages.filter(is_current=True).first()
+
+
+def next_stage(plan: ProjectPlan) -> ProjectStage | None:
+    """当前阶段之后（order 更大）的第一个 Stage；无当前阶段则取第一个。"""
+    cur = current_stage(plan)
+    qs = plan.stages.all()
+    if cur is not None:
+        nxt = qs.filter(order__gt=cur.order).first()
+        if nxt is not None:
+            return nxt
+    return qs.first() if cur is None else None

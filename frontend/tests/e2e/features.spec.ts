@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { apiClient, projectUrl, readDemoFixture } from "./helpers";
 
 /**
- * 特色功能 A（命令面板）+ B（我的工作）的浏览器级验收。
+ * 特色功能 A（命令面板）+ B（我的工作）+ Sprint 09/10（我的工程 / Global Plan）的浏览器级验收。
  * 走默认 chromium project（已带 DEMO 登录态 storageState）。
  */
 
@@ -36,6 +37,21 @@ test.describe("我的工作（B）", () => {
     await expect(page.getByRole("heading", { name: "My work" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "指派给我" }).click();
     await expect(page.getByRole("group", { name: "筛选范围" })).toBeVisible();
+  });
+});
+
+test.describe("Global Plan（Sprint 10）", () => {
+  test("项目页显示 Global Plan 并可添加阶段", async ({ page }) => {
+    const api = await apiClient();
+    const fixture = await readDemoFixture(api);
+    await api.dispose();
+
+    await page.goto(projectUrl(fixture));
+    await expect(page.getByText(/GLOBAL PLAN/).first()).toBeVisible({ timeout: 15_000 });
+
+    await page.getByLabel("新阶段名称").fill("Sprint 验收");
+    await page.getByRole("button", { name: "添加阶段" }).click();
+    await expect(page.getByText("Sprint 验收").first()).toBeVisible({ timeout: 10_000 });
   });
 });
 
