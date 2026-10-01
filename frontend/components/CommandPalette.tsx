@@ -31,6 +31,13 @@ export function CommandPalette() {
     const base: Command[] = [
       { id: "my-work", label: "我的工作", hint: "跨项目任务", run: () => router.push("/me/issues") },
       { id: "settings", label: "设置", hint: "个人与外观", run: () => router.push("/me") },
+      { id: "my-eng", label: "我的工程", hint: "首页总览", run: () => router.push("/") },
+      {
+        id: "workspaces",
+        label: "管理工作区",
+        hint: "团队协作",
+        run: () => router.push("/workspaces"),
+      },
     ];
     for (const w of data?.results ?? []) {
       base.push({

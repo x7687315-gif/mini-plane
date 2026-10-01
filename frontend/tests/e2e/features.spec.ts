@@ -38,3 +38,22 @@ test.describe("我的工作（B）", () => {
     await expect(page.getByRole("group", { name: "筛选范围" })).toBeVisible();
   });
 });
+
+test.describe("我的工程首页（Sprint 09）", () => {
+  test("首页默认是 My Engineering，展示项目工程卡片与进度", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "My Engineering" })).toBeVisible({
+      timeout: 15_000,
+    });
+    // 演示项目（global.setup 建的 E2E Project）应出现在工程卡片里
+    await expect(page.getByText("E2E Project").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/progress/i).first()).toBeVisible();
+  });
+
+  test("Workspace 降级到 /workspaces 仍可访问", async ({ page }) => {
+    await page.goto("/workspaces");
+    await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+});

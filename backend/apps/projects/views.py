@@ -4,6 +4,17 @@
 WS Admin 视同 > 其他 WS 成员只读 > 非 WS 成员 404）。
 """
 
+from django.db.models import (
+    CharField,
+    Count,
+    DateTimeField,
+    F,
+    IntegerField,
+    OuterRef,
+    Q,
+    Subquery,
+)
+from django.db.models.functions import Coalesce
 from django.http import Http404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
@@ -13,10 +24,12 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.issues.models import Issue, StateGroups
 from apps.projects import cache as project_cache
 from apps.projects import services
-from apps.projects.models import ProjectMember, ProjectRoles
+from apps.projects.models import Project, ProjectMember, ProjectRoles
 from apps.projects.serializers import (
+    ProjectEngineeringSerializer,
     ProjectMemberAddSerializer,
     ProjectMemberRoleSerializer,
     ProjectMemberSerializer,
@@ -27,6 +40,7 @@ from apps.projects.serializers import (
 from apps.workspaces.models import WorkspaceRoles
 from core.pagination import StandardPagination
 from core.permissions import (
+    accessible_project_ids,
     get_effective_project_role_by_ids,
     resolve_project,
     resolve_workspace,
@@ -186,3 +200,83 @@ def state_list(request, workspace_slug: str, project_id):
     paginator = StandardPagination()
     page = paginator.paginate_queryset(queryset, request)
     return paginator.get_paginated_response(StateSerializer(page, many=True).data)
+
+
+# ── Sprint 09：我的工程（个人模式首页数据）──────────────────────────
+# 「轻量且高效」约束：整页数据由**一条** SQL 产出（correlated subquery 做计数与
+# NOW/NEXT 取值），不按项目循环查询，避免 N+1；SQLite 与 PostgreSQL 通用。
+
+_OPEN_GROUPS = [StateGroups.BACKLOG, StateGroups.UNSTARTED, StateGroups.STARTED]
+_QUEUED_GROUPS = [StateGroups.BACKLOG, StateGroups.UNSTARTED]
+
+
+def _issue_count(*conds) -> Subquery:
+    """该项目满足条件的 Issue 数（correlated count subquery）。"""
+    return Subquery(
+        Issue.objects.filter(*conds, project=OuterRef("pk"))
+        .values("project")
+        .annotate(c=Count("id"))
+        .values("c")[:1],
+        output_field=IntegerField(),
+    )
+
+
+def _issue_field(field: str, *conds, order: tuple[str, ...]) -> Subquery:
+    """该项目满足条件的 Issue 中按 order 取第一条的某字段（NOW/NEXT/最近活动）。"""
+    return Subquery(
+        Issue.objects.filter(*conds, project=OuterRef("pk")).order_by(*order).values(field)[:1],
+        output_field=CharField() if field in ("title", "state__name") else DateTimeField(),
+    )
+
+
+@extend_schema(
+    summary="我的工程（跨项目工程摘要）",
+    responses={200: ProjectEngineeringSerializer(many=True)},
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_projects_summary(request):
+    """个人模式首页数据源（Sprint 09，PRODUCT_REFACTOR_PLAN §7）。
+
+    返回当前用户可访问的每个项目的工程摘要：任务计数、进度、当前阶段、
+    NOW（正在做）/ NEXT（队列下一个）、最近活动时间。Workspace 在此被"降级"为
+    归属信息（slug/name），不再要求用户先理解工作区才能看到自己的工程。
+    """
+    started = Q(state__group=StateGroups.STARTED)
+    opened = Q(state__group__in=_OPEN_GROUPS)
+    queued = Q(state__group__in=_QUEUED_GROUPS)
+
+    queryset = (
+        Project.objects.filter(id__in=accessible_project_ids(request.user))
+        .annotate(
+            workspace_slug=F("workspace__slug"),
+            workspace_name=F("workspace__name"),
+            total_tasks=Coalesce(_issue_count(), 0, output_field=IntegerField()),
+            done_tasks=Coalesce(
+                _issue_count(Q(state__group=StateGroups.COMPLETED)), 0, output_field=IntegerField()
+            ),
+            open_tasks=Coalesce(_issue_count(opened), 0, output_field=IntegerField()),
+            started_tasks=Coalesce(_issue_count(started), 0, output_field=IntegerField()),
+            # NOW：优先取"进行中"里最近更新的；没有则退到任意未关闭里最近更新的
+            now_task=Coalesce(
+                _issue_field("title", started, order=("-updated_at",)),
+                _issue_field("title", opened, order=("-updated_at",)),
+                output_field=CharField(),
+            ),
+            current_stage=Coalesce(
+                _issue_field("state__name", started, order=("-updated_at",)),
+                _issue_field("state__name", opened, order=("-updated_at",)),
+                output_field=CharField(),
+            ),
+            # NEXT：队列（待规划/未开始）里最早的；没有则取进行中里最早的
+            next_task=Coalesce(
+                _issue_field("title", queued, order=("created_at",)),
+                _issue_field("title", started, order=("created_at",)),
+                output_field=CharField(),
+            ),
+            last_activity=_issue_field("updated_at", order=("-updated_at",)),
+        )
+        .order_by("-last_activity", "name")
+    )
+
+    return Response(ProjectEngineeringSerializer(queryset, many=True).data)

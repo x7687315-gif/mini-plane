@@ -1,122 +1,156 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button, Card, MeasureLine, Modal, RoleBadge, Field, Input } from "@/components/ui";
-import { PlusIcon, ArrowRightIcon } from "@/components/icons";
-import { useCreateWorkspace, useWorkspaces } from "@/features/workspace";
+import { Button, Card, MeasureLine } from "@/components/ui";
+import { ArrowRightIcon } from "@/components/icons";
+import { useMyProjects } from "@/features/project";
 import { useChrome } from "@/stores/chrome";
-import { ApiError } from "@/lib/api";
-import { flattenErrors } from "@/types/auth";
-import { ROLE, type Workspace } from "@/types/workspace";
+import type { ProjectEngineering } from "@/types/project";
 
 /**
- * Workspace Dashboard — see SCREEN_BLUEPRINTS §2.3.
+ * My Engineering —— 个人模式默认首页（Sprint 09，PRODUCT_REFACTOR_PLAN §7）。
  *
- * GET /api/v1/workspaces/ returns only the workspaces the current user is a member of
- * (backend contract). Each item carries `current_role`, so no extra requests are needed
- * to render the role chip.
+ * 产品中心从"任务"移到"工程"：打开第一眼是**我的所有工程**（跨工作区聚合），
+ * 而不是 Workspace 列表；Workspace 降级为协作基础设施，入口移到 /workspaces。
+ * 数据来自单条聚合查询 GET /api/v1/projects/mine/（无 N+1）。
  */
+export default function MyEngineeringPage() {
+  const { data, isLoading, isError } = useMyProjects();
+  const projects = data ?? [];
 
-const createSchema = z.object({
-  name: z.string().min(1, "请输入工作区名称"),
-  slug: z
-    .string()
-    .optional()
-    .refine(
-      (v) => !v || /^[a-z0-9-]{2,32}$/.test(v),
-      "只能是小写字母、数字和连字符（2-32 位）",
-    ),
-});
+  useChrome({ topbar: {}, hideAside: true });
 
-type CreateValues = z.infer<typeof createSchema>;
-
-export default function WorkspacesPage() {
-  const { data, isLoading, isError, error } = useWorkspaces();
-  const [createOpen, setCreateOpen] = useState(false);
-
-  const workspaces = data?.results ?? [];
-
-  useChrome({ topbar: {}, hideAside: workspaces.length === 0 });
+  const active = projects.length;
+  const openTasks = projects.reduce((n, p) => n + p.open_tasks, 0);
+  const inFlight = projects.reduce((n, p) => n + p.started_tasks, 0);
 
   return (
     <>
       <div className="flex items-end justify-between mb-2">
         <div>
-          <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">Workspaces</h1>
+          <h1 className="bp-display text-4xl text-[color:var(--color-ink)]">My Engineering</h1>
           <p className="font-serif italic text-[14px] text-[color:var(--color-ink-3)] mt-1 tracking-[0.04em]">
-            {isLoading
-              ? "loading the archive…"
-              : `A list of every place you keep work · ${String(workspaces.length).padStart(2, "0")} sheets`}
+            我的工程总览 · 阶段 / 进度 / 现在与下一步
           </p>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
-          <PlusIcon size={12} />
-          <span>新建工作区</span>
-        </Button>
+        <Link href="/workspaces">
+          <Button variant="secondary" size="sm">管理工作区</Button>
+        </Link>
       </div>
 
-      <MeasureLine left="FIG · 01" right="MEMBERSHIP · SCOPED" />
+      <MeasureLine
+        left="FIG · 00"
+        right={`${String(active).padStart(2, "0")} PROJECTS · ${String(openTasks).padStart(2, "0")} OPEN`}
+      />
 
-      {isLoading && <WorkspaceSkeleton />}
+      <div className="flex gap-6 mb-6 text-[11px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-ink-2)]">
+        <span>
+          <b className="text-[color:var(--color-ink)] text-[16px] mr-1">{active}</b> 活跃工程
+        </span>
+        <span>
+          <b className="text-[color:var(--color-ink)] text-[16px] mr-1">{openTasks}</b> 待办任务
+        </span>
+        <span>
+          <b className="text-[color:var(--color-ink)] text-[16px] mr-1">{inFlight}</b> 进行中
+        </span>
+      </div>
+
+      {isLoading && <EngineeringSkeleton />}
 
       {isError && (
         <Card>
-          <p className="text-[13px] text-[color:var(--color-ink-2)]">
-            无法加载工作区列表
-            {error instanceof ApiError ? `（HTTP ${error.status}）` : ""}。请确认后端已启动。
+          <p className="text-[13px] text-[color:var(--color-ink-2)] p-4">
+            无法加载我的工程。请确认后端已启动后重试。
           </p>
         </Card>
       )}
 
-      {!isLoading && !isError && workspaces.length === 0 && (
-        <EmptyWorkspaces onCreate={() => setCreateOpen(true)} />
-      )}
-
-      {workspaces.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {workspaces.map((w) => (
-            <WorkspaceCard key={w.id} workspace={w} />
-          ))}
+      {!isLoading && !isError && projects.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-px w-12 bg-[color:var(--color-rule)]" />
+            <span className="bp-hint">fig · empty</span>
+            <div className="h-px w-12 bg-[color:var(--color-rule)]" />
+          </div>
+          <h2 className="font-serif italic text-[28px] text-[color:var(--color-ink)]">
+            No engineering yet
+          </h2>
+          <p className="mt-2 text-[13px] text-[color:var(--color-ink-2)] max-w-md">
+            还没有任何工程。先去创建一个工作区与项目，你的工程会汇总到这里。
+          </p>
+          <div className="mt-8">
+            <Link href="/workspaces">
+              <Button variant="primary">去创建工作区</Button>
+            </Link>
+          </div>
         </div>
       )}
 
-      <CreateWorkspaceModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      {projects.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {projects.map((p) => (
+            <EngineeringCard key={p.id} project={p} />
+          ))}
+        </div>
+      )}
     </>
   );
 }
 
-function WorkspaceCard({ workspace }: { workspace: Workspace }) {
+/** 单张"工程图纸"卡片：阶段 / 进度条 / NOW / NEXT。 */
+function EngineeringCard({ project: p }: { project: ProjectEngineering }) {
+  const pct = Math.round((p.progress ?? 0) * 100);
   return (
-    <Link href={`/w/${workspace.slug}`} className="block group">
+    <Link href={`/w/${p.workspace_slug}/projects/${p.id}`} className="block group">
       <div className="relative border border-[color:var(--color-rule)] bg-[color:var(--color-paper)] p-5 h-full transition-colors duration-[var(--duration-fast)] group-hover:border-[color:var(--color-ink-2)]">
         <span
           className="absolute left-0 top-0 bottom-0 w-[2px] bg-transparent group-hover:bg-[color:var(--color-accent)] transition-colors"
           aria-hidden
         />
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <span
-            className="w-11 h-11 inline-flex items-center justify-center border border-[color:var(--color-rule)] font-serif italic text-[22px] text-[color:var(--color-ink-2)]"
-            aria-hidden
-          >
-            {workspace.name.charAt(0).toUpperCase()}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] text-[color:var(--color-ink-3)]">
+              {p.identifier} · /{p.workspace_slug}
+            </div>
+            <div className="font-serif italic text-[22px] leading-tight text-[color:var(--color-ink)] truncate">
+              {p.name}
+            </div>
+          </div>
+          <span className="text-[10px] uppercase tracking-[0.16em] font-sans font-medium text-[color:var(--color-ink-2)] flex-shrink-0">
+            {p.current_stage ?? "—"}
           </span>
-          <RoleBadge role={workspace.current_role} />
         </div>
 
-        <div className="font-serif italic text-[22px] leading-tight text-[color:var(--color-ink)]">
-          {workspace.name}
+        {/* 进度：细蓝图条，百分比只是辅助信息 */}
+        <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-ink-3)]">
+          <span>progress</span>
+          <span>{pct}%</span>
         </div>
-        <div className="font-mono text-[10px] text-[color:var(--color-ink-3)] mt-1">
-          /w/{workspace.slug}
+        <div className="h-[6px] border border-[color:var(--color-rule)] mb-4" aria-hidden>
+          <div
+            className="h-full bg-[color:var(--color-accent)]"
+            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+          />
         </div>
 
-        <div className="mt-4 pt-3 border-t border-dashed border-[color:var(--color-rule)] flex items-center justify-between">
-          <span className="text-[9px] uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
-            role {workspace.current_role}
+        <dl className="space-y-2 text-[12px]">
+          <div className="flex gap-2">
+            <dt className="w-12 flex-shrink-0 text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-accent)] pt-0.5">
+              now
+            </dt>
+            <dd className="text-[color:var(--color-ink)] truncate">{p.now_task ?? "—"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-12 flex-shrink-0 text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-ink-3)] pt-0.5">
+              next
+            </dt>
+            <dd className="text-[color:var(--color-ink-2)] truncate">{p.next_task ?? "—"}</dd>
+          </div>
+        </dl>
+
+        <div className="mt-4 pt-3 border-t border-dashed border-[color:var(--color-rule)] flex items-center justify-between text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-3)]">
+          <span>
+            {p.open_tasks} open · {p.done_tasks} done
           </span>
           <span className="text-[color:var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
             <ArrowRightIcon size={14} />
@@ -127,129 +161,18 @@ function WorkspaceCard({ workspace }: { workspace: Workspace }) {
   );
 }
 
-function EmptyWorkspaces({ onCreate }: { onCreate: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="h-px w-12 bg-[color:var(--color-rule)]" />
-        <span className="bp-hint">fig &middot; empty</span>
-        <div className="h-px w-12 bg-[color:var(--color-rule)]" />
-      </div>
-      <h2 className="font-serif italic text-[28px] text-[color:var(--color-ink)]">
-        No workspace yet
-      </h2>
-      <p className="mt-2 text-[13px] text-[color:var(--color-ink-2)] max-w-md">
-        A workspace is a shelf for your projects. Create one to begin — you will be its admin.
-      </p>
-      <div className="mt-8">
-        <Button variant="primary" onClick={onCreate}>
-          <PlusIcon size={12} />
-          <span>创建你的第一个工作区</span>
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceSkeleton() {
+function EngineeringSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="border border-[color:var(--color-rule)] p-5 h-[178px]">
-          <div className="w-11 h-11 bg-[color:var(--color-paper-2)] mb-4" />
-          <div className="h-5 w-32 bg-[color:var(--color-paper-2)] mb-2" />
-          <div className="h-3 w-24 bg-[color:var(--color-paper-2)]" />
+        <div key={i} className="border border-[color:var(--color-rule)] p-5 h-[210px]">
+          <div className="h-3 w-20 bg-[color:var(--color-paper-2)] mb-3" />
+          <div className="h-6 w-40 bg-[color:var(--color-paper-2)] mb-5" />
+          <div className="h-[6px] w-full bg-[color:var(--color-paper-2)] mb-5" />
+          <div className="h-3 w-full bg-[color:var(--color-paper-2)] mb-2" />
+          <div className="h-3 w-3/4 bg-[color:var(--color-paper-2)]" />
         </div>
       ))}
     </div>
-  );
-}
-
-/* ---------------- create modal ---------------- */
-
-function CreateWorkspaceModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const createMutation = useCreateWorkspace();
-  const [formError, setFormError] = useState<string | null>(null);
-  const [serverFields, setServerFields] = useState<Record<string, string>>({});
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<CreateValues>({
-    resolver: zodResolver(createSchema),
-    defaultValues: { name: "", slug: "" },
-  });
-
-  const close = () => {
-    reset();
-    setFormError(null);
-    setServerFields({});
-    onClose();
-  };
-
-  const onSubmit = async (values: CreateValues) => {
-    setFormError(null);
-    setServerFields({});
-    try {
-      await createMutation.mutateAsync({
-        name: values.name,
-        slug: values.slug || undefined,
-      });
-      close();
-    } catch (e) {
-      if (e instanceof ApiError) {
-        const flat = flattenErrors(e.body);
-        setServerFields(flat.fields);
-        setFormError(flat.form);
-        return;
-      }
-      setFormError("网络异常，请稍后重试。");
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      onClose={close}
-      title="新建工作区"
-      subtitle="为项目准备的一层搁架"
-      footer={
-        <>
-          <Button variant="secondary" onClick={close}>
-            cancel
-          </Button>
-          <Button variant="primary" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
-            {isSubmitting ? "creating…" : "create"}
-          </Button>
-        </>
-      }
-    >
-      {formError && (
-        <div className="mb-4 border border-[color:var(--color-urgent)] px-3 py-2">
-          <p className="text-[11px] text-[color:var(--color-urgent)]">{formError}</p>
-        </div>
-      )}
-
-      <Field label="名称" htmlFor="ws-name" error={errors.name?.message ?? serverFields.name}>
-        <Input id="ws-name" placeholder="Amiya Workspace" autoFocus {...register("name")} />
-      </Field>
-
-      <Field
-        label="标识（Slug）"
-        htmlFor="ws-slug"
-        hint="留空自动生成；冲突时自动追加 -2 / -3 后缀"
-        error={errors.slug?.message ?? serverFields.slug}
-      >
-        <Input id="ws-slug" placeholder="amiya-ws" {...register("slug")} />
-      </Field>
-
-      <p className="text-[10px] text-[color:var(--color-ink-3)] italic font-serif">
-        You will be added as{" "}
-        <b className="not-italic font-sans font-medium">ADMIN</b> automatically (role{" "}
-        {ROLE.ADMIN}).
-      </p>
-    </Modal>
   );
 }

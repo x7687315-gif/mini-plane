@@ -215,6 +215,29 @@ paths:
                 items:
                   $ref: '#/components/schemas/MyIssue'
           description: ''
+  /api/v1/projects/mine/:
+    get:
+      operationId: v1_projects_mine_list
+      description: |-
+        个人模式首页数据源（Sprint 09，PRODUCT_REFACTOR_PLAN §7）。
+
+        返回当前用户可访问的每个项目的工程摘要：任务计数、进度、当前阶段、
+        NOW（正在做）/ NEXT（队列下一个）、最近活动时间。Workspace 在此被"降级"为
+        归属信息（slug/name），不再要求用户先理解工作区才能看到自己的工程。
+      summary: 我的工程（跨项目工程摘要）
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectEngineering'
+          description: ''
   /api/v1/workspaces/:
     get:
       operationId: v1_workspaces_list
@@ -2113,6 +2136,69 @@ components:
       - name
       - updated_at
       - workspace
+    ProjectEngineering:
+      type: object
+      description: |-
+        「我的工程」首页的项目工程摘要（Sprint 09，PRODUCT_REFACTOR_PLAN §7/§9）。
+
+        字段全部由视图里**一条聚合查询**注解而来（correlated subquery，无 N+1）：
+        任务计数 / 进度 / 当前阶段 / NOW / NEXT / 最近活动。进度 = 已完成 / 总数。
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        identifier:
+          type: string
+        workspace_slug:
+          type: string
+        workspace_name:
+          type: string
+        total_tasks:
+          type: integer
+        open_tasks:
+          type: integer
+        done_tasks:
+          type: integer
+        started_tasks:
+          type: integer
+        progress:
+          type: number
+          format: double
+          readOnly: true
+          description: 0~1，已完成/总数；无任务为 0
+        current_stage:
+          type: string
+          nullable: true
+          description: NOW 任务所在状态名
+        now_task:
+          type: string
+          nullable: true
+          description: 当前正在做的任务标题
+        next_task:
+          type: string
+          nullable: true
+          description: 队列中下一个任务标题
+        last_activity:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - current_stage
+      - done_tasks
+      - id
+      - identifier
+      - last_activity
+      - name
+      - next_task
+      - now_task
+      - open_tasks
+      - progress
+      - started_tasks
+      - total_tasks
+      - workspace_name
+      - workspace_slug
     ProjectMember:
       type: object
       properties:

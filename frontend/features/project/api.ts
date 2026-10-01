@@ -11,10 +11,16 @@ import type {
   IssueState,
   Paginated,
   Project,
+  ProjectEngineering,
   ProjectMember,
   UpdateProjectPayload,
 } from "@/types/project";
 import type { UpdateMemberRolePayload } from "@/types/workspace";
+
+/** GET /api/v1/projects/mine/ —— 我的工程首页聚合摘要（Sprint 09）。 */
+export async function listMyProjects(): Promise<ProjectEngineering[]> {
+  return api<ProjectEngineering[]>("/projects/mine");
+}
 
 export async function listProjects(slug: string): Promise<Paginated<Project>> {
   return api<Paginated<Project>>(`/workspaces/${slug}/projects`);

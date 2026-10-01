@@ -16,6 +16,25 @@ export interface Project {
   updated_at: string;
 }
 
+/** 「我的工程」首页的项目工程摘要（GET /api/v1/projects/mine/，Sprint 09）。 */
+export interface ProjectEngineering {
+  id: string;
+  name: string;
+  identifier: string;
+  workspace_slug: string;
+  workspace_name: string;
+  total_tasks: number;
+  open_tasks: number;
+  done_tasks: number;
+  started_tasks: number;
+  /** 0~1，已完成/总数。 */
+  progress: number;
+  current_stage: string | null;
+  now_task: string | null;
+  next_task: string | null;
+  last_activity: string | null;
+}
+
 export interface ProjectMember {
   id: string;
   user: MemberSummary;

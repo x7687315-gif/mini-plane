@@ -362,3 +362,61 @@ class UniquenessRaceGuardTests(ProjectTestBase):
         with mock.patch.object(ProjectMember.objects, "create", side_effect=IntegrityError):
             with self.assertRaises(ValidationError):
                 services.add_member(self.workspace, project, str(self.b.id), ProjectRoles.MEMBER)
+
+
+class MyProjectsSummaryTests(APITestCase):
+    """Sprint 09「我的工程」首页聚合接口（GET /api/v1/projects/mine/）。"""
+
+    MINE_URL = "/api/v1/projects/mine/"
+
+    def setUp(self):
+        from apps.issues import services as issue_services
+        from apps.workspaces import services as ws_services
+
+        self.user = User.objects.create_user(username="eng", email="eng@test.cn", password=PASSWORD)
+        self.other = User.objects.create_user(
+            username="stranger", email="stranger@test.cn", password=PASSWORD
+        )
+        self.ws = ws_services.create_workspace(self.user, "工程工作区", "eng-ws")
+        self.proj = services.create_project(self.ws, self.user, name="Amiya", identifier="AMI")
+        states = {s.group: s for s in self.proj.states.all()}
+        issue_services.create_issue(self.proj, self.user, title="now-task", state=states["started"])
+        issue_services.create_issue(
+            self.proj, self.user, title="next-task", state=states["backlog"]
+        )
+        issue_services.create_issue(self.proj, self.user, title="done-a", state=states["completed"])
+        issue_services.create_issue(self.proj, self.user, title="done-b", state=states["completed"])
+
+        # 陌生人的项目：不应出现在"我的工程"里（可见性隔离）
+        other_ws = ws_services.create_workspace(self.other, "他人", "other-ws")
+        services.create_project(other_ws, self.other, name="Secret", identifier="SEC")
+
+    def test_summary_fields(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.get(self.MINE_URL)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertEqual(len(data), 1)
+        p = data[0]
+        self.assertEqual(p["name"], "Amiya")
+        self.assertEqual(p["identifier"], "AMI")
+        self.assertEqual(p["workspace_slug"], "eng-ws")
+        self.assertEqual(p["workspace_name"], "工程工作区")
+        self.assertEqual(p["total_tasks"], 4)
+        self.assertEqual(p["done_tasks"], 2)
+        self.assertEqual(p["open_tasks"], 2)
+        self.assertEqual(p["started_tasks"], 1)
+        self.assertEqual(p["progress"], 0.5)
+        self.assertEqual(p["now_task"], "now-task")
+        self.assertEqual(p["current_stage"], "In Progress")
+        self.assertEqual(p["next_task"], "next-task")
+        self.assertIsNotNone(p["last_activity"])
+
+    def test_excludes_inaccessible_projects(self):
+        self.client.force_authenticate(self.user)
+        names = {p["name"] for p in self.client.get(self.MINE_URL).json()}
+        self.assertNotIn("Secret", names)
+
+    def test_requires_auth(self):
+        r = APIClient().get(self.MINE_URL)
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)

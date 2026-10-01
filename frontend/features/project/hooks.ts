@@ -14,6 +14,7 @@ import {
   getProject,
   listProjectMembers,
   listProjects,
+  listMyProjects,
   listStates,
   removeProjectMember,
   updateProject,
@@ -27,7 +28,16 @@ export const projectKeys = {
   members: (slug: string, pid: string) =>
     [...projectKeys.all, "members", slug, pid] as const,
   states: (slug: string, pid: string) => [...projectKeys.all, "states", slug, pid] as const,
+  mine: () => [...projectKeys.all, "mine"] as const,
 };
+
+/** 「我的工程」首页聚合摘要（Sprint 09）。 */
+export function useMyProjects() {
+  return useQuery({
+    queryKey: projectKeys.mine(),
+    queryFn: listMyProjects,
+  });
+}
 
 export function useProjects(slug: string | undefined) {
   return useQuery({
