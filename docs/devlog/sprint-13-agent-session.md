@@ -41,9 +41,10 @@
 
 ## 验证
 
-- 后端：agents 11 例 + 全量通过；ruff / spectacular --fail-on-warn / openapi 重生成 / 迁移双库。
-- 前端：tsc / eslint / 单测（含新 policy 用例）/ build 全绿；E2E 全量通过。
-- 桌面版：重建 dist 后自检 rc0。
+- 后端：agents 11 例 + 全量 `Ran 334 tests OK`；ruff check/format、spectacular `--fail-on-warn` rc0、openapi 快照重生成、迁移双库（PG + SQLite）。
+- 前端：tsc / eslint / 单测 99（含新 `agent-session` policy 用例）/ 生产构建全绿；Playwright E2E 23 全通过。
+- 桌面版：`scripts/package.py` 重建 dist 成功（Next 生产构建 compiled，包组装 rc0）。
+- 远端 CI：backend / frontend 两个 job 均 `success`。
 
 ## 下一步（Sprint 14）
 
