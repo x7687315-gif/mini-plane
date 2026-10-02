@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AvatarMenu } from "./AvatarMenu";
+import { ModeSwitch } from "./ModeSwitch";
 import { Crosshair, MeasureLine } from "@/components/ui";
 import { useWsStore, wsStatusLabel, type WsStatus } from "@/stores/ws";
 
@@ -91,6 +92,9 @@ export function TopBar({ workspace, project, role }: TopBarProps) {
           搜索
           <kbd className="font-mono text-[9px] normal-case tracking-normal">Ctrl K</kbd>
         </button>
+        {/* 个人 ⇄ 团队 模式切换（Sprint 17）。放在这里是因为：右侧面包屑在个人模式下
+            不渲染，这里正好是空位；且"切换"与"搜索"都是跨页导航，放同一组语义一致。 */}
+        <ModeSwitch />
       </div>
 
       <div className="flex items-center gap-5">

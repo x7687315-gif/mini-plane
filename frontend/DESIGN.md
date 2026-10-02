@@ -548,6 +548,7 @@ background-size: 32px 32px, 32px 32px;
 | user | 用户 |
 | settings | 设置 |
 | logout | 登出 |
+| switch | 模式切换（个人 ⇄ 团队，两条反向箭头） |
 
 > 图标统一 16px / stroke 1.5px / round caps / round joins / currentColor。
 

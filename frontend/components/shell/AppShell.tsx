@@ -25,6 +25,8 @@ export interface AppShellProps {
   rail?: {
     workspaces?: RailWorkspace[];
     current?: string;
+    /** 工作区列表还在加载（侧栏渲染骨架行，不显示 spinner） */
+    loading?: boolean;
   };
   aside?: ReactNode;
   /** Hide the Aside (mobile / when there is no KPI to show). */
@@ -45,7 +47,7 @@ export function AppShell({
     <div className="flex flex-col flex-1 min-h-0 min-w-[1180px]">
       <TopBar {...topbar} />
       <div className="flex flex-1 min-h-0">
-        <LeftRail {...(rail ?? {})} />
+        <LeftRail workspaces={[]} {...(rail ?? {})} />
         <main className={clsx("flex-1 min-w-0 overflow-auto px-9 py-7", mainClassName)}>
           {children}
         </main>

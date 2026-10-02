@@ -148,3 +148,16 @@ export const LogOutIcon = (p: IconProps) => (
     <line x1="6" y1="8" x2="13" y2="8" />
   </Icon>
 );
+
+/**
+ * 模式切换（个人 ⇄ 团队）。两条方向相反的箭头：上行向右、下行向左。
+ * 刻意不用 ArrowRightIcon —— 语义是"换边"而不是"前进/后退"。
+ */
+export const SwitchIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <line x1="2.5" y1="5.5" x2="12" y2="5.5" />
+    <polyline points="9.5 3 12 5.5 9.5 8" />
+    <line x1="13.5" y1="10.5" x2="4" y2="10.5" />
+    <polyline points="6.5 8 4 10.5 6.5 13" />
+  </Icon>
+);

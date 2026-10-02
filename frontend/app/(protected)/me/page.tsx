@@ -29,10 +29,9 @@ export default function MePage() {
   const user = useAuthStore((s) => s.user);
   const logoutMutation = useLogout();
 
-  useChrome({
-    topbar: { workspace: "Amiya Workspace", project: "Amiya Project", role: 20 },
-    hideAside: true,
-  });
+  // 个人设置页：面包屑留空。Sprint 17 清掉了这里硬编码的假工作区名
+  // （"Amiya Workspace" / "Amiya Project"），它会让顶栏在个人层露出团队字样。
+  useChrome({ topbar: {}, hideAside: true });
 
   const handleLogout = async () => {
     try {

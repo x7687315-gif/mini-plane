@@ -5,6 +5,8 @@ import { Button, Card, MeasureLine } from "@/components/ui";
 import { ArrowRightIcon } from "@/components/icons";
 import { useMyProjects } from "@/features/project";
 import { useChrome } from "@/stores/chrome";
+import { useModeStore } from "@/stores/mode";
+import { switchTarget } from "@/stores/mode-logic";
 import type { ProjectEngineering } from "@/types/project";
 
 /**
@@ -34,8 +36,10 @@ export default function MyEngineeringPage() {
             我的工程总览 · 阶段 / 进度 / 现在与下一步
           </p>
         </div>
-        <Link href="/workspaces">
-          <Button variant="secondary" size="sm">管理工作区</Button>
+        {/* 进入团队层。落点与顶栏的 ⇄ 按钮共用 switchTarget，
+            所以"记住上次停留的团队位置"对这两个入口同时生效。 */}
+        <Link href={switchTarget("personal", useModeStore.getState().lastTeamPath)}>
+          <Button variant="secondary" size="sm">进入团队</Button>
         </Link>
       </div>
 

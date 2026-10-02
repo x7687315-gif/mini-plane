@@ -62,6 +62,19 @@ Island 是投影，不是通知。          ← 当前工程状态的一张图�
 首页跨项目聚合：每个项目一张卡片，显示进度条、开着的任务数、**今日工程日志数**、最近动态，
 以及是否有 Agent 正在跑。
 
+### 3. 顶栏的 ⇄ 按钮：个人 ⇄ 团队（Sprint 17 / v1.0.0）
+
+顶栏（logo 右边、搜索按钮旁）有一个 **⇄ 切换按钮**：
+
+- 在**个人层**（我的工程 / 我的工作 / Island / 我的设置）点它 → 去**你上次停留的那个工作区**
+  （没有记录就去工作区列表）
+- 在**团队层**（工作区列表或某个工作区里）点它 → 回到「我的工程」首页
+- 切换时 URL 跟着变，**链接可以直接分享给别人**
+- 左侧竖栏也跟着换内容，但**宽度不变**（切过去主区域不会横向抖一下）
+
+> 记住的是「上次在团队层的哪一页」，不是「上次在哪一层」——个人层只有一个聚合首页，
+> 从团队切回来永远回到「我的工程」，不会莫名其妙停在别处。
+
 ### 3. Engineering Island（`/island`）★ v0.8.0 新增
 
 **当前工程状态的实时投影**：一张图纸 = 一个项目。
@@ -138,7 +151,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File desktop\make_shortcut.ps1 -E
 
 ```bat
 scripts\dev.cmd          :: 起后端+前端，等就绪，自动开浏览器
-scripts\dev.cmd e2e      :: 起栈 → 跑 Playwright 27 用例 → 报结果
+scripts\dev.cmd e2e      :: 起栈 → 跑 Playwright 31 用例 → 报结果
 scripts\dev.cmd status   :: 两个端口各是什么状态
 scripts\dev.cmd down     :: 全部停掉
 ```
@@ -162,8 +175,8 @@ WS `ws://127.0.0.1:8001/ws/...`。`NEXT_PUBLIC_*` 是**构建期**常量，改�
 | 类别 | 数量 | 命令 |
 |------|------|------|
 | 后端 | **334** | `cd backend && .venv/Scripts/python.exe manage.py test --noinput --settings=config.settings.test` |
-| 前端单测 | **111** | `cd frontend && pnpm test`（node --test，零依赖） |
-| 浏览器 E2E | **27** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
+| 前端单测 | **122** | `cd frontend && pnpm test`（node --test，零依赖） |
+| 浏览器 E2E | **31** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，两个 job 全绿才可合并）：
 
@@ -243,7 +256,7 @@ mini-plane/
 ├── frontend/
 │   ├── app/ components/ features/ stores/ lib/ types/
 │   ├── features/engineering-island/      ← Island 纯逻辑（可单测）
-│   ├── tests/unit/（111）  tests/e2e/（27）
+│   ├── tests/unit/（122）  tests/e2e/（31）
 │   ├── DESIGN.md · SCREEN_BLUEPRINTS.md · FRONTEND_ROADMAP.md
 │   └── docs/devlog/                     各 Sprint 日志
 ├── desktop/              launcher.py · build.py · make_shortcut.ps1
@@ -285,7 +298,7 @@ v0.7.0 Agent Session & Realtime Sync     ✅ Sprint 13
 v0.8.0 Engineering Island MVP            ✅ Sprint 14（本轮）
 v0.9.0 Engineering Island Desktop        ✅ Sprint 15：Island 变独立桌面窗口（置顶/拖拽/隐藏 + WS 同步）
       Island Polish                       ✅ Sprint 16：Paper Sheet / Blueprint Grid / Crosshair / FIG·REV
-v1.0.0 Personal Engineering Platform     ⏳ Sprint 17：个人 ⇄ 团队模式可切换
+v1.0.0 Personal Engineering Platform     ✅ Sprint 17：顶栏一键 个人 ⇄ 团队 + 位置记忆
 ```
 
 **非目标**（防止再次失控）：不删工作区 · 不重写任务系统 · 不重写实时层 · 不立即做 MCP ·
