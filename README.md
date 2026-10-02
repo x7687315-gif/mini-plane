@@ -138,7 +138,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File desktop\make_shortcut.ps1 -E
 
 ```bat
 scripts\dev.cmd          :: 起后端+前端，等就绪，自动开浏览器
-scripts\dev.cmd e2e      :: 起栈 → 跑 Playwright 26 用例 → 报结果
+scripts\dev.cmd e2e      :: 起栈 → 跑 Playwright 27 用例 → 报结果
 scripts\dev.cmd status   :: 两个端口各是什么状态
 scripts\dev.cmd down     :: 全部停掉
 ```
@@ -163,7 +163,7 @@ WS `ws://127.0.0.1:8001/ws/...`。`NEXT_PUBLIC_*` 是**构建期**常量，改�
 |------|------|------|
 | 后端 | **334** | `cd backend && .venv/Scripts/python.exe manage.py test --noinput --settings=config.settings.test` |
 | 前端单测 | **111** | `cd frontend && pnpm test`（node --test，零依赖） |
-| 浏览器 E2E | **26** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
+| 浏览器 E2E | **27** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，两个 job 全绿才可合并）：
 
@@ -243,7 +243,7 @@ mini-plane/
 ├── frontend/
 │   ├── app/ components/ features/ stores/ lib/ types/
 │   ├── features/engineering-island/      ← Island 纯逻辑（可单测）
-│   ├── tests/unit/（111）  tests/e2e/（26）
+│   ├── tests/unit/（111）  tests/e2e/（27）
 │   ├── DESIGN.md · SCREEN_BLUEPRINTS.md · FRONTEND_ROADMAP.md
 │   └── docs/devlog/                     各 Sprint 日志
 ├── desktop/              launcher.py · build.py · make_shortcut.ps1
@@ -283,8 +283,8 @@ v0.5.0 Engineering Worklog               ✅ Sprint 11
 v0.6.0 Agent Local API                   ✅ Sprint 12
 v0.7.0 Agent Session & Realtime Sync     ✅ Sprint 13
 v0.8.0 Engineering Island MVP            ✅ Sprint 14（本轮）
-v0.9.0 Engineering Island Desktop        ⏳ Sprint 15：Island 变独立桌面窗口（置顶/拖拽/隐藏 + WS 同步）
-      Island Polish                       ⏳ Sprint 16：Paper Sheet / Blueprint Grid / 克制动效
+v0.9.0 Engineering Island Desktop        ✅ Sprint 15：Island 变独立桌面窗口（置顶/拖拽/隐藏 + WS 同步）
+      Island Polish                       ✅ Sprint 16：Paper Sheet / Blueprint Grid / Crosshair / FIG·REV
 v1.0.0 Personal Engineering Platform     ⏳ Sprint 17：个人 ⇄ 团队模式可切换
 ```
 

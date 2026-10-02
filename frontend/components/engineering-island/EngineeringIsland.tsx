@@ -230,15 +230,19 @@ export function EngineeringIsland({ variant = "page" }: { variant?: "page" | "pa
         {projects.map((project, index) => (
           <div
             key={project.id}
-            className="snap-center shrink-0 w-full"
-            // 屏幕外的图纸对读屏软件隐藏：否则 Tab 会跳进看不见的卡片
+            // 非当前图纸轻微"压下去"一点：只动 transform + opacity，且 200ms 在
+            // DESIGN.md 规定的 150–250ms 内；不做位移/放大/模糊（红线）。
+            className={[
+              "snap-center shrink-0 w-full transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)] motion-reduce:transition-none",
+              index === activeIndex ? "" : "scale-[0.985] opacity-60",
+            ].join(" ")}
             aria-hidden={index === activeIndex ? undefined : true}
           >
             {index === activeIndex ? (
               <ActiveSheet project={project} index={index} total={projects.length} />
             ) : (
               // 非当前图纸只渲染外壳（保持滚动高度稳定），数据等切到再取
-              <div className="h-[320px] border border-[color:var(--color-rule)] bg-[color:var(--color-paper-2)]" />
+              <div className="h-[360px] border border-[color:var(--color-rule)] bg-[color:var(--color-paper-2)]" />
             )}
           </div>
         ))}

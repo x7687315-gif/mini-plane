@@ -9,7 +9,13 @@
 import type { AgentSessionLive } from "@/stores/agentSession";
 import { formatElapsed, orDash, progressPercent } from "@/features/engineering-island";
 
-/** 6px 细进度条：与首页 EngineeringCard 同一视觉语言（0.5px 边框 + accent 填充）。 */
+/** 6px 细进度条：与首页 EngineeringCard 同一视觉语言（0.5px 边框 + accent 填充）。
+ *
+ *  ⚠️ 填充用 **transform: scaleX()** 而不是 width：
+ *  DESIGN.md §6 的红线是「动效只允许 transform / opacity，禁止动画 width/height/margin」。
+ *  宽高变化会每帧触发重排（尤其在 grid/flex 容器里），缩放只走合成层。
+ *  视觉上完全等价（都是从左往右填充），但符合规范且更省。
+ */
 export function IslandProgress({ progress }: { progress: number }) {
   const pct = progressPercent(progress);
   return (
@@ -23,8 +29,8 @@ export function IslandProgress({ progress }: { progress: number }) {
         aria-label="项目进度"
       >
         <div
-          className="h-full bg-[color:var(--color-accent)] transition-[width] duration-[var(--duration-base)] ease-[var(--ease-out)]"
-          style={{ width: `${pct}%` }}
+          className="h-full w-full origin-left bg-[color:var(--color-accent)] transition-transform duration-[var(--duration-base)] ease-[var(--ease-out)] motion-reduce:transition-none"
+          style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>
       <span className="font-mono text-[11px] tabular-nums text-[color:var(--color-ink-2)]">
