@@ -1,162 +1,150 @@
 # Mini Plane
 
-仿 [Plane](https://github.com/makeplane/plane) 的迷你项目管理软件（双人学习项目）：从 0 实现用户、工作区、项目、任务（Issue）管理的完整业务链路，含实时协作、异步任务、审计留痕。**产品定位：本地运行的单机软件**（前端 + 后端 + 数据库都跑在你自己的机器上，数据不出本机）。
+> **本地运行的个人工程管理系统。** 数据、数据库、界面全在你自己的机器上，不出本机。
+> 双击一个图标就有原生窗口，断网也能用（除 AI Agent 功能外）。
 
 <p align="center">
-  <img src="frontend/docs/assets/real-issue-list.png" width="820" alt="Mini Plane — 任务列表（真实截图）">
+  <img src="frontend/docs/assets/real-issue-list.png" width="820" alt="Mini Plane 真实界面">
 </p>
 
+<p align="center"><sub>真实产品截图 · 生产构建 + 真实数据 —— 不是设计稿</sub></p>
+
+---
+
+## 一分钟看懂
+
+它最早是「仿 [Plane](https://github.com/makeplane/plane) 的迷你项目管理软件」，做到一半改了主意：
+**大多数人不是来「排期」的，是来「记住我今天把工程推到哪儿了」的。** 于是产品重构成两层：
+
+| 层 | 是什么 | 入口 |
+|----|--------|------|
+| **Personal Engineering**（默认） | 我的工程：项目 / 计划 / 阶段 / 任务 / **工程日志** / **Agent** | `/`（首页即工程总览） |
+| **Collaboration** | 工作区与团队权限，保留但不喧宾夺主 | `/workspaces` |
+
+三个一句话概念（贯穿全项目的信条）：
+
+```text
+Task 是计划，Worklog 是证据。     ← 百分比是辅助，阶段与当前任务（NOW）才是主信息
+Worklog ≠ Task。                  ← 任务说"要做什么"，日志说"实际做了什么、结论如何"
+Island 是投影，不是通知。          ← 当前工程状态的一张图纸，随时瞄一眼
+```
+
 <p align="center">
-  <sub>真实产品截图（生产构建 + 真实后端数据）—— 不是设计稿。
-  更多截图见 <a href="frontend/docs/assets/">frontend/docs/assets/</a></sub>
+  <img src="frontend/docs/assets/real-issue-drawer-activity.png" width="300" alt="任务动态审计">
+  &nbsp;&nbsp;
+  <img src="frontend/docs/assets/real-issue-drawer-comments.png" width="300" alt="评论对话">
+  &nbsp;&nbsp;
+  <img src="frontend/docs/assets/real-bulk-actions.png" width="300" alt="批量操作">
 </p>
 
 ---
 
 ## 目录
 
-- [使用指南](#使用指南) ← 想知道"这个应用怎么用"看这里
-- [快速开始](#快速开始)（单机版软件包 / 开发模式 / Docker）
-- [当前进度](#当前进度) · [设计语言](#设计语言blueprint-editorial) · [测试与质量](#测试与质量)
-- [技术栈](#技术栈) · [目录结构](#目录结构) · [文档导航](#文档导航) · [协作约定](#协作约定)
+- [一分钟看懂](#一分钟看懂) · [使用指南](#使用指南) · [快速开始](#快速开始)
+- [测试与质量](#测试与质量) · [架构三链路](#架构三链路) · [设计语言](#设计语言)
+- [技术栈](#技术栈) · [目录结构](#目录结构) · [文档导航](#文档导航) · [路线图](#路线图)
 
 ---
 
 ## 使用指南
 
-> 📖 完整、分角色的使用说明（只想用 / 换机安装 / 开发）见 **[docs/使用指南.md](docs/使用指南.md)**。
-> 下面是速览。界面为中文；部分衬线大标题（Workspace / Members 等）按设计语言保留英文艺术字体。
+> 界面中文为主；工作区 / Recent projects / Members 等衬线大标题按设计语言保留英文。
+> 完整分角色说明见 [`docs/使用指南.md`](docs/使用指南.md)。
 
-### 1. 登录与账户（本地单机版：昵称优先）
+### 1. 账户（本地单机版：昵称优先）
 
-- 打开应用只让你填一个**昵称**：没注册过就一键用它**新建账户并直接进入**，开头**不要邮箱/密码**。
-- 默认**免密**：之后每次打开**无需验证**直接进（会话已持久化，不用重复登录）。
-- 想要更私密：去 **设置（/me）→ Security** 自助**加密码 / 绑邮箱**；设了密码后下次进入才多一步验证，可随时移除回到免密。
-- 右上角头像菜单：**我的工作**、**我的设置**、主题快切、**退出登录**。
-- 特色入口：**Ctrl+K** 命令面板（跳转我的工作/设置/各工作区）；设置里可切**暗色/明色主题**与**显示大小**。
+首屏只填**昵称**即可进入，密码与邮箱可在 `/me → 安全` 自行绑定——本机软件不该在第一次打开时逼你注册。
+重开窗口免登录（会话持久化）。
 
-### 2. 工作区（Workspace）—— 一切从这里开始
+### 2. 工程总览（`/`）
 
-工作区 = 你和协作者的独立空间，彼此数据完全隔离。
+首页跨项目聚合：每个项目一张卡片，显示进度条、开着的任务数、**今日工程日志数**、最近动态，
+以及是否有 Agent 正在跑。
 
-| 操作 | 怎么做 |
-|------|--------|
-| 创建 | 首页 **Workspaces** 列表 → 新建；名称随意，**slug** 是地址栏标识（重名会自动加 `-2` 后缀） |
-| 切换 | 左侧竖栏（每行 = 头像缩写 + 角色徽章），点一下整站切换 |
-| 成员管理 | 工作区页 → **Members**：按用户名添加成员、改角色、移除 |
-| 改名 / 删除 | 工作区设置：改名即时生效；删除是危险操作，需**手动输入 slug** 确认 |
+### 3. Engineering Island（`/island`）★ v0.8.0 新增
 
-**三级角色**（生效角色 = 工作区角色与项目角色取高者）：
+**当前工程状态的实时投影**：一张图纸 = 一个项目。
 
-| 角色 | 能做什么 |
-|------|---------|
-| 管理员 | 一切：管理成员、建删项目、增删改任何任务 |
-| 成员 | 参与项目：建任务、改任务、评论、打标签 |
-| 只读 | 只能看：浏览列表与详情，不显示任何写按钮 |
+- **左右滑动 = 翻工程图纸**（不是切任务）；键盘 `←/→` 同样可翻；到边缘**停住**（不循环——环回会让人以为"还有更多"）
+- 图纸页信息：**Project / 当前阶段 / 进度 / NOW / TODAY / NEXT / AGENT**
+  - `NOW` 当前在做的事 · `NEXT` 队列里下一件 · `TODAY` 今天的工程日志清单 · `AGENT` Agent 会话状态与计时
+- **收起为最小态**（44px 单行）：不打扰工作，需要时点开
+- 当前图纸记在 URL（`?sheet=<项目 id>`）：刷新、分享链接、前进后退都回到同一张
+- 数据来自 `GET /api/v1/projects/mine/`（单条 SQL 聚合，无 N+1）；只在**当前图纸**上订阅 WebSocket
 
-### 3. 项目（Project）与预置状态
+### 4. 项目（Project）与计划（Plan / Stage）
 
-进入工作区 → **Recent projects → 新建项目**：名称 + **标识符**（如 `AMI`，会出现在每个任务编号前，如 `AMI-1`）。
+- 新建项目填名称 + 标识符（如 `AMI`，出现在每个任务编号前：`AMI-1`）
+- 自动预置五状态：`Backlog → Todo → In Progress → Done → Cancelled`
+- **Global Plan**：项目可挂一串 Stage（阶段）带权重，进度 = `Σ(权重×进度)/Σ权重`
+  —— 阶段是主信息，百分比只是它的投影
 
-创建即自动预置五个状态：**Backlog → Todo → In Progress → Done → Cancelled**（顺序即看板语义）。
+### 5. 任务（Task / Issue）
 
-### 4. 任务列表 —— 筛选、搜索、排序
+列表支持状态 / 优先级 / 指派人 / 标签多选、标题搜索、排序（时间 / 编号 / 优先级）、分页；
+**所有筛选都写进 URL**，复制链接给同事，对方看到完全相同的视图。
 
-列表页每行：任务编号（`AMI-1`）、标题、状态、优先级、标签、指派人、更新时间。
+点开抽屉：**就地编辑**四个字段（乐观更新，失败自动回滚）、只读描述、
+**动态（Activity）**审计时间线（谁在何时把什么改成了什么，倒序）、**评论**（正序，可编辑自己的）。
 
-| 能力 | 用法 |
-|------|------|
-| 搜索 | 顶部搜索框，标题模糊匹配（250ms 防抖） |
-| 状态筛选 | 状态 chip 单排（可多选） |
-| 优先级 / 指派人 / 标签 | 三个下拉多选；指派人支持「指派给我」 |
-| 排序 | 更新时间（默认倒序）/ 创建时间 / 优先级（urgent → high → medium → low → none） |
-| 分页 | 底部翻页，每页 50 条 |
-| **URL 即状态** | 所有筛选都写进地址栏 —— **复制链接发给同事，对方打开看到完全相同的筛选结果**；非法参数会被静默丢弃，页面照常渲染 |
+> 同一个抽屉里两个列表顺序相反是**故意的**：审计看"最新发生了什么"（倒序），评论是"对话"（正序）。
 
-### 5. 任务详情抽屉
+### 6. 工程日志（Worklog）
 
-点任意行打开右侧抽屉，所有编辑都在这里完成：
+记录 date / 标题 / 摘要 / 详情 / 结论 / 下一步 / 阻塞，可关联阶段，来源可标记 `manual / agent / imported`。
+它与任务最大的区别：**任务写"打算做"，日志写"做完了什么、结论如何"**。
 
-- **就地编辑**：状态、优先级、指派人、标签四个字段**点开即改**（乐观更新——界面立即变化，失败自动回滚并提示）
-- **描述**：详情上方只读展示（字数折算），编辑走任务描述字段
-- **动态（Activity）**：这个任务的**全部变更历史**，倒序（最新在上）——谁在什么时候把状态从什么改成什么、谁加了标签、谁评论了。编辑评论**不会**产生记录（避免噪声）；删除评论会留下「删除」痕迹
-- **评论（Comments）**：对话流，正序（旧的在上）；支持**编辑自己的评论**（管理员可改任何人的）；删除需二次确认
-- **删除任务**：底部危险操作，需确认
+### 7. 批量操作
 
-### 6. 批量操作
+勾选多行 → 底部浮出操作条：改状态 / 优先级 / 指派（逐条下发，**部分失败如实汇报并支持「重试失败项」**）、
+改标签（覆盖式，走异步任务）、删除（二次确认）。
 
-列表中**勾选多行**（≥1）→ 底部浮出批量操作条：
+### 8. 实时协作
 
-- 改状态 / 改优先级 / 改指派 / 删除：**逐条下发**，结果如实汇报（例如「3/5 成功 · 2 个失败（首个原因：…）」）；有失败时出现 **重试失败项**，只重试没成功的那几条
-- 改标签：**覆盖式**（勾选的标签 = 最终标签集），走**异步任务**（界面提示受理，完成后列表与详情自动刷新）
-- 多选时列表仍可滚动翻页；选中的行高亮
+右上角 `● live` 表示 WebSocket 已连通。别人改了状态或发了评论，你这边自动更新；
+断网指数退避重连，会话过期跳登录，无权限的项目停止重连（不无限重试）。
 
-### 7. 实时协作
+### 9. Agent Local API（v0.6.0+）
 
-同一个项目的所有打开页面**自动保持同步**（右上角 ● live 表示连接正常）：
-
-- A 改了任务状态 → B 的列表**几秒内自动更新**（无需刷新）
-- A 发了评论 → B 的抽屉里评论数自动 +1
-- 断网自动指数退避重连，恢复后全量刷新兜底；会话过期自动跳登录、无权限的项目停止重连（不会无限重试）
-
-### 8. 个人设置（/me）
-
-查看当前账号的用户名 / 邮箱 / 加入的工作区与角色。
+给 AI 编程助手用的本地接口：`/me → Agent` 建 **Token**（明文只显示一次，服务端只存哈希）、
+按 scope 白名单授权，所有写操作支持 `Idempotency-Key` 幂等。
+Agent 可起 **Session**，并把 `agent.session` 事件实时推给界面（Island 与首页角标都会亮）。
 
 ---
 
 ## 快速开始
 
-> **host 一致性规则（重要）**：页面与 API 必须同 host，端口可不同——
-> 开发模式统一用 `localhost`（页面 3000 / API 8000）；桌面版统一用 `127.0.0.1`（已内置）。
-> 混用会导致会话 Cookie / CSRF 失效。
+> **host 一致性铁律**：页面与 API 必须同 host，端口可不同。
+> 开发模式统一 `localhost`（页面 3000 / API 8000）；桌面版统一 `127.0.0.1`（已内置）。
+> 混用会导致会话 Cookie / CSRF 全部失效——这是本项目踩过的最贵的坑。
 
-### 方式一：桌面 App（推荐给"只想用起来"的场景）
+### 方式一：桌面 App（推荐给「只想用起来」）
 
-**本机已配好时：直接双击桌面「Mini Plane」图标即可**——原生窗口、内嵌 SQLite（**不用装
-PostgreSQL**）、首次运行自动建库、会话持久化（重开免登录）、关窗即干净停服。
+双击桌面「Mini Plane」图标：原生窗口、内嵌 SQLite（**不用装 PostgreSQL**）、首跑自动建库、
+会话持久化、关窗即干净停服。
 
-换一台新电脑从零安装（需 Python 3.12+ / Node 20+ / WebView2[Win11 自带]）：
+换新机从零构建（需 Python 3.12+ / Node 20+ / WebView2，Win11 自带）：
 
 ```bat
 cd backend && python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements\local.txt -r requirements\desktop.txt
-cd ..
-python scripts\package.py                                   :: 构建前端单机产物到 dist\
-backend\.venv\Scripts\python.exe desktop\build.py           :: 打包 dist\MiniPlane\MiniPlane.exe
+cd .. && python scripts\package.py                                  :: 构建单机产物到 dist\
+backend\.venv\Scripts\python.exe desktop\build.py                  :: 打包 dist\MiniPlane\MiniPlane.exe
 powershell -NoProfile -ExecutionPolicy Bypass -File desktop\make_shortcut.ps1 -Exe "%CD%\dist\MiniPlane\MiniPlane.exe"
 ```
 
-数据/会话/日志都在 `runtime\`（含 SQLite 库、SECRET_KEY、WebView2 配置），备份=拷走该目录。
-完整分步说明见 **[docs/使用指南.md](docs/使用指南.md)**。
-安全基线：服务只绑 `127.0.0.1`、DEBUG 关闭、SECRET_KEY 随机生成存本机、数据不出设备。
-
 ### 方式二：开发模式（改代码用这个）
 
-```bash
-# 后端（HTTP + WebSocket 同端口 8000）
-cd backend
-python -m venv .venv && .venv/Scripts/activate
-pip install -r requirements/local.txt
-cp .env.example .env          # 填 SECRET_KEY / DATABASE_URL
-python manage.py migrate
-python manage.py runserver    # daphne 接管
-
-# 前端（热更新，3000）
-cd frontend
-pnpm install
-cp .env.example .env.local
-pnpm dev
+```bat
+scripts\dev.cmd          :: 起后端+前端，等就绪，自动开浏览器
+scripts\dev.cmd e2e      :: 起栈 → 跑 Playwright 26 用例 → 报结果
+scripts\dev.cmd status   :: 两个端口各是什么状态
+scripts\dev.cmd down     :: 全部停掉
 ```
 
-或者用一键脚本：
-
-```bash
-scripts\dev.cmd          # 起后端+前端，等就绪，自动开浏览器
-scripts\dev.cmd e2e      # 起栈 → 跑 Playwright 14 用例 → 报结果
-scripts\dev.cmd status   # 两个端口各是什么状态
-scripts\dev.cmd down     # 全部停掉
-```
+手工也行：后端 `python manage.py migrate && python manage.py runserver`（daphne 接管 8000）；
+前端 `pnpm install && pnpm dev`（3000）。
 
 ### 方式三：Docker Compose（后端全家桶）
 
@@ -164,133 +152,152 @@ scripts\dev.cmd down     # 全部停掉
 docker compose up --build -d
 ```
 
-| 入口 | 地址 |
-|------|------|
-| 健康检查 | <http://127.0.0.1:8000/api/v1/health/> |
-| Swagger | <http://127.0.0.1:8000/api/docs/> |
-| WebSocket | `ws://127.0.0.1:8001/ws/...`（compose 里与 HTTP 分端口） |
+健康检查 `http://127.0.0.1:8000/api/v1/health/` · Swagger `http://127.0.0.1:8000/api/docs/` ·
+WS `ws://127.0.0.1:8001/ws/...`。`NEXT_PUBLIC_*` 是**构建期**常量，改后端地址要重新 build。
 
-> compose 下前端也一并起（`frontend` 服务）。`NEXT_PUBLIC_*` 是**构建期**常量——改后端地址要重新 build，改环境变量没用。
+---
 
-## 运行测试
+## 测试与质量
 
-```bash
-# 后端
-cd backend
-python manage.py test --settings=config.settings.test --noinput   # 310 用例
-ruff check . && ruff format --check .
+| 类别 | 数量 | 命令 |
+|------|------|------|
+| 后端 | **334** | `cd backend && .venv/Scripts/python.exe manage.py test --noinput --settings=config.settings.test` |
+| 前端单测 | **111** | `cd frontend && pnpm test`（node --test，零依赖） |
+| 浏览器 E2E | **26** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
-# 前端
-cd frontend
-pnpm test        # 单元测试 98 用例（node --test，零依赖）
-pnpm typecheck && pnpm lint
-pnpm build       # 生产构建（standalone）
+CI（`.github/workflows/ci.yml`，两个 job 全绿才可合并）：
 
-# 浏览器端到端（18 用例；需栈已起，见 scripts/dev.cmd e2e）
-cd frontend && pnpm test:e2e
+- **backend**：装依赖 → `ruff check` → `ruff format --check` → `makemigrations --check`
+  → `spectacular --validate --fail-on-warn` → 与 `docs/api/openapi.yaml` 快照 diff → 全量测试 → `check_cache`
+- **frontend**：`pnpm install --frozen-lockfile` → `lint` → `typecheck` → `test` → `build` → 断言 standalone 产物存在
+
+> 设计原则：**先跑最便宜最能拦的**（lint / 类型 / 迁移漂移 / schema diff），最后才跑慢的（测试 / build）。
+
+---
+
+## 架构三链路
+
+```text
+        ┌──────────── 浏览器 / 桌面 WebView2 ────────────┐
+        │              Next.js 16 (App Router)            │
+        │  TanStack Query ─ 服务端状态   Zustand ─ 客户端 │
+        └───────┬───────────────────────────┬────────────┘
+                │ ① HTTP 读写                │ ③ WebSocket 推送
+                ▼                            ▼
+     ┌────────────────────┐      ┌───────────────────────────┐
+     │ Django REST (DRF)  │      │ Channels + daphne         │
+     │ 权限唯一判定点      │      │ 只广播三类工程事件：       │
+     │ core/permissions   │      │ issue.updated             │
+     └─────────┬──────────┘      │ comment.created           │
+               │                 │ agent.session             │
+               ▼                 └───────────────────────────┘
+     ┌────────────────────┐
+     │ ② Celery 异步任务  │  默认 eager 同步执行，不强制起 worker
+     └─────────┬──────────┘
+               ▼
+     ┌────────────────────┐
+     │ PostgreSQL 16      │  桌面单机版用内嵌 SQLite
+     └────────────────────┘
 ```
 
-## 当前进度
+关键约束（`PRODUCT_REFACTOR_PLAN` §8，继续开发请保持）：
+聚合查询单条 SQL 杜绝 N+1 · 默认不启 Redis / worker · HTTP 与 WS 同端口 · 广播事件刻意收窄为工程状态三类。
 
-| 模块 | 状态 |
-|------|------|
-| 后端 MVP（Auth / 工作区 / 项目 / Issue / 评论 / 动态 / 缓存 / 异步 / 实时） | ✅ [Sprint 0–8](docs/devlog/) |
-| 后端 CI + Docker + Release v0.1.0 | ✅ |
-| 前端设计系统 + Sprint 0–8（Auth / 工作区 / 项目 / 任务 / 评论 / 动态 / 筛选 / 批量 / 实时 / 工程化） | ✅ [devlog](frontend/docs/devlog/) |
-| 前端单元测试 99 + 浏览器 E2E 23 + 后端测试 334 | ✅ |
-| 界面全面中文化 + 思源字体匹配 | ✅ |
-| **桌面单机 App**（pywebview 原生窗口 + 内嵌 SQLite + 快捷方式 + exe + 会话持久化） | ✅ |
-| 登录改造（昵称优先 / 免密 / 可选绑定）+ 特色 A 命令面板 / B 我的工作 / H 暗色与显示大小 | ✅ |
-| **Sprint 09 我的工程首页**（个人模式默认 `/`，Workspace 降级到 `/workspaces`；单查询聚合 `/projects/mine/`） | ✅ [devlog](docs/devlog/sprint-09-my-engineering.md) |
-| **Sprint 10 Global Plan / Stage**（`ProjectPlan`+`ProjectStage`，加权进度 Σw×p/Σw，当前/下一阶段；项目页 PlanPanel） | ✅ [devlog](docs/devlog/sprint-10-project-plan.md) |
-| **Sprint 11 Worklog 工程日志**（`Worklog` 模型 + 项目页 Engineering Log + 首页 Today 维度；Task 是计划、Worklog 是证据） | ✅ [devlog](docs/devlog/sprint-11-worklog.md) |
-| **Sprint 12 Agent Local API**（Agent Token 白名单 + Idempotency-Key 幂等 + 工程动作端点；/me 可管理 Token） | ✅ [devlog](docs/devlog/sprint-12-agent-api.md) |
-| **Sprint 13 Agent Session**（`AgentSession` 模型 + `agent.session` WebSocket 实时投影 + 项目页运行中横幅 / 首页角标） | ✅ [devlog](docs/devlog/sprint-13-agent-session.md) |
-| Sprint 14–16 Engineering Island · 17 Team | ⏳ 按 [重构计划](docs/PRODUCT_REFACTOR_PLAN.md) |
-| 组件测试（Vitest）/ Lighthouse 90 / 任务截止日期与逾期 / 数据导出备份 | ⏳ 后续 |
-
-每个 Sprint 的取舍、踩坑与验收清单见开发日志：后端 [docs/devlog/](docs/devlog/)、前端 [frontend/docs/devlog/](frontend/docs/devlog/)。
+---
 
 ## 设计语言：Blueprint Editorial
 
-<p align="center">
-  <img src="frontend/docs/assets/real-issue-drawer-activity.png" width="300" alt="抽屉 · 动态审计时间线">
-  &nbsp;&nbsp;
-  <img src="frontend/docs/assets/real-issue-drawer-comments.png" width="300" alt="抽屉 · 评论对话">
-  &nbsp;&nbsp;
-  <img src="frontend/docs/assets/real-bulk-actions.png" width="300" alt="批量操作条">
-</p>
+工程图纸风：暖灰白底 `#F4F1EA` + 钴蓝细线 `#1F3FA8` + 0.5px 直角边框 + 32px 网格底纹 +
+坐标 / 十字准星 / FIG·SHEET 标注。字体：西文 Cormorant Garamond（装饰）、Inter（正文）、
+JetBrains Mono（等宽），中文思源宋体 / 思源黑体（`@fontsource` 自托管，OFL）。
 
-<sub>左：动态审计时间线（倒序）· 中：评论对话（正序）—— **同一个抽屉里两个列表顺序相反是故意的**（审计 vs 对话）。
-右：多选后的批量操作条。</sub>
+红线：❌ 渐变 / 模糊 / 毛玻璃 · 大圆角 · 多层阴影 · Emoji · 字体权重 600+ · 多套主题色 ·
+动效只用 `transform`/`opacity` 且 150–250ms · 组件库与图标库（图标全部自绘 SVG）。
 
-整套 UI 走 **Blueprint Editorial（蓝图编辑风）**：暖灰白底 `#F4F1EA` + 钴蓝细线 `#1F3FA8` + 古典衬线 Cormorant Garamond italic 做装饰 + 思源宋体/黑体承接中文 + Inter 做西文正文 + 0.5px 直角边框 + 32px 网格底纹。完整规格见 [frontend/DESIGN.md](frontend/DESIGN.md)。
+完整规格：[`frontend/DESIGN.md`](frontend/DESIGN.md) · [`frontend/SCREEN_BLUEPRINTS.md`](frontend/SCREEN_BLUEPRINTS.md)
 
-> **反模板**：不引入组件库（shadcn/MUI 都拒）、不引入图标库（图标全部自绘 SVG）、不使用渐变 / 阴影 / 毛玻璃 / emoji。暗色模式与显示大小作为特色已支持（令牌化实现，见设置页 Appearance）。
+---
 
 ## 技术栈
 
 | 端 | 技术 |
 |------|------|
-| Backend | Python 3.12 · Django 5.2 LTS · Django REST Framework · PostgreSQL 16 |
-| 异步与实时 | Redis（可降级 LocMem/filesystem）· Celery · WebSocket（Channels / daphne） |
-| 工程化 | Docker Compose · GitHub Actions CI（双 job）· ruff · drf-spectacular · Playwright |
-| Frontend | Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind CSS v4 |
-| Frontend 状态 | Zustand (UI) · TanStack Query (服务端) · react-hook-form + zod |
-| 字体 | 西文 Cormorant Garamond / Inter / JetBrains Mono · 中文 思源宋体 / 思源黑体（`@fontsource` 自托管，OFL） |
+| Backend | Python 3.12 · Django 5.2 LTS · DRF · Channels + daphne · Celery（eager）· PostgreSQL 16 / SQLite |
+| 桌面 | pywebview（WebView2 原生窗口）· PyInstaller（单文件 exe） |
+| Frontend | Next.js 16 (App Router, standalone) · React 19 · TypeScript strict · Tailwind v4 |
+| Frontend 状态 | TanStack Query（服务端）· Zustand（客户端）· react-hook-form + zod |
+| 工程化 | GitHub Actions（双 job）· ruff · drf-spectacular · Playwright · `scripts/package.py` |
+
+---
 
 ## 目录结构
 
 ```text
 mini-plane/
-├── backend/                          # Django + DRF + Channels + Celery（MVP 完成）
-│   └── config/settings/desktop.py    # 桌面版配置（内嵌 SQLite、免装 PostgreSQL）
-├── frontend/                         # Next.js 16（MVP 完成，界面中文）
-│   ├── app/ components/ features/ lib/ stores/ types/
-│   ├── tests/unit/                   # 单元测试 98（node --test 零依赖）
-│   ├── tests/e2e/                    # Playwright 浏览器端到端 18 用例
-│   ├── docs/devlog/                  # 每个 Sprint 一份 + 集成验收报告
-│   └── docs/assets/                  # 真实截图 + 设计稿
-├── desktop/                          # 桌面单机 App（pywebview 原生窗口）
-│   ├── launcher.py                   # 编排器：起后端+前端→开原生窗口→关窗停服
-│   ├── build.py                      # PyInstaller 打包 MiniPlane.exe
-│   ├── make_shortcut.ps1             # 生成桌面快捷方式
-│   └── MiniPlane.cmd                 # 双击入口
-├── scripts/
-│   ├── dev.cmd / dev.ps1             # 一键开发启动器（up/down/status/e2e）
-│   └── package.py                    # 构建前端单机产物（桌面 App 加载它）
-├── runtime/                          # 桌面版运行时数据：SQLite/密钥/会话/日志（gitignore）
-├── dist/                             # 打包产物（gitignore）
+├── backend/
+│   ├── apps/            users / workspaces / projects(+plan,stage) / issues / activity
+│   │                    worklogs / agents(token,idempotency,session) / realtime / jobs
+│   ├── config/          settings(local/test/prod/desktop/container) · asgi · urls
+│   ├── requirements/    base / local / test / prod / desktop
+│   └── scripts/         smoke_backend.py（54 步）· smoke_realtime.py（25 步）
+├── frontend/
+│   ├── app/ components/ features/ stores/ lib/ types/
+│   ├── features/engineering-island/      ← Island 纯逻辑（可单测）
+│   ├── tests/unit/（111）  tests/e2e/（26）
+│   ├── DESIGN.md · SCREEN_BLUEPRINTS.md · FRONTEND_ROADMAP.md
+│   └── docs/devlog/                     各 Sprint 日志
+├── desktop/              launcher.py · build.py · make_shortcut.ps1
+├── scripts/              dev.cmd / dev.ps1（一键起停）· package.py（组装单机包）
 ├── docs/
-│   ├── 使用指南.md                    # ★ 怎么用（分角色：只用/换机安装/开发）
-│   ├── API.md · api/                 # 接口契约 00–09（前后端唯一事实源）
-│   ├── devlog/ · 架构分析/ · 调研/    # 开发日志 / 架构审计 / 产品机会调研
-│   └── 测试报告/                      # P3C 代码质量报告
-├── docker-compose.yml                # db / redis / web / asgi / worker / frontend
-├── ARCHITECTURE.md · BACKEND_PLAN.md
+│   ├── PRODUCT_REFACTOR_PLAN.md   ★ 产品唯一事实源
+│   ├── HANDOVER.md                交接文档
+│   ├── 使用指南.md                 分角色使用说明
+│   ├── api/                       契约 00–09 + openapi.yaml 快照
+│   └── devlog/                    后端各 Sprint 日志
+├── runtime/                       本机运行态（不进仓库）
+└── dist/                          打包产物（不进仓库）
 ```
+
+---
 
 ## 文档导航
 
 | 你想知道 | 看这里 |
 |---------|--------|
-| **这个应用怎么用（最常用）** | [docs/使用指南.md](docs/使用指南.md) |
-| **下一阶段产品重构总计划（Sprint 09–17）** | [docs/PRODUCT_REFACTOR_PLAN.md](docs/PRODUCT_REFACTOR_PLAN.md) |
-| 使用中的已知边界与二期计划 | [docs/releases/v0.2.0.md](docs/releases/v0.2.0.md) |
-| 后端 / 前端执行计划 | [BACKEND_PLAN.md](BACKEND_PLAN.md) · [frontend/FRONTEND_ROADMAP.md](frontend/FRONTEND_ROADMAP.md) |
-| 设计系统 / 屏幕蓝图 / 设计决策 | [frontend/DESIGN.md](frontend/DESIGN.md) 等（见上方目录结构） |
-| 架构总览（请求 / 推送 / 任务三条链路 + 前端链路） | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| 接口契约（前后端唯一事实源） | [docs/API.md](docs/API.md) 与 [docs/api/](docs/api/) |
-| 前端接入手册（CSRF 自愈 / 错误分流 / WS 重连 / 常见坑） | [docs/api/09-frontend-integration.md](docs/api/09-frontend-integration.md) |
-| 开发日志 | [docs/devlog/](docs/devlog/) · [frontend/docs/devlog/](frontend/docs/devlog/) |
-| 集成验收报告（端到端实测 + 安全审计） | [frontend/docs/devlog/integration-verification.md](frontend/docs/devlog/integration-verification.md) |
+| **产品到底要做什么**（唯一事实源） | [`docs/PRODUCT_REFACTOR_PLAN.md`](docs/PRODUCT_REFACTOR_PLAN.md) |
+| **接手本项目 / 当前进度 / 踩坑** | [`docs/HANDOVER.md`](docs/HANDOVER.md) |
+| 分角色使用说明 | [`docs/使用指南.md`](docs/使用指南.md) |
+| 后端 / 前端执行计划 | [`BACKEND_PLAN.md`](BACKEND_PLAN.md) · [`frontend/FRONTEND_ROADMAP.md`](frontend/FRONTEND_ROADMAP.md) |
+| 接口契约（前后端唯一事实源） | [`docs/API.md`](docs/API.md) 与 [`docs/api/`](docs/api/) |
+| 前端接入手册（CSRF 自愈 / WS 重连 / 常见坑） | [`docs/api/09-frontend-integration.md`](docs/api/09-frontend-integration.md) |
+| 各 Sprint 开发日志 | [`docs/devlog/`](docs/devlog/) · [`frontend/docs/devlog/`](frontend/docs/devlog/) |
+
+---
+
+## 路线图
+
+```text
+v0.3.0 Personal Engineering Foundation   ✅ Sprint 09
+v0.4.0 Project Plan & Stage              ✅ Sprint 10
+v0.5.0 Engineering Worklog               ✅ Sprint 11
+v0.6.0 Agent Local API                   ✅ Sprint 12
+v0.7.0 Agent Session & Realtime Sync     ✅ Sprint 13
+v0.8.0 Engineering Island MVP            ✅ Sprint 14（本轮）
+v0.9.0 Engineering Island Desktop        ⏳ Sprint 15：Island 变独立桌面窗口（置顶/拖拽/隐藏 + WS 同步）
+      Island Polish                       ⏳ Sprint 16：Paper Sheet / Blueprint Grid / 克制动效
+v1.0.0 Personal Engineering Platform     ⏳ Sprint 17：个人 ⇄ 团队模式可切换
+```
+
+**非目标**（防止再次失控）：不删工作区 · 不重写任务系统 · 不重写实时层 · 不立即做 MCP ·
+不做复杂 AI 自动规划 · 不做多人实时编辑。
+
+---
 
 ## 协作约定
 
-- 分支：`feat/backend-<模块>-<简述>` / `feat/frontend-<模块>-<简述>`，不直接推 main
-- Commit：`<type>(backend|frontend): <简述>`
-- PR 按模板（What / Why / How / Testing / Breaking Changes）
-- main 受 branch protection：CI 全绿 + 双向 Review 通过才可合并
-- API 先冻结契约（[docs/api/](docs/api/)）再开发；改接口必须重生成 `openapi.yaml`（CI 校验一致性）
-- 每个 Sprint 收尾写 devlog，记录做了什么 / 怎么做的 / 踩坑 / 下一步
-- AI 是工具不是作者：每个 Sprint 的 DoD 里有「能脱离 AI 讲清楚每段代码为什么存在」
+- 分支 `feat/<模块>-<简述>`，不直接推 main；提交 `<type>(<域>): <简述>`
+- **接口先冻结契约再开发**；改接口必须重生成 `docs/api/openapi.yaml`（CI 校验一致性）
+- 每个 Sprint 收尾写 devlog：做了什么 / 怎么做 / 踩了什么坑 / 下一步
+- 每个阶段推送后**核对远端 CI**，爆红自行修完再推，不留红灯
+- 全局代码与安全检查：动了哪一边就跑哪一边的门禁（后端有 ruff 五道，前端有四绿）
+- **AI 是工具不是作者**：任何一段代码都应能讲清「为什么这样写、不那样写」
