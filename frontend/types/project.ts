@@ -34,6 +34,8 @@ export interface ProjectEngineering {
   next_task: string | null;
   /** 今日工程日志条数（Sprint 11）。 */
   today_logs: number;
+  /** 是否有运行中的 Agent 会话（Sprint 13）。 */
+  agent_running: boolean;
   last_activity: string | null;
 }
 

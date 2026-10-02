@@ -5,8 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth";
 import { useWsStore } from "@/stores/ws";
+import { useAgentSessionStore } from "@/stores/agentSession";
 import { issueKeys } from "@/features/issue/hooks";
 import { activityKeys } from "@/features/activity/hooks";
+import { projectKeys } from "@/features/project/hooks";
 import { ProjectSocket } from "./ws";
 import { planRealtimeEffect } from "./policy";
 
@@ -154,6 +156,19 @@ function applyEffect(event: string, payload: unknown, ctx: RealtimeContext): voi
         });
       }
       void qc.invalidateQueries({ queryKey: activityKeys.project(slug, projectId) });
+      return;
+    }
+
+    case "agent-session": {
+      // Sprint 13：直接写本地 store（桌面实时投影 AGENT · RUNNING），并刷新首页聚合
+      useAgentSessionStore.getState().set(projectId, {
+        sessionId: effect.sessionId ?? "",
+        title: effect.title,
+        status: effect.status,
+        elapsedSeconds: effect.elapsedSeconds,
+        agent: effect.agent,
+      });
+      void qc.invalidateQueries({ queryKey: projectKeys.mine() });
       return;
     }
   }

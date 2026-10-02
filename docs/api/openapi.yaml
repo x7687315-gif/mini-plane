@@ -71,6 +71,95 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectPlan'
           description: ''
+  /api/v1/agent/projects/{workspace_slug}/{project_id}/sessions/:
+    get:
+      operationId: v1_agent_projects_sessions_list
+      summary: agent.sessions：项目会话列表（?active=1 只看运行中）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentSession'
+          description: ''
+  /api/v1/agent/sessions/:
+    post:
+      operationId: v1_agent_sessions_create
+      summary: session.start：开始一次 Agent 运行（广播 agent.session）
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentSessionStart'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentSessionStart'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentSessionStart'
+        required: true
+      security:
+      - agentTokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSession'
+          description: ''
+  /api/v1/agent/sessions/{session_id}/end/:
+    post:
+      operationId: v1_agent_sessions_end_create
+      summary: session.end：结束会话（done/failed/stopped，广播 agent.session）
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentSessionEnd'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentSessionEnd'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentSessionEnd'
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSession'
+          description: ''
   /api/v1/agent/tasks/:
     post:
       operationId: v1_agent_tasks_create
@@ -2180,6 +2269,117 @@ components:
       required:
       - plan
       - project
+    AgentSession:
+      type: object
+      description: Agent 会话只读响应体（Sprint 13）。
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+          title: 项目
+        task:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        title:
+          type: string
+          readOnly: true
+          title: 会话标题
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AgentSessionStatusEnum'
+          readOnly: true
+          title: 状态
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 开始时间
+        ended_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: 结束时间
+        elapsed_seconds:
+          type: integer
+          readOnly: true
+        agent:
+          type: string
+          readOnly: true
+          default: agent
+        note:
+          type: string
+          readOnly: true
+          title: 备注
+      required:
+      - agent
+      - elapsed_seconds
+      - ended_at
+      - id
+      - note
+      - project
+      - started_at
+      - status
+      - task
+      - title
+    AgentSessionEnd:
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AgentSessionEndStatusEnum'
+          default: done
+        note:
+          type: string
+    AgentSessionEndStatusEnum:
+      enum:
+      - done
+      - failed
+      - stopped
+      type: string
+      description: |-
+        * `done` - done
+        * `failed` - failed
+        * `stopped` - stopped
+    AgentSessionStart:
+      type: object
+      properties:
+        workspace_slug:
+          type: string
+          pattern: ^[-a-zA-Z0-9_]+$
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 120
+        task_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - project_id
+      - title
+      - workspace_slug
+    AgentSessionStatusEnum:
+      enum:
+      - running
+      - done
+      - failed
+      - stopped
+      type: string
+      description: |-
+        * `running` - 运行中
+        * `done` - 完成
+        * `failed` - 失败
+        * `stopped` - 人工停止
     AgentTaskCreate:
       type: object
       description: Agent 建任务：以"工程动作"为中心，只暴露必要字段。
@@ -2945,11 +3145,15 @@ components:
         today_logs:
           type: integer
           description: 今日工程日志条数（Sprint 11）
+        agent_running:
+          type: boolean
+          description: 是否有运行中的 Agent 会话（Sprint 13）
         last_activity:
           type: string
           format: date-time
           nullable: true
       required:
+      - agent_running
       - current_stage
       - done_tasks
       - id
@@ -3221,18 +3425,6 @@ components:
       - id
       - name
       - sort_order
-    StatusEnum:
-      enum:
-      - pending
-      - running
-      - success
-      - failure
-      type: string
-      description: |-
-        * `pending` - 排队中
-        * `running` - 执行中
-        * `success` - 已完成
-        * `failure` - 失败
     TaskRun:
       type: object
       properties:
@@ -3247,7 +3439,7 @@ components:
           title: 任务类型
         status:
           allOf:
-          - $ref: '#/components/schemas/StatusEnum'
+          - $ref: '#/components/schemas/TaskRunStatusEnum'
           readOnly: true
           title: 状态
         params:
@@ -3283,6 +3475,18 @@ components:
       - result
       - status
       - updated_at
+    TaskRunStatusEnum:
+      enum:
+      - pending
+      - running
+      - success
+      - failure
+      type: string
+      description: |-
+        * `pending` - 排队中
+        * `running` - 执行中
+        * `success` - 已完成
+        * `failure` - 失败
     User:
       type: object
       description: |-

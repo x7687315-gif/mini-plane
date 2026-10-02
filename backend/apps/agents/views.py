@@ -21,11 +21,21 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.agents import services as agent_services
 from apps.agents.authentication import AgentTokenAuthentication
-from apps.agents.models import AgentScopes, AgentToken, IdempotencyRecord
+from apps.agents.models import (
+    AgentScopes,
+    AgentSession,
+    AgentSessionStatus,
+    AgentToken,
+    IdempotencyRecord,
+)
 from apps.agents.serializers import (
     AgentProgressSerializer,
     AgentProjectSnapshotSerializer,
+    AgentSessionEndSerializer,
+    AgentSessionSerializer,
+    AgentSessionStartSerializer,
     AgentTaskCreateSerializer,
     AgentTokenCreatedSerializer,
     AgentTokenCreateSerializer,
@@ -278,3 +288,73 @@ def agent_progress_update(request, workspace_slug: str, project_id):
     plan = get_or_create_plan(project)
     resp = Response(ProjectPlanSerializer(plan).data)
     return _remember(request, "progress.update", resp)
+
+
+# ── Sprint 13：Agent Session（开始/结束 + WebSocket 实时）──────────────
+
+
+@extend_schema(
+    summary="agent.sessions：项目会话列表（?active=1 只看运行中）",
+    responses={200: AgentSessionSerializer(many=True)},
+)
+@api_view(["GET"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_session_list(request, workspace_slug: str, project_id):
+    require_scope(request, AgentScopes.READ_PROJECT)
+    project, _ = resolve_project(request.user, workspace_slug, project_id)
+    qs = project.agent_sessions.select_related("token")
+    if request.query_params.get("active") == "1":
+        qs = qs.filter(status=AgentSessionStatus.RUNNING)
+    return Response(AgentSessionSerializer(qs[:50], many=True).data)
+
+
+@extend_schema(
+    summary="session.start：开始一次 Agent 运行（广播 agent.session）",
+    request=AgentSessionStartSerializer,
+    responses={201: AgentSessionSerializer},
+)
+@api_view(["POST"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_session_start(request):
+    require_scope(request, AgentScopes.WRITE_TASK)
+    cached = _replay(request, "session.start")
+    if cached is not None:
+        return cached
+
+    serializer = AgentSessionStartSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    v = serializer.validated_data
+    project, _ = resolve_project(request.user, v["workspace_slug"], v["project_id"])
+    task = None
+    if v.get("task_id"):
+        task = get_object_or_404(Issue, id=v["task_id"], project=project)
+
+    session = agent_services.start_session(
+        project=project, token=request.auth, title=v["title"], task=task
+    )
+    resp = Response(AgentSessionSerializer(session).data, status=status.HTTP_201_CREATED)
+    return _remember(request, "session.start", resp)
+
+
+@extend_schema(
+    summary="session.end：结束会话（done/failed/stopped，广播 agent.session）",
+    request=AgentSessionEndSerializer,
+    responses={200: AgentSessionSerializer},
+)
+@api_view(["POST"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_session_end(request, session_id):
+    require_scope(request, AgentScopes.WRITE_TASK)
+    session = get_object_or_404(
+        AgentSession, id=session_id, project_id__in=accessible_project_ids(request.user)
+    )
+    serializer = AgentSessionEndSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    v = serializer.validated_data
+    session = agent_services.end_session(
+        session, status=v.get("status", AgentSessionStatus.DONE), note=v.get("note", "")
+    )
+    return Response(AgentSessionSerializer(session).data)

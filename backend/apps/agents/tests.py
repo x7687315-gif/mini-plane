@@ -113,3 +113,67 @@ class AgentApiTests(APITestCase):
         # Agent Token 不能用来创建/列出 Token（管理走用户会话）→ 未认证被拒
         r = self.agent.get("/api/v1/agent/tokens/")
         self.assertIn(r.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+
+class AgentSessionTests(APITestCase):
+    """Sprint 13：Agent Session 生命周期 + 首页 agent_running。"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", email="o@t.cn", password=PASSWORD)
+        self.ws = ws_services.create_workspace(self.user, "W", "ww")
+        self.proj = project_services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.token, self.raw = AgentToken.mint(self.user, name="ci-agent")
+        self.agent = APITestCase.client_class()
+        self.agent.credentials(HTTP_AUTHORIZATION=f"Bearer {self.raw}")
+        self.start_url = "/api/v1/agent/sessions/"
+        self.list_url = f"/api/v1/agent/projects/{self.ws.slug}/{self.proj.id}/sessions/"
+
+    def test_session_lifecycle_and_mine_agent_running(self):
+        self.client.force_authenticate(self.user)
+        self.assertEqual(
+            self.client.get("/api/v1/projects/mine/").json()[0]["agent_running"], False
+        )
+
+        r = self.agent.post(
+            self.start_url,
+            {"workspace_slug": self.ws.slug, "project_id": str(self.proj.id), "title": "跑 TTS"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        sid = r.json()["id"]
+        self.assertEqual(r.json()["status"], "running")
+
+        # 首页应显示 agent 运行中
+        self.assertEqual(self.client.get("/api/v1/projects/mine/").json()[0]["agent_running"], True)
+
+        # 列表 active=1 能查到
+        active = self.agent.get(self.list_url, {"active": "1"}).json()
+        self.assertEqual(len(active), 1)
+
+        e = self.agent.post(f"/api/v1/agent/sessions/{sid}/end/", {"status": "done"}, format="json")
+        self.assertEqual(e.status_code, status.HTTP_200_OK)
+        self.assertEqual(e.json()["status"], "done")
+        self.assertIsNotNone(e.json()["ended_at"])
+
+        # 结束后首页不再显示运行中
+        self.assertEqual(
+            self.client.get("/api/v1/projects/mine/").json()[0]["agent_running"], False
+        )
+
+    def test_end_session_of_other_project_404(self):
+        other = project_services.create_project(self.ws, self.user, name="O", identifier="OO")
+        # 在 other 项目起一个会话，再用 P 的 accessible 集合去 end（同用户其实都可见）→
+        # 改用一个完全无关用户验证 404
+        stranger = User.objects.create_user(username="s", email="s@t.cn", password=PASSWORD)
+        r0 = self.agent.post(
+            self.start_url,
+            {"workspace_slug": self.ws.slug, "project_id": str(other.id), "title": "x"},
+            format="json",
+        )
+        sid = r0.json()["id"]
+        stoken, sraw = AgentToken.mint(stranger, name="s-agent")
+        client = APITestCase.client_class()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {sraw}")
+        r = client.post(f"/api/v1/agent/sessions/{sid}/end/", {}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIsNotNone(stoken)

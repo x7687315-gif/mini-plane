@@ -240,4 +240,20 @@ describe("planRealtimeEffect", () => {
     assert.equal(e.kind, "none");
     assert.equal(e.kind === "none" && e.reason, "malformed");
   });
+
+  test("agent.session（Sprint 13）→ agent-session 效果，字段齐全", () => {
+    const e = planRealtimeEffect("agent.session", {
+      session_id: "s-1",
+      title: "跑 TTS",
+      status: "running",
+      elapsed_seconds: 42,
+      agent: "本地编码 Agent",
+    });
+    assert.equal(e.kind, "agent-session");
+    if (e.kind !== "agent-session") return;
+    assert.equal(e.sessionId, "s-1");
+    assert.equal(e.status, "running");
+    assert.equal(e.elapsedSeconds, 42);
+    assert.equal(e.agent, "本地编码 Agent");
+  });
 });

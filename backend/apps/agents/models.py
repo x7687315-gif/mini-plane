@@ -105,3 +105,65 @@ class IdempotencyRecord(BaseModel):
 
     def __str__(self):
         return f"{self.action}:{self.key}"
+
+
+class AgentSessionStatus(models.TextChoices):
+    RUNNING = "running", "运行中"
+    DONE = "done", "完成"
+    FAILED = "failed", "失败"
+    STOPPED = "stopped", "人工停止"
+
+
+class AgentSession(BaseModel):
+    """一次 Agent 运行会话（Sprint 13，§13/§16）。
+
+    开始/结束都会通过现有 WebSocket 广播 `agent.session` 事件，
+    让桌面端实时看到「AGENT · RUNNING」（§14：Agent 改工程状态 → 桌面实时看到）。
+    """
+
+    project = models.ForeignKey(
+        "projects.Project",
+        verbose_name="项目",
+        on_delete=models.CASCADE,
+        related_name="agent_sessions",
+    )
+    token = models.ForeignKey(
+        AgentToken,
+        verbose_name="发起令牌",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sessions",
+    )
+    task = models.ForeignKey(
+        "issues.Issue",
+        verbose_name="关联任务",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_sessions",
+    )
+    title = models.CharField("会话标题", max_length=120)
+    status = models.CharField(
+        "状态",
+        max_length=12,
+        choices=AgentSessionStatus.choices,
+        default=AgentSessionStatus.RUNNING,
+    )
+    started_at = models.DateTimeField("开始时间", auto_now_add=True)
+    ended_at = models.DateTimeField("结束时间", null=True, blank=True)
+    note = models.TextField("备注", blank=True, default="")
+
+    class Meta:
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["project", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.project.identifier} · {self.title} [{self.status}]"
+
+    @property
+    def elapsed_seconds(self) -> int:
+        end = self.ended_at or timezone.now()
+        return int((end - self.started_at).total_seconds())

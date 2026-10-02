@@ -133,7 +133,15 @@ export function buildProjectSocketUrl(
 export type RealtimeEffect =
   | { kind: "none"; reason: "unknown-event" | "malformed" }
   | { kind: "issue-updated"; issueId: string | null; sequenceId: number | null }
-  | { kind: "comment-created"; issueId: string | null; ownComment: boolean };
+  | { kind: "comment-created"; issueId: string | null; ownComment: boolean }
+  | {
+      kind: "agent-session";
+      sessionId: string | null;
+      title: string;
+      status: string;
+      elapsedSeconds: number;
+      agent: string;
+    };
 
 function asRecord(payload: unknown): Record<string, unknown> | null {
   return typeof payload === "object" && payload !== null
@@ -177,6 +185,18 @@ export function planRealtimeEffect(
       kind: "comment-created",
       issueId,
       ownComment: Boolean(currentUserId && authorId === currentUserId),
+    };
+  }
+
+  // Sprint 13：Agent 会话状态 → 直接驱动本地 store（桌面实时看到 AGENT · RUNNING）
+  if (event === "agent.session") {
+    return {
+      kind: "agent-session",
+      sessionId: str(p.session_id),
+      title: str(p.title) ?? "",
+      status: str(p.status) ?? "",
+      elapsedSeconds: typeof p.elapsed_seconds === "number" ? p.elapsed_seconds : 0,
+      agent: str(p.agent) ?? "agent",
     };
   }
 

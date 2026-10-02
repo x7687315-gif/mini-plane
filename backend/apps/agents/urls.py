@@ -26,4 +26,12 @@ urlpatterns = [
     path("tasks/<uuid:issue_id>/start/", views.agent_task_start, name="agent-task-start"),
     path("tasks/<uuid:issue_id>/complete/", views.agent_task_complete, name="agent-task-complete"),
     path("worklogs/", views.agent_worklog_create, name="agent-worklog-create"),
+    # Sprint 13：Agent Session
+    path(
+        "projects/<slug:workspace_slug>/<uuid:project_id>/sessions/",
+        views.agent_session_list,
+        name="agent-session-list",
+    ),
+    path("sessions/", views.agent_session_start, name="agent-session-start"),
+    path("sessions/<uuid:session_id>/end/", views.agent_session_end, name="agent-session-end"),
 ]

@@ -2,7 +2,13 @@
 
 from rest_framework import serializers
 
-from apps.agents.models import DEFAULT_AGENT_SCOPES, AgentScopes, AgentToken
+from apps.agents.models import (
+    DEFAULT_AGENT_SCOPES,
+    AgentScopes,
+    AgentSession,
+    AgentSessionStatus,
+    AgentToken,
+)
 from apps.projects.serializers import ProjectPlanSerializer, ProjectSerializer
 
 
@@ -79,3 +85,47 @@ class AgentProgressSerializer(serializers.Serializer):
         if "progress" not in attrs and not attrs.get("set_current"):
             raise serializers.ValidationError("progress 与 set_current 至少给一个。")
         return attrs
+
+
+class AgentSessionSerializer(serializers.ModelSerializer):
+    """Agent 会话只读响应体（Sprint 13）。"""
+
+    agent = serializers.CharField(source="token.name", read_only=True, default="agent")
+    elapsed_seconds = serializers.IntegerField(read_only=True)
+    task = serializers.UUIDField(source="task_id", read_only=True, allow_null=True)
+
+    class Meta:
+        model = AgentSession
+        fields = [
+            "id",
+            "project",
+            "task",
+            "title",
+            "status",
+            "started_at",
+            "ended_at",
+            "elapsed_seconds",
+            "agent",
+            "note",
+        ]
+        read_only_fields = fields
+
+
+class AgentSessionStartSerializer(serializers.Serializer):
+    workspace_slug = serializers.SlugField()
+    project_id = serializers.UUIDField()
+    title = serializers.CharField(max_length=120)
+    task_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class AgentSessionEndSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        choices=[
+            AgentSessionStatus.DONE,
+            AgentSessionStatus.FAILED,
+            AgentSessionStatus.STOPPED,
+        ],
+        required=False,
+        default=AgentSessionStatus.DONE,
+    )
+    note = serializers.CharField(required=False, allow_blank=True)

@@ -15,6 +15,7 @@ import { useIssueFilters, useIssues, useLabels } from "@/features/issue";
 import { useProject, useProjectMembers, useProjectStates } from "@/features/project";
 import { useProjectRealtime } from "@/features/realtime";
 import { useWorkspace } from "@/features/workspace";
+import { useAgentSessionStore } from "@/stores/agentSession";
 import { useChrome } from "@/stores/chrome";
 import { ApiError } from "@/lib/api";
 import { hasActiveFilters } from "@/lib/url";
@@ -140,6 +141,8 @@ function ProjectIssues() {
   const role = project.data?.current_user_role;
   const identifier = project.data?.identifier ?? "ISS";
   const canCreate = canWrite(role);
+  // Sprint 13：WebSocket 实时投影的当前 Agent 会话
+  const liveAgent = useAgentSessionStore((s) => s.byProject[projectId]);
 
   /**
    * A 400 here means the URL carried a value the backend rejects (illegal
@@ -225,6 +228,22 @@ function ProjectIssues() {
         left={`PROJ · ${identifier}`}
         right={`${total} ITEMS · PAGE ${page}/${totalPages}`}
       />
+
+      {/* Sprint 13：Agent 正在运行的实时投影（WebSocket agent.session 驱动） */}
+      {liveAgent && liveAgent.status === "running" && (
+        <div className="mt-3 flex items-center gap-3 border border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] px-3 py-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--color-accent)] animate-pulse" aria-hidden />
+          <span className="text-[10px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-accent)]">
+            Agent · Running
+          </span>
+          <span className="text-[12px] text-[color:var(--color-ink)] truncate min-w-0 flex-1">
+            {liveAgent.title}
+          </span>
+          <span className="font-mono text-[10px] text-[color:var(--color-ink-2)] flex-shrink-0">
+            {liveAgent.agent} · {liveAgent.elapsedSeconds}s
+          </span>
+        </div>
+      )}
 
       {/* Sprint 10：Global Plan / Stage（工程路线 + 加权进度 + 当前/下一阶段） */}
       {!project.isError && (

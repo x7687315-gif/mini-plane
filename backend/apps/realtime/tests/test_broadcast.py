@@ -38,9 +38,13 @@ class BroadcastTests(RealtimeTestCase):
     def setUp(self):
         self.build_scenario(slug="bcast-ws", identifier="BC")
 
-    def test_only_two_events_are_defined(self):
-        """契约 08 的权威清单：刻意收窄到两个事件（不做全站广播）。"""
-        self.assertEqual(KNOWN_EVENTS, ("issue.updated", "comment.created"))
+    def test_known_events_are_the_contract_list(self):
+        """契约 08 的权威清单：刻意收窄（不做全站广播）。
+
+        Sprint 13 起加入第三个事件 `agent.session`（Agent 会话状态 → 桌面实时投影），
+        仍属"工程状态变化"而非全站广播，符合收窄初衷。
+        """
+        self.assertEqual(KNOWN_EVENTS, ("issue.updated", "comment.created", "agent.session"))
 
     def test_group_name_format(self):
         """Channels 组名不允许冒号（实测 TypeError），所以用点号分隔。"""

@@ -155,6 +155,9 @@ function EngineeringCard({ project: p }: { project: ProjectEngineering }) {
         <div className="mt-4 pt-3 border-t border-dashed border-[color:var(--color-rule)] flex items-center justify-between text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-3)]">
           <span>
             {p.open_tasks} open · {p.done_tasks} done
+            {p.agent_running && (
+              <span className="ml-2 text-[color:var(--color-accent)]">· Agent · Running</span>
+            )}
           </span>
           <span className="text-[color:var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
             <ArrowRightIcon size={14} />

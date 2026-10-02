@@ -1,5 +1,7 @@
 """Comment API 行为与权限测试（契约 docs/api/05-comments.md）。"""
 
+from datetime import timedelta
+
 from apps.issues import services
 from apps.issues.models import Comment
 from apps.issues.tests.base import IssueAPITestCase
@@ -61,6 +63,11 @@ class CommentCRUDTests(IssueAPITestCase):
         """评论区是对话：最老的在前（与 Issue 列表的倒序相反）。"""
         first = services.create_comment(self.issue, self.project_member, content="第一条")
         second = services.create_comment(self.issue, self.owner, content="第二条")
+        # Windows 墙钟粒度约 15ms：连续创建可能拿到相同 created_at，排序 tie 会按随机
+        # UUID 打破 → 断言偶发失败。显式拉开时间戳保证确定性。
+        Comment.objects.filter(pk=second.pk).update(
+            created_at=first.created_at + timedelta(seconds=1)
+        )
 
         self.auth(self.ws_viewer)
         body = self.client.get(self.comments_url(self.issue)).json()

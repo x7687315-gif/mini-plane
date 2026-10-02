@@ -43,7 +43,7 @@
 
 `role` 是当前用户在该项目的生效角色（20/15/5），可用于隐藏无权限的操作入口。
 
-## 二、服务端推送的事件（本期只有两个）
+## 二、服务端推送的事件（当前三个：issue.updated / comment.created / agent.session）
 
 每一帧都是：`{ "event": "<事件名>", "payload": { ... } }`
 
@@ -83,7 +83,28 @@
 }
 ```
 
-### 2.3 明确不做（二期）
+### 2.3 `agent.session`（Sprint 13 新增）
+
+Agent 会话状态变化（开始 / 结束），payload 带足渲染信息，前端无需回查：
+
+```json
+{
+  "event": "agent.session",
+  "payload": {
+    "session_id": "uuid",
+    "title": "跑 TTS 长文本实验",
+    "status": "running | done | failed | stopped",
+    "started_at": "ISO8601",
+    "ended_at": "ISO8601 | null",
+    "elapsed_seconds": 134,
+    "agent": "本地编码 Agent"
+  }
+}
+```
+
+用途：桌面端 / 项目页实时显示「AGENT · RUNNING」（§14：Agent 改工程状态 → 你的桌面实时看到）。
+
+### 2.4 明确不做（二期）
 
 | 不做 | 原因 |
 |------|------|

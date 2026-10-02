@@ -8,6 +8,7 @@ from django.db.models import (
     CharField,
     Count,
     DateTimeField,
+    Exists,
     F,
     IntegerField,
     OuterRef,
@@ -25,6 +26,7 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.agents.models import AgentSession, AgentSessionStatus
 from apps.issues.models import Issue, StateGroups
 from apps.projects import cache as project_cache
 from apps.projects import services
@@ -291,6 +293,12 @@ def my_projects_summary(request):
                 ),
                 0,
                 output_field=IntegerField(),
+            ),
+            # Sprint 13：是否有运行中的 Agent 会话（首页 "AGENT · RUNNING" 角标）
+            agent_running=Exists(
+                AgentSession.objects.filter(
+                    project=OuterRef("pk"), status=AgentSessionStatus.RUNNING
+                )
             ),
         )
         # Plan/Stages 用 prefetch 一次取回（2 条额外查询），供 progress/current_stage 优先读 Plan

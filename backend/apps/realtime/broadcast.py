@@ -24,9 +24,10 @@ GROUP_PREFIX = "project"
 
 EVENT_ISSUE_UPDATED = "issue.updated"
 EVENT_COMMENT_CREATED = "comment.created"
+EVENT_AGENT_SESSION = "agent.session"
 
 #: 客户端能收到的事件集合（契约 08 的权威清单）
-KNOWN_EVENTS = (EVENT_ISSUE_UPDATED, EVENT_COMMENT_CREATED)
+KNOWN_EVENTS = (EVENT_ISSUE_UPDATED, EVENT_COMMENT_CREATED, EVENT_AGENT_SESSION)
 
 
 def project_group(project_id) -> str:
@@ -80,5 +81,25 @@ def defer_comment_created(*, project_id, issue, comment, author) -> None:
             "comment_id": str(comment.id),
             "author": {"id": str(author.id), "username": author.username},
             "content": comment.content,
+        },
+    )
+
+
+def defer_agent_session(*, project_id, session) -> None:
+    """Agent 会话状态变化（Sprint 13）：让桌面端实时看到 AGENT · RUNNING/DONE/…。
+
+    payload 带足渲染信息（标题/状态/耗时/发起令牌名），前端无需回查。
+    """
+    defer(
+        project_id,
+        EVENT_AGENT_SESSION,
+        {
+            "session_id": str(session.id),
+            "title": session.title,
+            "status": session.status,
+            "started_at": session.started_at,
+            "ended_at": session.ended_at,
+            "elapsed_seconds": session.elapsed_seconds,
+            "agent": session.token.name if session.token else "agent",
         },
     )

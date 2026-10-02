@@ -197,7 +197,7 @@ cd frontend && pnpm test:e2e
 | 后端 MVP（Auth / 工作区 / 项目 / Issue / 评论 / 动态 / 缓存 / 异步 / 实时） | ✅ [Sprint 0–8](docs/devlog/) |
 | 后端 CI + Docker + Release v0.1.0 | ✅ |
 | 前端设计系统 + Sprint 0–8（Auth / 工作区 / 项目 / 任务 / 评论 / 动态 / 筛选 / 批量 / 实时 / 工程化） | ✅ [devlog](frontend/docs/devlog/) |
-| 前端单元测试 98 + 浏览器 E2E 23 + 后端测试 332 | ✅ |
+| 前端单元测试 99 + 浏览器 E2E 23 + 后端测试 334 | ✅ |
 | 界面全面中文化 + 思源字体匹配 | ✅ |
 | **桌面单机 App**（pywebview 原生窗口 + 内嵌 SQLite + 快捷方式 + exe + 会话持久化） | ✅ |
 | 登录改造（昵称优先 / 免密 / 可选绑定）+ 特色 A 命令面板 / B 我的工作 / H 暗色与显示大小 | ✅ |
@@ -205,7 +205,8 @@ cd frontend && pnpm test:e2e
 | **Sprint 10 Global Plan / Stage**（`ProjectPlan`+`ProjectStage`，加权进度 Σw×p/Σw，当前/下一阶段；项目页 PlanPanel） | ✅ [devlog](docs/devlog/sprint-10-project-plan.md) |
 | **Sprint 11 Worklog 工程日志**（`Worklog` 模型 + 项目页 Engineering Log + 首页 Today 维度；Task 是计划、Worklog 是证据） | ✅ [devlog](docs/devlog/sprint-11-worklog.md) |
 | **Sprint 12 Agent Local API**（Agent Token 白名单 + Idempotency-Key 幂等 + 工程动作端点；/me 可管理 Token） | ✅ [devlog](docs/devlog/sprint-12-agent-api.md) |
-| Sprint 13 Agent Session · 14–16 Island · 17 Team | ⏳ 按 [重构计划](docs/PRODUCT_REFACTOR_PLAN.md) |
+| **Sprint 13 Agent Session**（`AgentSession` 模型 + `agent.session` WebSocket 实时投影 + 项目页运行中横幅 / 首页角标） | ✅ [devlog](docs/devlog/sprint-13-agent-session.md) |
+| Sprint 14–16 Engineering Island · 17 Team | ⏳ 按 [重构计划](docs/PRODUCT_REFACTOR_PLAN.md) |
 | 组件测试（Vitest）/ Lighthouse 90 / 任务截止日期与逾期 / 数据导出备份 | ⏳ 后续 |
 
 每个 Sprint 的取舍、踩坑与验收清单见开发日志：后端 [docs/devlog/](docs/devlog/)、前端 [frontend/docs/devlog/](frontend/docs/devlog/)。
