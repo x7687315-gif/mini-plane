@@ -136,7 +136,11 @@ export function IslandAgentStatus({
     return (
       <div className="flex items-center gap-2 bp-uppercase text-[color:var(--color-ink-3)]">
         <span className="inline-block h-[5px] w-[5px] border border-[color:var(--color-ink-3)]" aria-hidden />
-        AGENT · IDLE
+        {/* 标签与状态拆成两个元素：既让读屏能分别听到「AGENT」和「IDLE」，
+            也让测试能用精确文本定位（"AGENT · IDLE" 这种整行文本无法 exact 匹配） */}
+        <span>AGENT</span>
+        <span aria-hidden>·</span>
+        <span>IDLE</span>
       </div>
     );
   }
@@ -150,7 +154,9 @@ export function IslandAgentStatus({
         className="inline-block h-[5px] w-[5px] bg-[color:var(--color-accent)] motion-safe:animate-pulse"
         aria-hidden
       />
-      AGENT · {status}
+      <span>AGENT</span>
+      <span aria-hidden>·</span>
+      <span>{status}</span>
       {title ? <span className="text-[color:var(--color-ink-2)] normal-case">{title}</span> : null}
       {live ? (
         <span className="font-mono text-[10px] tabular-nums text-[color:var(--color-ink-2)]">

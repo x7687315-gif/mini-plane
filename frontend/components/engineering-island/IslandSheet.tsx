@@ -37,7 +37,7 @@ export function IslandSheet({
   return (
     <article
       className="relative border border-[color:var(--color-rule)] bg-[color:var(--color-paper)] h-full"
-      aria-label={`${project.name} 工程图纸`}
+      aria-label={`${project.identifier} · ${project.name} 工程图纸`}
     >
       {/* 左上角 2px 竖条：全站"当前/激活"的统一视觉语言 */}
       <span
