@@ -7,7 +7,9 @@
    （Next standalone 的 node server）；
 3. 就绪后开一个 **pywebview 原生窗口**（Windows 上是 WebView2）载入界面，
    不再调用系统浏览器；
-4. 关窗即**干净停服**（kill 整棵子进程树），不残留端口占用。
+4. **额外登记一个 Island 独立窗口**（Sprint 15）：置顶、无边框可拖、顶部居中、
+   隐藏启动，用 `Alt+I` 或界面里的「独立窗口」按钮唤出；
+5. 关窗即**干净停服**（kill 整棵子进程树），不残留端口占用。
 
 同一份代码既能 `python desktop/launcher.py` 直接跑（开发），也能被 PyInstaller 冻结成
 `MiniPlane.exe`（打包）；路径按 `sys.frozen` 自动切换。
@@ -24,6 +26,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+# Sprint 15：Island 独立窗口的两个模块。放在同目录，PyInstaller 会按 import 自动跟进。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from island import create_island_window, island_enabled  # noqa: E402
+from window_manager import DesktopApi, WindowManager  # noqa: E402
 
 APP_TITLE = "Mini Plane  ·  本地单机版"
 HOST = "127.0.0.1"
@@ -384,6 +392,11 @@ def open_window(url: str) -> int:
             exc_text=traceback.format_exc(),
         )
     try:
+        # Sprint 15：窗口引用与 Island 可见状态统一由 WindowManager 持有，
+        # 前端通过 window.pywebview.api（DesktopApi）操作，避免"谁负责隐藏"出现分歧。
+        windows = WindowManager()
+        api = DesktopApi(windows)
+
         # pywebview 6.x：create_window 登记的窗口由 start() 统一驱动；start() 不接 window 参数
         webview.create_window(
             APP_TITLE,
@@ -392,7 +405,18 @@ def open_window(url: str) -> int:
             height=820,
             min_size=(900, 600),
             background_color="#F7FAFF",
+            js_api=api,
         )
+
+        # Island 独立窗口：置顶、无边框可拖、顶部居中、**隐藏启动**（Alt+I 唤出）
+        if island_enabled():
+            try:
+                windows.register_island(create_island_window(webview, FRONTEND_PORT, api))
+                _log("[island] 独立窗口已登记（隐藏启动，Alt+I 唤出）")
+            except Exception as exc:
+                # Island 开不出来是"降级"，不是"启动失败"：主窗口照常用
+                _log(f"[island] 独立窗口创建失败，本次不带它启动：{exc!r}")
+
         # private_mode 默认 True → 不保留 cookie/localStorage，导致每次启动都要重新登录。
         # 关掉私有模式 + 指定持久 storage_path（runtime/ 下），sessionid cookie 跨启动保留，
         # 重开应用即直入已登录态。Windows 走 EdgeChromium(WebView2)，无则自行回退。

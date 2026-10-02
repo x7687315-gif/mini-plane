@@ -74,6 +74,16 @@ jobs:
       - name: ruff format --check
         run: ruff format --check .
 
+      # desktop/（pywebview 启动器）此前不在任何门禁范围内——Sprint 15 才发现它能漂。
+      # 显式复用 backend 的配置（--config），否则 ruff 会退回默认规则，报出一堆假问题。
+      - name: ruff check（desktop/）
+        working-directory: .
+        run: ruff check --config backend/pyproject.toml desktop/
+
+      - name: ruff format --check（desktop/）
+        working-directory: .
+        run: ruff format --config backend/pyproject.toml --check desktop/
+
       # 模型改了却没生成迁移 → 在这里红，而不是等同学 pull 代码后本地炸
       - name: 迁移无漂移（makemigrations --check）
         run: python manage.py makemigrations --check --settings=config.settings.test

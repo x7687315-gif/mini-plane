@@ -81,3 +81,21 @@ test.describe("Engineering Island", () => {
     await expect(page.getByRole("article").first()).toBeVisible();
   });
 });
+
+test.describe("Island 独立窗口面板（Sprint 15）", () => {
+  test("面板不套 AppShell：没有侧栏/页脚，也不出现桌面专属控件", async ({ page }) => {
+    await page.goto("/island-panel");
+
+    // 图纸本身要正常渲染
+    await expect(page.getByRole("article").first()).toBeVisible({ timeout: 20_000 });
+
+    // 面板路由刻意不放进 (protected) 组：没有 AppShell 的侧栏与页栏
+    await expect(page.locator("footer")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Plane/ })).toHaveCount(0);
+
+    // 浏览器里没有 pywebview 桥 → 桌面专属的「独立窗口」按钮不该出现
+    await expect(page.getByRole("button", { name: /独立 Island 窗口/ })).toHaveCount(0);
+    // 面板里也不该有「收起为最小态」（隐藏整个窗口才是这里的对应动作）
+    await expect(page.getByRole("button", { name: "收起为最小态" })).toHaveCount(0);
+  });
+});
