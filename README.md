@@ -436,7 +436,9 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17
 - **接口先冻结契约再开发**；改接口必须重生成 `docs/api/openapi.yaml`（CI 校验一致性）
 - 每个 Sprint 收尾写 devlog：做了什么 / 怎么做 / 踩了什么坑 / 下一步；并更新本 README 的状态
 - 每次推送后**核对远端 CI**，爆红自行修完再推，不留红灯
-- 改了前端记得**重建桌面版产物**（`scripts\package.py` + `desktop\build.py`）
+- 改了前端记得**重建桌面版产物**（`scripts\package.py` + `desktop\build.py`）；
+  打包会在系统 TEMP 留下 `miniplane-build-*` 构建目录（约 0.85 GB/次，从不清），
+  打包后跑一次 `scripts\cleanup-build-cache.py` 清掉（送回收站，可还原）
 - **AI 是工具不是作者**：任何一段代码都应能讲清「为什么这样写、不那样写」
 
 > 这个项目也是学习产物：每一天的取舍与踩坑都留在 `docs/devlog/` 里，
