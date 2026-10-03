@@ -173,6 +173,32 @@ def http_ready(port: int, path: str) -> bool:
         return False
 
 
+def backend_is_our_desktop(port: int) -> bool:
+    """端口上跑的是不是"我这个桌面版要的后端"。
+
+    判据来自 /api/v1/health/ 的两个字段（2026-10-03 新增）：
+      app == "mini-plane"    → 是本项目的后端
+      engine == "sqlite"     → 用的是桌面版的内嵌库（而不是开发用的 Postgres）
+
+    两者都对才允许复用。开发栈/desktop 栈**数据完全不同**，接错了用户会看到
+    另一个账户体系，还毫无察觉 —— 那比直接启动失败糟糕得多。
+    """
+    import json
+
+    try:
+        conn = http.client.HTTPConnection(HOST, port, timeout=3)
+        conn.request("GET", "/api/v1/health/")
+        resp = conn.getresponse()
+        body = resp.read()
+        conn.close()
+        if resp.status != 200:
+            return False
+        data = json.loads(body.decode("utf-8"))
+    except Exception:
+        return False
+    return data.get("app") == "mini-plane" and data.get("engine") == "sqlite"
+
+
 def wait_ready(port: int, path: str, timeout: int = READY_TIMEOUT_S) -> bool:
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -353,9 +379,20 @@ def main() -> int:
             first_run_migrate()
             (runtime / "miniplane_migrated").write_text("ok", encoding="ascii")
 
-        # 逐服务判断端口：半死时只补起缺的那一半，也兼容"复用已在跑的自己"
+        # 端口被占用时**先验明正身**再复用：必须是"本项目 + 用内嵌 SQLite 的桌面后端"。
+        # 否则宁可直接失败也不要默默接上去 —— 接错数据库会让用户看到另一套数据，
+        # 而他完全不知情（2026-10-03 事故就是这个）。
         if port_listening(BACKEND_PORT):
-            print("backend already up, reuse")
+            if not backend_is_our_desktop(BACKEND_PORT):
+                return _fatal(
+                    f"端口 {BACKEND_PORT} 已被其它程序占用，而且那不是本软件的桌面后端。\n\n"
+                    "请先关闭占用该端口的程序"
+                    "（例如开发模式下的 dev.cmd 或 manage.py runserver），"
+                    "再重新打开 Mini Plane。\n\n"
+                    "为什么不自动接管：那个服务可能连着**另一套数据库**（开发库），"
+                    "接上去会让你看到另一套账户与数据，却没有任何提示。",
+                )
+            print("backend already up (ours), reuse")
         else:
             procs.append(start_backend())
         if port_listening(FRONTEND_PORT):

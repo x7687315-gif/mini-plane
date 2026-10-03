@@ -14,7 +14,14 @@ class HealthCheckTests(APITestCase):
         response = self.client.get("/api/v1/health/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), {"status": "ok", "database": "ok", "cache": "ok"})
+        body = response.json()
+        # 逐字段断言而不是整字典相等：health 后续新增字段（如 app/engine）不该让这些用例红。
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["database"], "ok")
+        self.assertEqual(body["cache"], "ok")
+        # 身份标识：桌面启动器靠它判断"端口上这个后端是不是我要的那个"（2026-10-03）
+        self.assertEqual(body["app"], "mini-plane")
+        self.assertTrue(body["engine"], "engine 应报告数据库后端类型")
 
     def test_health_reports_cache_error(self):
         """缓存后端不可用 → cache=error 且整体 503，但不抛 500。"""
@@ -22,7 +29,10 @@ class HealthCheckTests(APITestCase):
             response = self.client.get("/api/v1/health/")
 
         self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertEqual(response.json(), {"status": "error", "database": "ok", "cache": "error"})
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["database"], "ok")
+        self.assertEqual(body["cache"], "error")
 
     def test_health_returns_503_when_database_unreachable(self):
         """数据库探测失败时返回 503 与 error 状态，不抛 500。"""
@@ -31,4 +41,7 @@ class HealthCheckTests(APITestCase):
             response = self.client.get("/api/v1/health/")
 
         self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertEqual(response.json(), {"status": "error", "database": "error", "cache": "ok"})
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["database"], "error")
+        self.assertEqual(body["cache"], "ok")

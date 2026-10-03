@@ -7,7 +7,7 @@
 import logging
 
 from django.core.cache import cache
-from django.db import DatabaseError, connections
+from django.db import DatabaseError, connection, connections
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -67,7 +67,13 @@ def health(request):
     cache_ok = _check_cache()
 
     healthy = database_ok and cache_ok
+    # app / engine 是给**桌面启动器**用的身份标识（2026-10-03 事故）：
+    # 启动器发现端口被占用时原本会"默默复用"，结果接上了别的实例（比如开发用的
+    # Postgres 栈），用户看到的是**另一套数据**却毫无察觉。
+    # 有了这两个字段，启动器就能判断"端口上这个后端是不是我这个桌面版要的"。
     body = {
+        "app": "mini-plane",
+        "engine": connection.vendor,
         "status": "ok" if healthy else "error",
         "database": "ok" if database_ok else "error",
         "cache": "ok" if cache_ok else "error",
