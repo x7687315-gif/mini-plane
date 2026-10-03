@@ -21,9 +21,12 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 VERSION = "0.2.0"
@@ -76,30 +79,41 @@ def build_frontend() -> None:
     if not npm:
         sys.exit("[ERROR] npm not found on PATH")
 
-    build_dir = DIST.parent / ".build-frontend"
-    if build_dir.exists():
-        shutil.rmtree(build_dir)
+    # 每次用**唯一**临时目录，而不是复用固定目录 + rmtree：
+    # 复用就得先删，而在启用了批量删除保护的环境里，删除动作会被直接终止进程
+    # （日志里只有一行拦截记录、没有 traceback，非常难查）。mkdtemp 保证目录不存在，
+    # 于是根本不需要删除。代价：系统临时目录里会留下构建副本，由系统回收。
+    build_root = pathlib.Path(os.environ.get("PACKAGE_BUILD_ROOT") or tempfile.gettempdir())
+    build_dir = pathlib.Path(tempfile.mkdtemp(prefix="miniplane-build-", dir=str(build_root)))
+    print(f"  构建目录：{build_dir}")
 
     def ignore(src: str, names: list[str]) -> set[str]:
         skip = {"node_modules", ".next", ".git", "dist", ".venv", "test-results",
                 "playwright-report", ".auth", ".env", ".env.local", ".env.*"}
         return {n for n in names if n in skip or n.startswith(".env")}
 
-    shutil.copytree(FRONTEND, build_dir, ignore=ignore)
+    # dirs_exist_ok：mkdtemp 已经把 build_dir 建出来了，而 copytree 默认要求目标不存在
+    shutil.copytree(FRONTEND, build_dir, ignore=ignore, dirs_exist_ok=True)
 
     npm_run = subprocess.list2cmdline([npm])
     run([npm, "install", "--no-audit", "--no-fund",
          "--registry=https://registry.npmmirror.com"], cwd=build_dir)
     run([npm, "run", "build"], cwd=build_dir, env_extra=FRONTEND_ENV)
+    return build_dir
 
 
 # ---------------------------------------------------------------- 组装
-def assemble() -> None:
+def assemble(build_dir: Path) -> None:
     print("== 2/4 组装目录 ==")
-    if DIST.exists():
-        shutil.rmtree(DIST)
-    DIST.mkdir(parents=True)
-    build_dir = DIST.parent / ".build-frontend"
+    # 绝不删除已有产物：批量删除保护会直接终止进程（try/except 也拦不住）。
+    # 目标已存在就换一个新目录名 —— 既避开删除，也避免残留上一版的过期文件。
+    out = DIST
+    if out.exists():
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        out = DIST.with_name(f"{DIST.name}-{stamp}")
+        print(f"  目标已存在，改用新目录：{out.name}")
+    out.mkdir(parents=True, exist_ok=True)
+    globals()["DIST"] = out  # 后续步骤统一用这个
 
     # 前端 standalone（npm 构建产物：全部真实文件，无断链）
     app = DIST / "app"
@@ -239,8 +253,8 @@ VERSION_NOTE = VERSION + "  ·  本地单机版  ·  构建于本机（见 docs/
 
 # ---------------------------------------------------------------- 主流程
 def main() -> None:
-    build_frontend()
-    assemble()
+    build_dir = build_frontend()
+    assemble(build_dir)
     write_launchers()
     write(DIST / "README-本地版.md", README + VERSION_NOTE, bom=True)
     write(DIST / "VERSION", VERSION + "\n")
