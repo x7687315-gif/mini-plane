@@ -58,12 +58,23 @@ def _candidate_roots() -> list[Path]:
 
 
 def repo_root() -> Path:
-    """第一个含 backend/manage.py 的候选根；找不到则退回首个候选。"""
+    """选出要用的仓库根：**优先选带可用 venv 的那个**。
+
+    为什么必须这么挑：exe 位于 `dist/MiniPlane/` 时，候选根按顺序是
+    `dist/MiniPlane` → `dist` → `C:/palne`……而 `dist/MiniPlane/backend/` 里
+    有源码（打包时拷进去的）但**没有 `.venv`**（venv 不分发：体积大、且和目标机器的
+    Python 版本绑定）。若按"第一个有 manage.py 的目录"来选，就会落到 dist/MiniPlane，
+    然后报「后端虚拟环境不存在」——而本机的 venv 其实就在仓库里好好的。
+
+    所以判据从"有 manage.py"升级为"有 manage.py **且** 有 .venv"；都没有时才退回旧判据
+    （真正的分发场景：用户需按提示在分发目录里建一次 venv）。
+    """
     cands = _candidate_roots()
-    for r in cands:
-        if (r / "backend" / "manage.py").exists():
+    with_manage = [r for r in cands if (r / "backend" / "manage.py").exists()]
+    for r in with_manage:
+        if (r / "backend" / ".venv").is_dir():
             return r
-    return cands[0]
+    return with_manage[0] if with_manage else cands[0]
 
 
 def base_dir() -> Path:
