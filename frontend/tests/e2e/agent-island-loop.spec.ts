@@ -39,9 +39,9 @@ test.describe("Agent → Island 实时闭环", () => {
 
     // 先确认 WebSocket 真的连上了：否则后面"不刷新就变"根本不可能发生，
     // 红了也分不清是 WS 断了还是别的问题。
-    await expect(page.locator("header")).toContainText(/已连接|已就绪|已连接/, {
-      timeout: 20_000,
-    });
+    // 用 role=banner 定位顶层顶栏：页面里其实有 3 个 <header>（顶栏 / 页面自己的 /
+    // 图纸卡的），裸 header 选择器会撞上 strict mode violation。
+    await expect(page.getByRole("banner")).toContainText(/已连接/, { timeout: 20_000 });
 
     // ── 3. 换一个身份：Agent Token（不是用户会话）起一个会话
     const agentCtx = await playwrightRequest.newContext({
