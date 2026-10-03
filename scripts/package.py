@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """组装 Mini Plane 本地单机版软件包。
 
 产物：dist/mini-plane-<版本>-local/
@@ -44,8 +43,14 @@ FRONTEND_ENV = {
 }
 
 EXCLUDE_BACKEND = {
-    ".venv", "__pycache__", ".env", ".celery", "staticfiles", ".pytest_cache",
-    "htmlcov", ".coverage",
+    ".venv",
+    "__pycache__",
+    ".env",
+    ".celery",
+    "staticfiles",
+    ".pytest_cache",
+    "htmlcov",
+    ".coverage",
 }
 
 
@@ -88,35 +93,41 @@ def build_frontend() -> None:
     print(f"  构建目录：{build_dir}")
 
     def ignore(src: str, names: list[str]) -> set[str]:
-        skip = {"node_modules", ".next", ".git", "dist", ".venv", "test-results",
-                "playwright-report", ".auth", ".env", ".env.local", ".env.*"}
+        skip = {
+            "node_modules",
+            ".next",
+            ".git",
+            "dist",
+            ".venv",
+            "test-results",
+            "playwright-report",
+            ".auth",
+            ".env",
+            ".env.local",
+            ".env.*",
+        }
         return {n for n in names if n in skip or n.startswith(".env")}
 
     # dirs_exist_ok：mkdtemp 已经把 build_dir 建出来了，而 copytree 默认要求目标不存在
     shutil.copytree(FRONTEND, build_dir, ignore=ignore, dirs_exist_ok=True)
 
-    npm_run = subprocess.list2cmdline([npm])
-    run([npm, "install", "--no-audit", "--no-fund",
-         "--registry=https://registry.npmmirror.com"], cwd=build_dir)
+    run(
+        [npm, "install", "--no-audit", "--no-fund", "--registry=https://registry.npmmirror.com"],
+        cwd=build_dir,
+    )
     run([npm, "run", "build"], cwd=build_dir, env_extra=FRONTEND_ENV)
     return build_dir
 
 
 # ---------------------------------------------------------------- 组装
-def assemble(build_dir: Path) -> None:
+def assemble(build_dir: Path, out: Path) -> None:
     print("== 2/4 组装目录 ==")
     # 绝不删除已有产物：批量删除保护会直接终止进程（try/except 也拦不住）。
     # 目标已存在就换一个新目录名 —— 既避开删除，也避免残留上一版的过期文件。
-    out = DIST
-    if out.exists():
-        stamp = time.strftime("%Y%m%d-%H%M%S")
-        out = DIST.with_name(f"{DIST.name}-{stamp}")
-        print(f"  目标已存在，改用新目录：{out.name}")
     out.mkdir(parents=True, exist_ok=True)
-    globals()["DIST"] = out  # 后续步骤统一用这个
 
     # 前端 standalone（npm 构建产物：全部真实文件，无断链）
-    app = DIST / "app"
+    app = out / "app"
     shutil.copytree(build_dir / ".next" / "standalone", app)
     shutil.copytree(build_dir / ".next" / "static", app / ".next" / "static")
     if (build_dir / "public").exists():
@@ -126,7 +137,7 @@ def assemble(build_dir: Path) -> None:
     def ignore(src: str, names: list[str]) -> set[str]:
         return {n for n in names if n in EXCLUDE_BACKEND or n.endswith(".pyc")}
 
-    shutil.copytree(BACKEND, DIST / "backend", ignore=ignore)
+    shutil.copytree(BACKEND, out / "backend", ignore=ignore)
 
 
 # ---------------------------------------------------------------- 启动器
@@ -205,10 +216,10 @@ pause
 }
 
 
-def write_launchers() -> None:
+def write_launchers(out: Path) -> None:
     print("== 3/4 写入启动器 ==")
     for name, body in LAUNCHERS.items():
-        write(DIST / name, body)
+        write(out / name, body)
 
 
 README = """# Mini Plane 本地单机版
@@ -253,12 +264,20 @@ VERSION_NOTE = VERSION + "  ·  本地单机版  ·  构建于本机（见 docs/
 
 # ---------------------------------------------------------------- 主流程
 def main() -> None:
+    # 选输出目录：已存在就换带时间戳的新名字。
+    # 绝不删除已有产物 —— 批量删除保护会直接终止进程（try/except 也拦不住）。
+    out = DIST
+    if out.exists():
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        out = DIST.with_name(f"{DIST.name}-{stamp}")
+        print(f"  目标已存在，改用新目录：{out.name}")
+
     build_dir = build_frontend()
-    assemble(build_dir)
-    write_launchers()
-    write(DIST / "README-本地版.md", README + VERSION_NOTE, bom=True)
-    write(DIST / "VERSION", VERSION + "\n")
-    print(f"== 4/4 完成 ==\n产物：{DIST}")
+    assemble(build_dir, out)
+    write_launchers(out)
+    write(out / "README-本地版.md", README + VERSION_NOTE, bom=True)
+    write(out / "VERSION", VERSION + "\n")
+    print(f"== 4/4 完成 ==\n产物：{out}")
     print("打包成 zip 即可分发（目标机器需要 Python 3.12+ / Node 20+ / PostgreSQL 16）")
 
 

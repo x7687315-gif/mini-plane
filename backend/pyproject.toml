@@ -13,6 +13,8 @@ known-first-party = ["config", "apps", "core"]
 [tool.ruff.lint.per-file-ignores]
 # settings 拆分的星号导入是 Django 社区惯例，不视为坏味道
 "config/settings/*.py" = ["F403", "F405"]
+# package.py 内嵌的启动脚本模板（batch/cmd）是长单行字符串，拆行会改变生成内容
+"scripts/package.py" = ["E501"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -84,6 +84,15 @@ jobs:
         working-directory: .
         run: ruff format --config backend/pyproject.toml --check desktop/
 
+      # scripts/（打包与一键启动脚本）同样曾长期无人看守 —— 与 desktop/ 一起纳入
+      - name: ruff check（scripts/）
+        working-directory: .
+        run: ruff check --config backend/pyproject.toml scripts/
+
+      - name: ruff format --check（scripts/）
+        working-directory: .
+        run: ruff format --config backend/pyproject.toml --check scripts/
+
       # 模型改了却没生成迁移 → 在这里红，而不是等同学 pull 代码后本地炸
       - name: 迁移无漂移（makemigrations --check）
         run: python manage.py makemigrations --check --settings=config.settings.test
