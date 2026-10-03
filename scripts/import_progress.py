@@ -220,48 +220,59 @@ AGENT_SESSION_TITLE = "README 对外展示版与 v1.0.0 收尾"
 
 
 def main() -> int:
-    # 1) 找操作者
+    # 1) 找操作者 —— **默认不建任何账户**
     #
-    # 默认用 DEMO_USER 这个**免密**账户（没有就建）：本机版是"昵称直入"的语义，
-    # 用免密账户才能一条命令完成「导入 → 免密登录 → 截图/浏览」的全链路。
-    # 想导给自己的账户：IMPORT_USER=你的昵称 即可。
-    demo_name = os.environ.get("DEMO_USER", DEMO_NAME)
-    actor = User.objects.filter(username=demo_name).first()
-    created_now = actor is None
-    if created_now:
-        actor = User.objects.create_user(username=demo_name, email="", password="")
-        # create_user(password="") 仍会生成"空串哈希"，后端据此判定"设过密码"，
-        # 于是免密登录被拒。必须显式清空字段才真正是免密账户。
-        # 只清**我们刚建的**账户 —— 绝不碰用户自己设过密码的账户。
-        actor.set_unusable_password()
-        actor.save(update_fields=["password"])
-        print(f"已创建免密演示账户：{actor.username}")
-    elif actor.has_usable_password():
-        # 判据必须是 has_usable_password()：Django 里「无密码」是 set_unusable_password()
-        # 写下的 "!" 标记，而**空字符串仍算可用密码**（会被判成"设过密码"）。
-        if demo_name == DEMO_NAME:
-            # 自建演示账户：残留的 create_user(password="") 空串哈希 → 自愈为免密
+    # 教训（2026-10-03）：这个脚本原先默认建一个叫 engineer 的演示账户，
+    # 结果把数据导进了**用户真实使用的桌面数据库**，还把登录记忆写成了 engineer，
+    # 用户打开自己的软件时看到的是别人的账户 —— 数据归属错了，界面就全错。
+    #
+    # 现在的策略：
+    #   - 传了 DEMO_USER 就用该账户（不存在则创建，并清成免密）
+    #   - 没传就用**本机最近创建的免密真实账户**（跳过 e2e_/smoke_ 这类自动账户）
+    #   - 一个都没有才创建 engineer（真·首次演示场景）
+    demo_name = os.environ.get("DEMO_USER", "").strip()
+    created_now = False
+    if demo_name:
+        actor = User.objects.filter(username=demo_name).first()
+        if actor is None:
+            actor = User.objects.create_user(username=demo_name, email="", password="")
+            actor.set_unusable_password()  # Django 的「无密码」是 "!" 标记，不是空串
+            actor.save(update_fields=["password"])
+            created_now = True
+            print(f"已创建账户：{actor.username}（免密）")
+    else:
+        actor = (
+            User.objects.filter(password__startswith="!")
+            .exclude(username__startswith="e2e")
+            .exclude(username__startswith="smoke")
+            .order_by("-created_at")
+            .first()
+        )
+        if actor is None:
+            actor = User.objects.create_user(username="engineer", email="", password="")
             actor.set_unusable_password()
             actor.save(update_fields=["password"])
-            print(f"已把演示账户 {actor.username} 恢复为免密")
+            created_now = True
+            print("本机没有免密账户，已创建演示账户 engineer")
         else:
-            print(f"注意：账户 {actor.username} 设过密码，免密登录会被拒；换个 DEMO_USER 再跑。")
+            print(f"自动选用本机免密账户：{actor.username}（如需指定请设 DEMO_USER）")
+    if not created_now and actor.has_usable_password():
+        print(f"注意：{actor.username} 设过密码，免密登录会被拒；换个 DEMO_USER 再跑。")
     print(f"操作者：{actor.username}")
 
-    # 2) 工作区：优先用该账户已有的；没有就按账户名建一个（slug 必须唯一，
-    #    撞了就复用而不是加随机后缀——重复运行要落在同一个地方才好对比）
-    workspace = Workspace.objects.filter(members__user=actor).order_by("created_at").first()
+    # 2) 工作区：**按用途建专用工作区**，不复用账户的其它工作区
+    #
+    # 教训（2026-10-03）：原实现是"复用该账户的第一个工作区"，
+    # 结果把项目导进了用户自己的「阿米娅」工作区 —— 他可能有多个工作区，
+    # "第一个"纯属任意猜测。专用工作区（slug 带账户名）语义清楚，也不会串味。
+    slug = f"mini-plane-{actor.username}"
+    workspace = Workspace.objects.filter(slug=slug).first()
     if workspace is None:
-        slug = f"mini-plane-{demo_name}"
-        workspace = Workspace.objects.filter(slug=slug).first()
-        if workspace is None:
-            workspace = Workspace.objects.create(name="Mini Plane 开发", slug=slug, owner=actor)
-            print(f"已创建工作区：{workspace.name}（{slug}）")
-        if not workspace.members.filter(user=actor).exists():
-            WorkspaceMember.objects.create(
-                workspace=workspace, user=actor, role=WorkspaceRoles.ADMIN
-            )
-            print("已把当前账户加进该工作区")
+        workspace = Workspace.objects.create(name="Mini Plane 开发", slug=slug, owner=actor)
+        print(f"已创建专用工作区：{workspace.name}（{slug}）")
+    if not workspace.members.filter(user=actor).exists():
+        WorkspaceMember.objects.create(workspace=workspace, user=actor, role=WorkspaceRoles.ADMIN)
+        print("已把当前账户加进该工作区")
     print(f"工作区：{workspace.name}")
 
     # 3) 幂等：清掉上一次导入

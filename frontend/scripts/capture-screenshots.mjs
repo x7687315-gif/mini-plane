@@ -146,7 +146,6 @@ const main = async () => {
     locale: "zh-CN",
     timezoneId: "Asia/Shanghai",
   });
-  const demo = JSON.parse(readFileSync(STORAGE, "utf-8"));
   const lastUser = { username: "E2E_OWNER", avatar: null };
   await anon.addInitScript((u) => {
     window.localStorage.setItem("mp-last-user", JSON.stringify(u));

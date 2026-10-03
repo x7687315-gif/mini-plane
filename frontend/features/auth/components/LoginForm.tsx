@@ -10,7 +10,7 @@ import {
   AuthSubmit,
 } from "@/components/auth/AuthCard";
 import { loginErrorCode } from "@/features/auth/api";
-import { useLogin, useRedirectTarget, useRegister } from "@/features/auth/hooks";
+import { useLogin, useMe, useRedirectTarget, useRegister } from "@/features/auth/hooks";
 import { clearLastUser, readLastUser } from "@/lib/lastUser";
 
 /** 跨窗口同步「上次是谁」：另一个窗口换了账号，这边也该知道。 */
@@ -49,16 +49,35 @@ export function LoginForm() {
   //   ③ 跨窗口也同步（桌面版有主窗口 + Island 两个窗口）。
   const lastUser = useSyncExternalStore(subscribeLastUser, readLastUser, () => null);
 
+  /**
+   * 「已经登录的账号」——**优先于**记忆里的"上次用户"。
+   *
+   * 两者不是一回事，2026-10-03 被用户当面点出来了：记忆存的是"最后用过的账户"，
+   * 换账户、导入数据时用别的身份登录，都会把记忆指向**别人**，
+   * 于是登录页给他显示的是别人的账户 —— 他登不进自己的软件。
+   * 而"已经登录"是**会话事实**（HttpOnly cookie）：`useMe()` 问得出来，问出来就是它。
+   */
+  const { data: sessionUser } = useMe();
+  const quickUser = sessionUser
+    ? { username: sessionUser.username, avatar: sessionUser.avatar ?? null }
+    : dismissed
+      ? null
+      : lastUser;
+
   const pending = loginMutation.isPending || registerMutation.isPending;
   const goHome = () => router.replace(redirect);
 
-  /** 点「直接进入」：走**同一条**登录路径，只是省掉打字。 */
+  /** 点「直接进入」：有会话就直接进；没有就沿用原来的免密登录路径。 */
   const quickEnter = async () => {
-    if (!lastUser) return;
-    setUsername(lastUser.username);
+    if (!quickUser) return;
+    setUsername(quickUser.username);
     setError(null);
+    if (sessionUser) {
+      goHome();
+      return;
+    }
     try {
-      await loginMutation.mutateAsync({ username: lastUser.username });
+      await loginMutation.mutateAsync({ username: quickUser.username });
       goHome();
     } catch (err) {
       const code = loginErrorCode(err);
@@ -67,7 +86,7 @@ export function LoginForm() {
       } else if (code === "not_found") {
         // 账户已不存在（被删/换名）：清掉记忆，回到可输入的状态
         clearLastUser();
-        setError("上次的账户「" + lastUser.username + "」已经不在了，请重新输入昵称。");
+        setError("上次的账户「" + quickUser.username + "」已经不在了，请重新输入昵称。");
       } else {
         setError(err instanceof Error ? err.message : "登录失败，请重试。");
       }
@@ -180,27 +199,27 @@ export function LoginForm() {
 
       {/* 快捷入口：这台机器上有个已知账户 → 点一下就走同一条登录路径。
           没有新接口：免密直接进 / 要密码落到密码步 / 账户被删则清记忆并提示。 */}
-      {lastUser && !dismissed ? (
+      {quickUser ? (
         <div className="mb-6">
           <button
             type="button"
             onClick={quickEnter}
             disabled={pending}
-            aria-label={`以 ${lastUser.username} 直接进入`}
+            aria-label={`以 ${quickUser.username} 直接进入`}
             className="w-full flex items-center gap-3 border border-[color:var(--color-rule)] bg-[color:var(--color-paper-2)] px-3 py-2.5 text-left transition-colors duration-[var(--duration-fast)] hover:border-[color:var(--color-ink-2)] disabled:opacity-50"
           >
             <span
               className="w-7 h-7 inline-flex items-center justify-center border border-[color:var(--color-rule)] font-serif italic text-[13px] text-[color:var(--color-ink-2)] flex-shrink-0"
               aria-hidden
             >
-              {lastUser.avatar ?? lastUser.username.slice(0, 1).toUpperCase()}
+              {quickUser.avatar ?? quickUser.username.slice(0, 1).toUpperCase()}
             </span>
             <span className="leading-tight min-w-0">
               <span className="block text-[13px] text-[color:var(--color-ink)] truncate">
-                {lastUser.username}
+                {quickUser.username}
               </span>
               <span className="block text-[9px] uppercase tracking-[0.18em] text-[color:var(--color-ink-3)]">
-                直接进入
+                {sessionUser ? "继续使用" : "直接进入"}
               </span>
             </span>
             <span className="ml-auto text-[color:var(--color-ink-3)]" aria-hidden>

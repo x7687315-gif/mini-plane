@@ -370,7 +370,10 @@ def main() -> int:
             logs = f"{runtime / 'backend.log'} / {runtime / 'frontend.log'}"
             return _fatal(f"{which} 未能就绪，见日志：\n{logs}")
 
-        url = f"http://{HOST}:{FRONTEND_PORT}/login"
+        # 打开**首页**而不是 /login：会话（HttpOnly cookie，持久在 WebView2 profile 里）
+        # 有效时 AuthGuard 会直接放行进应用；只有会话失效才会被送到登录页。
+        # 之前固定打开 /login，等于每次启动都先给用户一张登录页 —— 明明已经登录过了。
+        url = f"http://{HOST}:{FRONTEND_PORT}/"
         if os.environ.get("MINIPLANE_NO_WINDOW") == "1":
             # 自检模式：只验证栈能起、接口能应答，不开窗口（供 CI / 无桌面环境冒烟）
             print(f"[selftest] stack ready at {url} (window suppressed)")
