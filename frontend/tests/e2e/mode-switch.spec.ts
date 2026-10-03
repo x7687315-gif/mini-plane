@@ -103,10 +103,13 @@ test.describe("模式切换（个人 ⇄ 团队）", () => {
     await expect(page).toHaveURL(/\/workspaces$/, { timeout: 20_000 });
 
     // 团队层：侧栏换成真实工作区列表，且当前项带 aria-current（无障碍 + E2E 抓手）
+    //
+    // 用 href 定位而不是工作区名：DemoFixture 里只有 slug（没有 workspaceName，
+    // 写名字会在 CI 的 tsc 上直接报类型错），而侧栏链接的 href 是确定的 `/w/<slug>`。
     const wsNav = page.getByRole("navigation", { name: "工作区" });
     await expect(wsNav).toBeVisible();
     await page.goto(`/w/${fixture.workspaceSlug}/`);
-    const current = wsNav.getByRole("link", { name: new RegExp(fixture.workspaceName) });
+    const current = wsNav.locator(`a[href="/w/${fixture.workspaceSlug}"]`);
     await expect(current).toBeVisible({ timeout: 20_000 });
     await expect(current).toHaveAttribute("aria-current", "page");
   });
