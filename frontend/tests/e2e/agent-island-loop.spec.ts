@@ -12,11 +12,11 @@
  * 任何一环断了，这条用例都会红。
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, request as playwrightRequest } from "@playwright/test";
 import { API_BASE, apiClient, readDemoFixture } from "./helpers";
 
 test.describe("Agent → Island 实时闭环", () => {
-  test("Agent 起会话后，Island 不刷新就变成 RUNNING", async ({ page, request }) => {
+  test("Agent 起会话后，Island 不刷新就变成 RUNNING", async ({ page }) => {
     // ── 1. 用用户会话建一个 Agent Token（明文只返回这一次）
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
@@ -44,7 +44,7 @@ test.describe("Agent → Island 实时闭环", () => {
     });
 
     // ── 3. 换一个身份：Agent Token（不是用户会话）起一个会话
-    const agentCtx = await request.newContext({
+    const agentCtx = await playwrightRequest.newContext({
       baseURL: API_BASE,
       extraHTTPHeaders: {
         Authorization: `Bearer ${agentToken}`,
@@ -78,10 +78,7 @@ test.describe("Agent → Island 实时闭环", () => {
     await agentCtx.dispose();
   });
 
-  test("幂等：同一个 Idempotency-Key 重复起会话不会产生第二条记录", async ({
-    page,
-    request,
-  }) => {
+  test("幂等：同一个 Idempotency-Key 重复起会话不会产生第二条记录", async () => {
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
     const created = await api.write("POST", "/api/v1/agent/tokens/", {
@@ -91,7 +88,7 @@ test.describe("Agent → Island 实时闭环", () => {
     const { token } = (await created.json()) as { token: string };
     await api.dispose();
 
-    const agentCtx = await request.newContext({
+    const agentCtx = await playwrightRequest.newContext({
       baseURL: API_BASE,
       extraHTTPHeaders: {
         Authorization: `Bearer ${token}`,
