@@ -6,6 +6,7 @@ import { isUnauthorized } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import type { BindPayload, LoginPayload, RegisterPayload, User } from "@/types/auth";
 import { bind, fetchCsrf, fetchMe, login, logout, register } from "./api";
+import { writeLastUser } from "@/lib/lastUser";
 
 /**
  * Auth hooks — the bridge between React Query (server state) and the Zustand auth store.
@@ -30,6 +31,8 @@ export function useMe() {
       try {
         const user = await fetchMe();
         setUser(user);
+        // 记住这台机器上的"当前用户"：登录页据此显示一键进入的入口
+        writeLastUser(user);
         return user;
       } catch (e) {
         if (isUnauthorized(e)) {
@@ -53,6 +56,7 @@ export function useLogin() {
     onSuccess: (user) => {
       setUser(user);
       qc.setQueryData(meQueryKey, user);
+      writeLastUser(user);
     },
   });
 }
@@ -67,6 +71,7 @@ export function useRegister() {
       // Register already signs the user in (backend contract: 201 + session cookie).
       setUser(user);
       qc.setQueryData(meQueryKey, user);
+      writeLastUser(user);
     },
   });
 }
