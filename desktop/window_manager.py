@@ -18,6 +18,7 @@ GUI 事件循环跑在**主线程**上，而 `webview.start()` 会阻塞在那�
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any
 
 log = logging.getLogger("miniplane.windows")
@@ -102,3 +103,36 @@ class WindowManager:
 
     def toggle_island(self) -> dict:
         return self.hide_island() if self._island_visible else self.show_island()
+
+    # ── 生命周期：主窗口关闭即退出整个应用 ──────────────────────
+    def bind_main_window(self, main_window: Any, island_window: Any | None) -> None:
+        """主窗口关闭 → 连带销毁 Island 窗口，让 `webview.start()` 返回。
+
+        **为什么必须显式做**（2026-10-03 用户被这个坑到第二次）：
+        pywebview 的 `start()` 只有在**所有**窗口都关闭后才返回，而启动器的
+        `finally: kill_tree(...)`（停后端/前端）挂在它返回之后。
+        Sprint 15 加了 Island 窗口之后，用户关掉主窗口 → Island 窗口（哪怕是隐藏的）
+        仍然存在 → start() 不返回 → 后端与前端**继续占着 8000/3000**，
+        界面上看着"关掉了"，后台其实还在跑（而且下次双击会复用这一套）。
+
+        用户的要求很明确：**关掉界面，后台进程直接全退。** 这就是这条绑定的意义。
+        """
+
+        def _on_main_closed(*_args: Any) -> None:
+            log.info("主窗口已关闭 → 退出整个应用（销毁 Island 窗口并停服务）")
+            if island_window is None:
+                return
+
+            # 窗口操作不能在 GUI 线程里同步做（会重入 GUI 循环），放工作线程
+            def _destroy() -> None:
+                try:
+                    island_window.destroy()
+                except Exception as exc:  # 已经被关掉等情况
+                    log.debug("Island 窗口销毁跳过：%r", exc)
+
+            threading.Thread(target=_destroy, daemon=True).start()
+
+        try:
+            main_window.events.closed += _on_main_closed
+        except Exception as exc:  # 老版本没有 events
+            log.warning("无法绑定主窗口关闭事件：%r", exc)
