@@ -36,13 +36,16 @@ django.setup()
 from apps.agents import services as agent_services  # noqa: E402
 from apps.agents.models import AgentToken  # noqa: E402
 from apps.issues.models import IssuePriorities  # noqa: E402
-from apps.issues.services import create_issue, create_label, update_issue  # noqa: E402
+from apps.issues.services import create_issue, create_label  # noqa: E402
 from apps.projects.models import Project, ProjectStage  # noqa: E402
 from apps.projects.services import create_project, get_or_create_plan  # noqa: E402
 from apps.users.models import User  # noqa: E402
 from apps.worklogs.models import Worklog, WorklogSource  # noqa: E402
-from apps.workspaces.models import Workspace  # noqa: E402
-from apps.workspaces.models import WorkspaceMember, WorkspaceRoles  # noqa: E402
+from apps.workspaces.models import (  # noqa: E402
+    Workspace,  # noqa: E402
+    WorkspaceMember,
+    WorkspaceRoles,
+)
 
 IDENTIFIER = "MP"
 PROJECT_NAME = "Mini Plane"
@@ -170,7 +173,10 @@ WORKLOGS = [
     {
         "date": dt.date(2026, 10, 2),
         "title": "Island 落地，以及桌面版产物停滞 10 天的根因",
-        "summary": "Sprint 14–16：Island MVP、桌面独立窗口、图纸视觉；期间发现桌面版跑的仍是 9 月 21 日的构建。",
+        "summary": (
+            "Sprint 14–16：Island MVP、桌面独立窗口、图纸视觉；"
+            "期间发现桌面版跑的仍是 9 月 21 日的构建。"
+        ),
         "details": (
             "Sprint 14 把 Island 做成 /island（一张图纸 = 一个项目，左右滑动翻页）；"
             "Sprint 15 扩成独立桌面窗口（置顶 / 可拖 / 顶部居中 / 隐藏启动）；"
@@ -297,8 +303,6 @@ def main() -> int:
     }
 
     # 5) 任务
-    states = {s.group: s for s in project.states.all()}
-    from apps.issues.models import State
 
     backlog = project.states.filter(name="Backlog").first()
     done_state = project.states.filter(name="Done").first()
@@ -318,9 +322,8 @@ def main() -> int:
             labels=[labels[n] for n in label_names],
         )
         created.append(issue)
-    print(
-        f"任务已建：{len(created)} 条（{sum(1 for i in created if i.state_id == done_state.id)} 条 Done）"
-    )
+    done_count = sum(1 for i in created if i.state_id == done_state.id)
+    print(f"任务已建：{len(created)} 条（{done_count} 条 Done）")
 
     # 6) Global Plan
     plan = get_or_create_plan(project)
@@ -361,7 +364,7 @@ def main() -> int:
 
     print("\n完成。现在打开应用就能看到：")
     print("  · 我的工程首页 → Mini Plane 卡片（进度 / NOW / NEXT / 今日日志）")
-    print("  · /island → 图纸页（阶段 / 进度 / 明日 TODAy / AGENT RUNNING）")
+    print("  · /island → 图纸页（阶段 / 进度 / TODAY / AGENT RUNNING）")
     print("  · 项目页 → GLOBAL PLAN 五阶段 + TASKS 16 条 + ENGINEERING LOG 两条")
     return 0
 
