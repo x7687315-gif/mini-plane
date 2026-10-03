@@ -17,6 +17,9 @@
  *   real-issue-drawer-activity.png 抽屉 · Activity 审计时间线
  *   real-issue-drawer-comments.png 抽屉 · Comments 对话
  *   real-bulk-actions.png          多选后的批量操作条
+ *   real-my-engineering.png        首页 · My Engineering（顶栏 ⇄ 模式切换按钮可见）
+ *   real-workspace-rail.png        团队层 · 侧栏接真实工作区（Sprint 17）
+ *   real-login-quick.png           登录页 · 「直接进入」快捷入口
  */
 
 import { chromium } from "@playwright/test";
@@ -78,6 +81,10 @@ const main = async () => {
   const projectUrl = `${BASE}/w/${slug}/projects/${project.id}`;
   const shot = async (name) => {
     const file = path.join(OUT, name);
+    // dev 模式的编译浮层（<nextjs-portal>）只在 next dev 出现，正式构建没有。
+    // 截图是仓库资产，不该把开发工具的痕迹带进去 —— 在这一刻藏掉它。
+    await page.addStyleTag({ content: "nextjs-portal{display:none !important}" }).catch(() => {});
+    await page.waitForTimeout(200);
     await page.screenshot({ path: file });
     console.log(`  ✓ ${name}`);
   };
@@ -117,6 +124,41 @@ const main = async () => {
   for (let i = 0; i < n; i += 1) await boxes.nth(i).check();
   await page.waitForTimeout(600);
   await shot("real-bulk-actions.png");
+
+  // 5) 首页 · My Engineering（能看到顶栏的 ⇄ 模式切换按钮）
+  await page.goto(`${BASE}/`);
+  await page.waitForSelector("text=My Engineering", { timeout: 30_000 });
+  await page.waitForTimeout(1200);
+  await shot("real-my-engineering.png");
+
+  // 6) 团队层 · 侧栏（真实工作区列表 + 顶栏按钮翻成「个人」）
+  await page.goto(`${BASE}/w/${slug}`);
+  await page.waitForSelector("text=Members", { timeout: 30_000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  await shot("real-workspace-rail.png");
+
+  // 7) 登录页 · 「直接进入」快捷入口
+  //    必须用**空登录态**（否则会被直接送进应用），并预置 mp-last-user 让卡片出现
+  const anon = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    locale: "zh-CN",
+    timezoneId: "Asia/Shanghai",
+  });
+  const demo = JSON.parse(readFileSync(STORAGE, "utf-8"));
+  const lastUser = { username: "E2E_OWNER", avatar: null };
+  await anon.addInitScript((u) => {
+    window.localStorage.setItem("mp-last-user", JSON.stringify(u));
+  }, lastUser);
+  const anonPage = await anon.newPage();
+  await anonPage.goto(`${BASE}/login`);
+  await anonPage.waitForSelector("text=直接进入", { timeout: 30_000 });
+  await anonPage.waitForTimeout(800);
+  const file = path.join(OUT, "real-login-quick.png");
+  await anonPage.screenshot({ path: file });
+  console.log("  ✓ real-login-quick.png");
+  await anon.close();
 
   await browser.close();
   console.log(`\n完成 → ${OUT}`);
