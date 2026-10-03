@@ -28,7 +28,7 @@ import tempfile
 import time
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "1.0.0"
 NAME = f"mini-plane-{VERSION}-local"
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
