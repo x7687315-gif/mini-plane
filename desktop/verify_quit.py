@@ -8,8 +8,12 @@
 
 import ctypes
 import subprocess
+import sys
 import time
 from ctypes import wintypes
+
+sys.path.insert(0, "C:/palne/desktop")
+from window_watch import visible_window_exists  # 与桌面端实际逻辑同一份代码
 
 WM_CLOSE = 0x0010
 EXE = r"C:\palne\dist\MiniPlane\MiniPlane.exe"
@@ -76,6 +80,19 @@ def main() -> int:
     target = next((w for w in wins if w[3]), wins[0])
     print(f"  向 hwnd={target[0]}（{target[2]}）投 WM_CLOSE")
     user32.PostMessageW(target[0], WM_CLOSE, 0, 0)
+
+    # 关键测量：WM_CLOSE 是异步投递，"投递了"不等于"窗口已关闭"。
+    # 必须先确认窗口真的消失，否则测不到"进程是否随之退出"这件事。
+    gone = False
+    for i in range(20):
+        time.sleep(1)
+        if not visible_window_exists(target[2]):
+            print(f"  窗口在 +{i + 1}s 消失 ✓")
+            gone = True
+            break
+    if not gone:
+        print("  WM_CLOSE 20 秒内未关闭窗口 —— 本次无法验证退出路径")
+        return 2
 
     deadline = time.time() + 45
     while time.time() < deadline:

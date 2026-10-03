@@ -139,11 +139,15 @@ def kill_tree(proc: subprocess.Popen | None) -> None:
         return
     try:
         if os.name == "nt":
+            # 必须带 CREATE_NO_WINDOW：taskkill 是**控制台程序**，
+            # GUI 进程调它会让 Windows 临时分配一个控制台 → 关闭时闪一个黑窗口。
+            # 用户看到"三四个弹窗闪一下又关"，就是这里没加这个参数。
             subprocess.run(
                 ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
+                creationflags=CREATE_NO_WINDOW,
             )
         else:
             proc.terminate()
@@ -181,6 +185,7 @@ def stop_services(procs: list[subprocess.Popen], *, hard_exit: bool = False) -> 
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
+                creationflags=CREATE_NO_WINDOW,
             )
         except Exception:
             pass
