@@ -72,10 +72,18 @@ def watch_main_window_gone(
         log.info(msg)
 
     def _run() -> None:
-        # 给 GUI 进程一点时间把窗口建出来，否则会误判"主窗口已消失"
-        time.sleep(3.0)
-        if not visible_window_exists(main_title):
-            _say("[watch] 启动后未发现主窗口（窗口可能创建失败），本次不启用监视")
+        # **先等窗口出现，再监视它消失**。
+        # 之前"固定睡 3 秒再看一眼"是个竞态：GUI 子进程建窗口偶尔比 3 秒慢，
+        # 监视就会误判"窗口创建失败"而**整个放弃** —— 退出路径随之失效
+        # （2026-10-05 真机抓到：日志出现"启动后未发现主窗口"，之后关窗无人响应）。
+        appeared = False
+        for _ in range(60):  # 最多等 60 秒
+            time.sleep(1.0)
+            if visible_window_exists(main_title):
+                appeared = True
+                break
+        if not appeared:
+            _say("[watch] 60 秒内未发现主窗口（窗口可能创建失败），本次不启用监视")
             return
         _say("[watch] 已启用主窗口监视：主窗口消失即退出整个应用")
         while visible_window_exists(main_title):

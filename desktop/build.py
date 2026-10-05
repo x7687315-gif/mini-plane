@@ -87,17 +87,29 @@ def build_exe() -> Path:
 def make_portable() -> None:
     """把前端 app + 后端源码拷进 dist/MiniPlane/，做成可分发目录（不含 venv / node）。"""
     # 前端：复用已构建的 standalone（launcher 的就近查找也能命中这里）
+    # ⚠️ 必须取**修改时间最新**的那个：dist 里会积累多个带时间戳的包目录，
+    #    按字母序取第一个会**默默选中旧的**（2026-10-05 抓到：刚构建完的新包排在其后，
+    #    结果桌面版打进的是昨天的前端）。改前端后桌面版"怎么还是旧的"多半就是它。
     app_src = None
-    for cand in [
-        (ROOT / "app"),
-        *(sorted((ROOT / "dist").glob("*/app")) if (ROOT / "dist").is_dir() else []),
-    ]:
+    app_candidates = (
+        [
+            (ROOT / "app"),
+            *sorted(
+                (ROOT / "dist").glob("*/app"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            ),
+        ]
+        if (ROOT / "dist").is_dir()
+        else [(ROOT / "app")]
+    )
+    for cand in app_candidates:
         if (cand / "server.js").exists():
             app_src = cand
             break
     if app_src:
         shutil.copytree(app_src, OUT / "app", dirs_exist_ok=True)
-        print(f"[portable] 前端 -> {OUT / 'app'}")
+        print(f"[portable] 前端 -> {OUT / 'app'}（源：{app_src}）")
     else:
         print("[portable] 警告：未找到已构建前端，先跑 python scripts/package.py")
 

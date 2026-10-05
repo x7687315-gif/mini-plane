@@ -16,9 +16,21 @@
 @import "@fontsource/cormorant-garamond/400-italic.css";
 @import "@fontsource/cormorant-garamond/500-italic.css";
 @import "@fontsource/jetbrains-mono/400.css";
-/* 中文匹配：思源宋体配 Cormorant（古典衬线），思源黑体配 Inter（UI 无衬线）。OFL 可商用 */
-@import "@fontsource/noto-serif-sc/index.css";
-@import "@fontsource/noto-sans-sc/index.css";
+/*
+ * 中文匹配：思源宋体配 Cormorant（古典衬线），思源黑体配 Inter（UI 无衬线）。OFL 可商用。
+ *
+ * ⚠️ 这一行在 2026-10-04 改过：原先是
+ *      @import "@fontsource/noto-serif-sc/index.css";
+ *      @import "@fontsource/noto-sans-sc/index.css";
+ *    `index.css` 会声明 **101 个 @font-face**（9 个字重 × 102 个 unicode 分片），
+ *    并且那两个 npm 包在 node_modules 里占 **154 MB**。
+ *    本项目实际只用到 400 / 500（设计红线：字重不超过 500，代码里也没有 600/700），
+ *    所以改为自托管：只抽取 400/500 的分片放 public/fonts/（10.7 MB），
+ *    规则由 scripts/extract-cjk-fonts.py 生成到 ./fonts-cjk.css。
+ *    注意：只把 import 改成 400.css 是**省不了磁盘**的 —— 包里的 918 个 woff2 一个都不会少。
+ *    全部分片都保留：中文按 unicode 区段切分，缺一段就会局部掉字。
+ */
+@import "./fonts-cjk.css";
 
 /*
  * Mini Plane — Blueprint Editorial design tokens
