@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Engineering Island 路由页（Sprint 14 · PRODUCT_REFACTOR_PLAN §16–§19）
+ * Engineering Island 路由页（Island V2 · `docs/ISLAND_V2_SPEC.md`）
  *
  * 放在 `(protected)` 组里，自动继承 AuthGuard + AppShell + CommandPalette，
  * 本页只负责两件事：声明本屏外壳配置（无 Aside，Island 自己就是全宽表面），
@@ -18,19 +18,19 @@ export default function IslandPage() {
 
   return (
     <div className="max-w-[880px]">
-      <MeasureLine left="FIG · ISLAND" right="SPRINT 14 · MVP" />
+      <MeasureLine left="FIG · ISLAND" right="V2 · 多项目总览" />
       <header className="mb-5">
         <h1 className="font-serif italic text-[30px] leading-tight">Engineering Island</h1>
         <p className="text-[13px] text-[color:var(--color-ink-2)] mt-1">
-          当前工程状态的实时投影：一张图纸一个项目，左右滑动翻页。
+          当前工程状态的实时投影：所有项目同时可见，进度 / 阶段 / NOW / NEXT / AGENT 一屏扫读。
         </p>
       </header>
 
       <Suspense
         fallback={
           <div className="space-y-3" aria-busy>
-            <div className="h-[44px] border border-[color:var(--color-rule)] bg-[color:var(--color-paper-2)]" />
-            <div className="h-[280px] border border-[color:var(--color-rule)] bg-[color:var(--color-paper-2)]" />
+            <div className="h-[44px] rounded-[14px] bg-[color:var(--color-paper-2)]" />
+            <div className="h-[280px] rounded-[14px] bg-[color:var(--color-paper-2)]" />
           </div>
         }
       >

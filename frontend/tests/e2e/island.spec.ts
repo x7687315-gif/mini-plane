@@ -1,101 +1,129 @@
 /**
- * Engineering Island 端到端（Sprint 14）。
+ * Engineering Island 端到端（Island V2 · `docs/ISLAND_V2_SPEC.md` §8 验收）。
  *
  * 按 helpers.ts 的原则：**造数走 API，UI 只验交互**。
- * 切页要验的是"翻到第二张图纸"这件事，所以这里额外用 API 造第二个项目——
- * 演示项目只有一个，测不出轮播。
+ *
+ * V2 与第一代验收的根本区别：**不再验收"翻页"**（规格 §1.4：多项目同时可见，
+ * 核心总览不依赖轮播），改为验收"两个以上项目**同时**在 DOM 里"。
+ * 旧用例（切到第二张图纸 / 末页置灰 / 收起为最小态）随轮播一起退场。
+ *
+ * 三条诚实性断言对应规格红线：
+ *   - STEP / HOW 没有 Agent 上报时显示约定文案，**不许**被任务描述冒充；
+ *   - DONE 只有计数时显示"已完成 N 项"，**不许**出现假标题；
+ *   - 空值用「—」与约定文案，不留白。
  */
 
 import { test, expect } from "@playwright/test";
 import { apiClient, expectWriteOk, readDemoFixture } from "./helpers";
 
-test.describe("Engineering Island", () => {
-  test("图纸页显示：阶段 / 进度 / NOW / TODAY / NEXT / AGENT", async ({ page }) => {
+test.describe("Engineering Island V2 多项目总览", () => {
+  test("总览显示六个问题 + AGENT，且占位文案诚实", async ({ page }) => {
     await page.goto("/island");
 
-    // 标题与图纸页容器
     await expect(page.getByRole("heading", { name: "Engineering Island" })).toBeVisible();
-    const sheet = page.getByRole("article", { name: /工程图纸$/ }).first();
-    await expect(sheet).toBeVisible({ timeout: 20_000 });
+    const overview = page.getByTestId("island-overview");
+    await expect(overview).toBeVisible({ timeout: 20_000 });
 
-    // 六个信息块都在（缺一个都不该算通过——它们是 Island 的全部意义）
-    for (const label of ["NOW", "NEXT", "TODAY", "AGENT"]) {
-      await expect(sheet.getByText(label, { exact: true })).toBeVisible();
+    // 六问标签 + AGENT 状态，缺一个都不算通过（它们是 Island 的全部意义）
+    for (const label of ["NOW", "STEP", "HOW", "NEXT", "DONE"]) {
+      await expect(overview.getByText(label, { exact: true }).first()).toBeVisible();
     }
-    await expect(sheet.getByRole("progressbar", { name: "项目进度" })).toBeVisible();
+    await expect(overview.getByText("AGENT", { exact: true }).first()).toBeVisible();
 
-    // 演示项目有 3 个 Issue 且未全部完成，进度条不能是 0%（0% 说明数据没接上）
-    const bar = sheet.getByRole("progressbar", { name: "项目进度" });
+    // 进度条：演示项目有任务，不能是 0%（0% 说明数据没接上）
+    const bar = overview.getByRole("progressbar", { name: "项目进度" }).first();
     await expect(bar).toHaveAttribute("aria-valuenow", /\d+/);
+
+    // 红线：没有 Agent 上报 STEP / HOW 时必须是约定文案，而不是留白或被冒充
+    await expect(overview.getByText("Agent 尚未报告步骤").first()).toBeVisible();
+    await expect(overview.getByText("尚未记录执行方法").first()).toBeVisible();
   });
 
-  test("切到第二张图纸：URL 记住 sheet，卡片内容随之改变，末页按钮置灰", async ({ page }) => {
+  test("多个项目同时可见：不需要翻页，各自有独立摘要", async ({ page }) => {
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
 
-    // 造第二个项目（演示项目只有一个，测不出轮播）
+    // 造第二个项目（演示项目只有一个，测不出"同时可见"）
     const created = await api.write(
       "POST",
       `/api/v1/workspaces/${fixture.workspaceSlug}/projects/`,
-      { name: "Island Second Sheet", identifier: "ISL" },
+      { name: "Island Overview Second", identifier: "OVW" },
     );
     expectWriteOk(created, "创建第二个项目");
 
     // 以 /projects/mine/ 的返回顺序为准（按 last_activity 排序，序号会漂移）
     const mine = await api.get<{ id: string; identifier: string }[]>("/api/v1/projects/mine/");
-    const [first, second] = mine.body!;
-    expect(mine.body!.length, "演示数据里至少要有两个项目").toBeGreaterThanOrEqual(2);
+    expect(mine.body!.length, "至少要有两个项目").toBeGreaterThanOrEqual(2);
+    const first = mine.body![0]!;
+    const second = mine.body![1]!;
     await api.dispose();
 
     await page.goto("/island");
+    const cards = page.getByTestId("project-summary-card");
+    await expect(cards).toHaveCount(mine.body!.length, { timeout: 20_000 });
 
-    // 首屏是第一张图纸，且 URL 还没写 sheet（默认首页）
-    const firstSheet = page.getByRole("article", { name: new RegExp(`${first!.identifier}`) });
-    await expect(firstSheet.first()).toBeVisible({ timeout: 20_000 });
+    // 两个项目**同时**在 DOM 里：这是 V2 与翻页版的分界线
+    await expect(cards.filter({ hasText: first.identifier }).first()).toBeVisible();
+    await expect(cards.filter({ hasText: second.identifier }).first()).toBeVisible();
 
-    // 点"下一页" → URL 变成第二张图纸的 id，卡片跟着换
-    await page.getByRole("button", { name: "下一张图纸" }).click();
-    await expect(page).toHaveURL(new RegExp(`sheet=${second!.id}`), { timeout: 20_000 });
-    const secondSheet = page.getByRole("article", { name: new RegExp(`${second!.identifier}`) });
-    await expect(secondSheet.first()).toBeVisible({ timeout: 20_000 });
-    await expect(firstSheet).toBeHidden();
+    // 没有翻页控件（规格：核心总览不依赖轮播）
+    await expect(page.getByRole("button", { name: "下一张图纸" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "上一张图纸" })).toHaveCount(0);
 
-    // 末页：下一页按钮置灰（不循环，边界必须诚实）
-    await expect(page.getByRole("button", { name: "下一张图纸" })).toBeDisabled();
-    await expect(page.getByText(/已到末页/)).toBeVisible();
-
-    // 刷新后仍停在第二张图纸（URL 是唯一事实来源）
-    await page.reload();
-    await expect(secondSheet.first()).toBeVisible({ timeout: 20_000 });
-  });
-
-  test("收起为最小态：只剩一行，再点回来展开", async ({ page }) => {
-    await page.goto("/island");
-    await expect(page.getByRole("article").first()).toBeVisible({ timeout: 20_000 });
-
-    await page.getByRole("button", { name: "收起为最小态" }).click();
-    await expect(page.getByRole("article").first()).toBeHidden();
-    await expect(page.getByRole("button", { name: /展开 .* 工程图纸/ })).toBeVisible();
-
-    await page.getByRole("button", { name: /展开 .* 工程图纸/ }).click();
-    await expect(page.getByRole("article").first()).toBeVisible();
+    // 每张卡片各自有进度条（不是共享一条）
+    await expect(page.getByRole("progressbar", { name: "项目进度" })).toHaveCount(
+      mine.body!.length,
+    );
   });
 });
 
-test.describe("Island 独立窗口面板（Sprint 15）", () => {
-  test("面板不套 AppShell：没有侧栏/页脚，也不出现桌面专属控件", async ({ page }) => {
+test.describe("Island 独立窗口面板（Island V2）", () => {
+  test("面板不套 AppShell，也不出现未实现的桌面控件", async ({ page }) => {
     await page.goto("/island-panel");
 
-    // 图纸本身要正常渲染
-    await expect(page.getByRole("article").first()).toBeVisible({ timeout: 20_000 });
+    // 总览本身要正常渲染（面板与网页共用同一套组件）
+    await expect(page.getByTestId("island-overview")).toBeVisible({ timeout: 20_000 });
 
     // 面板路由刻意不放进 (protected) 组：没有 AppShell 的侧栏与页栏
     await expect(page.locator("footer")).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Plane/ })).toHaveCount(0);
 
-    // 浏览器里没有 pywebview 桥 → 桌面专属的「独立窗口」按钮不该出现
-    await expect(page.getByRole("button", { name: /独立 Island 窗口/ })).toHaveCount(0);
-    // 面板里也不该有「收起为最小态」（隐藏整个窗口才是这里的对应动作）
+    // 阶段 2 才实现图钉：现在**不该**出现（点了没反应比没有更糟）
+    await expect(page.getByRole("button", { name: /固定 Island 面板/ })).toHaveCount(0);
+
+    // 第一代的翻页控件随轮播一起退场
     await expect(page.getByRole("button", { name: "收起为最小态" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "下一张图纸" })).toHaveCount(0);
+  });
+});
+
+/**
+ * 空态用例放在**最后**：它自己建一个账户、自己带会话，
+ * 不碰 `.auth/user.json` 的共享会话（放前面时曾让后面的面板用例被蹬登出——
+ * 共享 storageState 是文件快照，任何把它顶掉的操作都会连累后续用例）。
+ */
+test.describe("Engineering Island V2 空态", () => {
+  test("没有项目时给明确文案，不留白", async ({ browser }) => {
+    const api = await apiClient();
+    const stamp = Date.now().toString(36);
+    const username = `e2e_island_empty_${stamp}`;
+
+    // register 只需昵称（密码可选）；注册即登录，API 上下文里已有会话
+    const created = await api.write("POST", "/api/v1/auth/register/", { username });
+    expectWriteOk(created, "注册空账户");
+    const state = await api.raw().storageState();
+    await api.dispose();
+
+    // 用这个新账户的会话开一个**独立**上下文，完全不复用共享登录态
+    const ctx = await browser.newContext({ storageState: state });
+    const page = await ctx.newPage();
+    try {
+      await page.goto("/island");
+      await expect(page.getByText("还没有工程")).toBeVisible({ timeout: 20_000 });
+      // 空态时不该有卡片，也不该有假进度
+      await expect(page.getByTestId("project-summary-card")).toHaveCount(0);
+    } finally {
+      await ctx.close();
+    }
   });
 });

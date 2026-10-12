@@ -1,5 +1,12 @@
 /**
- * 一张图纸页 = 一个 Project（PRODUCT_REFACTOR_PLAN §17 / §19）。
+ * ⚠️ 历史组件（第一代 Island）：一张图纸页 = 一个 Project。
+ *
+ * **Island V2 已不再用它作为主路径**（2026-10-12，`docs/ISLAND_V2_SPEC.md` §1.4）。
+ * 文件保留到阶段 5 确认无复用后删除；保留期间**不从 index.ts 导出**。
+ * 它导出的 `IslandTodayData` / `IslandResting` 曾服务于"翻页 + 收起为最小态"语义，
+ * V2 的对应能力是多项目卡片内的滚动与展开（见 ProjectSummaryCard）。
+ *
+ * 以下为原始设计说明，留档：
  *
  * 纯展示：所有数据由 EngineeringIsland 注入。
  * 这样切页时"数据获取"和"视觉呈现"互不牵连，也便于单独看它长什么样。

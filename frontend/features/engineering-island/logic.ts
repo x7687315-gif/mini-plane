@@ -95,3 +95,54 @@ export const orDash = (value: string | null | undefined): string => {
   const trimmed = typeof value === "string" ? value.trim() : "";
   return trimmed.length > 0 ? trimmed : "—";
 };
+
+/**
+ * 长文本截断（Island V2 摘要卡片用，规格 §2 的 HOW「过长时截断，展开后可读全文」）。
+ *
+ * 截断是按**字符数**而不是按视觉宽度：卡片宽度由 CSS 决定，而截断只需要保证
+ * "同一项目两次渲染结果一致"（否则 React 会抖动）。全角/半角混排时略保守，
+ * 但不会把一行撑破 —— 真正的兜底是 CSS 的 `line-clamp`。
+ */
+export const truncate = (text: string | null | undefined, max: number): string => {
+  const value = typeof text === "string" ? text.trim() : "";
+  if (value.length === 0) return "";
+  if (!Number.isFinite(max) || max <= 0) return value;
+  return value.length <= max ? value : `${value.slice(0, Math.max(1, max - 1)).trimEnd()}…`;
+};
+
+/**
+ * DONE（最近完成）的三种诚实状态 —— Island V2 规格 §2「缺失时展示」。
+ *
+ * 数据来源优先级：最近完成任务标题（阶段 3 的 `recent_done`）> 已完成计数（现有
+ * `done_tasks`，是真实统计不是推测）> 「暂无完成记录」。
+ *
+ * **不允许**第三种以上的"美化"：没有标题清单时不许用 Worklog 结论冒充已完成任务
+ * （规格红线：Task 与 Worklog 语义不合并）。
+ */
+export type DoneSummary =
+  | { kind: "list"; titles: readonly string[] }
+  | { kind: "count"; count: number }
+  | { kind: "empty" };
+
+export const doneSummary = (
+  doneCount: number | null | undefined,
+  recentTitles?: readonly string[] | null,
+): DoneSummary => {
+  const titles = (recentTitles ?? []).map((t) => t.trim()).filter(Boolean);
+  if (titles.length > 0) return { kind: "list", titles };
+  const count = typeof doneCount === "number" && Number.isFinite(doneCount) ? Math.max(0, Math.trunc(doneCount)) : 0;
+  return count > 0 ? { kind: "count", count } : { kind: "empty" };
+};
+
+/**
+ * 缺失字段的统一文案（规格 §2 表格右列）。
+ *
+ * 集中成一函数而不是散在各组件里：文案是**契约**，改一处即可全局一致，
+ * 也方便 E2E 用同一常量断言。
+ */
+export const EMPTY_STEP = "Agent 尚未报告步骤";
+export const EMPTY_HOW = "尚未记录执行方法";
+export const EMPTY_NEXT = "尚未安排下一步";
+export const EMPTY_STAGE = "未设置阶段";
+export const EMPTY_DONE = "暂无完成记录";
+export const EMPTY_NOW = "当前没有进行中的任务";
