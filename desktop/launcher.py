@@ -30,8 +30,13 @@ from pathlib import Path
 # Sprint 15：Island 独立窗口的两个模块。放在同目录，PyInstaller 会按 import 自动跟进。
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from island import create_island_window, island_enabled  # noqa: E402
-from window_manager import DesktopApi, WindowManager  # noqa: E402
+from island import (
+    TRIGGER_TITLE,
+    create_island_window,
+    create_trigger_window,
+    island_enabled,
+)  # noqa: E402
+from window_manager import DesktopApi, WindowManager, set_notify  # noqa: E402
 from window_watch import watch_main_window_gone  # noqa: E402
 
 APP_TITLE = "Mini Plane  ·  本地单机版"
@@ -484,6 +489,7 @@ def open_window(url: str, procs: list[subprocess.Popen]) -> int:
         # Sprint 15：窗口引用与 Island 可见状态统一由 WindowManager 持有，
         # 前端通过 window.pywebview.api（DesktopApi）操作，避免"谁负责隐藏"出现分歧。
         windows = WindowManager()
+        set_notify(_log)  # 窗口 API 的每次调用都写进 launcher.log，便于排查
         api = DesktopApi(windows)
 
         # pywebview 6.x：create_window 登记的窗口由 start() 统一驱动；start() 不接 window 参数
@@ -497,18 +503,44 @@ def open_window(url: str, procs: list[subprocess.Popen]) -> int:
             js_api=api,
         )
 
-        # Island 独立窗口：置顶、无边框可拖、顶部居中、**隐藏启动**（Alt+I 唤出）
+        # Island V2 阶段 2：触发把手 + 完整面板两个窗口，偏好从 desktop-config.json 恢复
         island_window = None
+        trigger_window = None
         if island_enabled():
+            state = windows.restore_preferences()
+            _log(
+                f"[island] 偏好恢复：displayMode={state['displayMode']} "
+                f"visibility={state['visibility']}"
+            )
             try:
-                island_window = create_island_window(webview, FRONTEND_PORT, api)
+                # 把手常驻可见（隐藏模式下唯一入口）；面板按 displayMode 决定是否隐藏启动
+                trigger_window = create_trigger_window(
+                    webview,
+                    FRONTEND_PORT,
+                    api,
+                    x=state.get("triggerX"),
+                )
+                windows.register_trigger(trigger_window)
+                _log("[island] 触发把手已创建（顶部居中，点击展开 / Alt+I）")
+            except Exception as exc:
+                # 把手开不出来是"降级"：退回旧行为（面板隐藏启动，Alt+I 唤出）
+                _log(f"[island] 触发把手创建失败，退回隐藏启动：{exc!r}")
+            try:
+                island_window = create_island_window(
+                    webview,
+                    FRONTEND_PORT,
+                    api,
+                    x=state.get("panelX"),
+                    y=state.get("panelY"),
+                    hidden=state["visibility"] != "expanded",
+                )
                 windows.register_island(island_window)
-                _log("[island] 独立窗口已登记（隐藏启动，Alt+I 唤出）")
+                _log("[island] 完整面板已登记")
             except Exception as exc:
                 # Island 开不出来是"降级"，不是"启动失败"：主窗口照常用
-                _log(f"[island] 独立窗口创建失败，本次不带它启动：{exc!r}")
+                _log(f"[island] 完整面板创建失败，本次不带它启动：{exc!r}")
 
-        # 关掉主窗口 = 退出整个应用：销毁 Island 窗口让 start() 返回，
+        # 关掉主窗口 = 退出整个应用：销毁 Island 与把手让 start() 返回，
         # 外层的 finally 才会 kill_tree 掉后端与前端（否则它们会一直占着端口）。
         # 两条退出通路，缺一不可：
         #   1) events.closed —— 某些版本/平台会触发，作为快路径
@@ -516,13 +548,23 @@ def open_window(url: str, procs: list[subprocess.Popen]) -> int:
         #      （主窗口属于 exe 派生的 GUI 子进程，父进程里的回调收不到），
         #      所以用 Win32 按标题监视：主窗口一消失就销毁 Island 窗口，
         #      pywebview 的最后一个窗口没了 → start() 返回 → finally 停掉后端与前端。
-        windows.bind_main_window(main_window, island_window)
+        windows.bind_main_window(main_window, island_window, trigger_window)
+
         watch_main_window_gone(
             APP_TITLE,
             island_window,
             notify=_log,
             on_quit=lambda: stop_services(procs, hard_exit=True),
         )
+        # 触发把手消失同样要退出：它是隐藏模式唯一入口，没了 Island 就再也唤不出来，
+        # 而 pywebview 不允许 start() 之后新建窗口 —— 与其留一个半残状态，不如干净退出。
+        if trigger_window is not None:
+            watch_main_window_gone(
+                TRIGGER_TITLE,
+                island_window,
+                notify=_log,
+                on_quit=lambda: stop_services(procs, hard_exit=True),
+            )
 
         # private_mode 默认 True → 不保留 cookie/localStorage，导致每次启动都要重新登录。
         # 关掉私有模式 + 指定持久 storage_path（runtime/ 下），sessionid cookie 跨启动保留，

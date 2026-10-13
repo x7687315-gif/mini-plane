@@ -24,6 +24,8 @@ import { desktopBridge, isDesktop } from "@/lib/desktopBridge";
 import { EngineeringIslandOverview } from "./EngineeringIslandOverview";
 
 export function EngineeringIsland({ variant = "page" }: { variant?: "page" | "panel" }) {
+  const isPanel = variant === "panel";
+
   // 桌面版快捷键：Alt+I 显隐 Island 窗口（主窗口与面板窗口都监听）
   useEffect(() => {
     if (!isDesktop()) return;
@@ -36,6 +38,22 @@ export function EngineeringIsland({ variant = "page" }: { variant?: "page" | "pa
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Esc 收起（规格 §1.1：仅 auto_hide + expanded 时）。
+  // 只绑在**面板窗口**上：网页版按 Esc 收起一个网页面板没有意义，还会和
+  // "Esc 关闭弹窗"这类既有行为打架。固定时的拒绝由 Python 侧状态机兜底
+  // （window_manager.hide_island 在 pinned 下直接返回不收起）。
+  useEffect(() => {
+    if (!isPanel || !isDesktop()) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        desktopBridge.hideIsland();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isPanel]);
 
   return <EngineeringIslandOverview variant={variant} />;
 }

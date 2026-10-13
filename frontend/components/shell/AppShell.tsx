@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useIslandHotkey } from "@/features/engineering-island";
 import clsx from "clsx";
 import { TopBar } from "./TopBar";
 import { LeftRail, type RailWorkspace } from "./LeftRail";
@@ -43,6 +44,8 @@ export function AppShell({
   hideAside = false,
   mainClassName,
 }: AppShellProps) {
+  // 桌面版全局快捷键 Alt+I：在主窗口任何页面都能唤出 / 收起 Island
+  useIslandHotkey();
   return (
     <div className="flex flex-col flex-1 min-h-0 min-w-[1180px]">
       <TopBar {...topbar} />

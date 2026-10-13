@@ -20,7 +20,10 @@ test.describe("Engineering Island V2 多项目总览", () => {
   test("总览显示六个问题 + AGENT，且占位文案诚实", async ({ page }) => {
     await page.goto("/island");
 
-    await expect(page.getByRole("heading", { name: "Engineering Island" })).toBeVisible();
+    // 页面标题用 level:1 精确定位：Island 面板自己也有一个同名 h2
+    // （桌面窗口里没有外层页面标题，那个 h2 就是唯一标题），
+    // 裸 getByRole('heading') 会撞 strict mode violation。
+    await expect(page.getByRole("heading", { level: 1, name: "Engineering Island" })).toBeVisible();
     const overview = page.getByTestId("island-overview");
     await expect(overview).toBeVisible({ timeout: 20_000 });
 
@@ -88,12 +91,28 @@ test.describe("Island 独立窗口面板（Island V2）", () => {
     await expect(page.locator("footer")).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Plane/ })).toHaveCount(0);
 
-    // 阶段 2 才实现图钉：现在**不该**出现（点了没反应比没有更糟）
-    await expect(page.getByRole("button", { name: /固定 Island 面板/ })).toHaveCount(0);
+    // 阶段 2 的图钉**只在桌面面板里渲染**（有 pywebview 桥时才出现）；
+    // 浏览器里没有桥 → 不该出现（点了没反应比没有更糟）
+    await expect(page.getByTestId("island-pin")).toHaveCount(0);
 
     // 第一代的翻页控件随轮播一起退场
     await expect(page.getByRole("button", { name: "收起为最小态" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "下一张图纸" })).toHaveCount(0);
+  });
+
+  test("触发把手路由：可渲染、可点击，浏览器里是安全的 no-op", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+
+    await page.goto("/island-trigger");
+    const trigger = page.getByTestId("island-trigger");
+    await expect(trigger).toBeVisible({ timeout: 20_000 });
+    await expect(trigger).toHaveAccessibleName(/展开或收起工程 Island 面板/);
+
+    // 浏览器里没有 pywebview 桥：点击必须是 no-op，不能抛错把页面搞崩
+    await trigger.click();
+    await expect(trigger).toBeVisible();
+    expect(errors, "点击把手不应产生页面异常").toEqual([]);
   });
 });
 

@@ -6,3 +6,4 @@
  */
 
 export * from "./logic";
+export { useIslandHotkey } from "./useIslandHotkey";

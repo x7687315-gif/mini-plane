@@ -1,8 +1,19 @@
-"""多窗口生命周期管理（Sprint 15 · Desktop Island）。
+"""多窗口生命周期与 Island 状态机（Island V2 阶段 2 · 规格 §1.1–§1.3）。
 
-主窗口之外多一个 Island 窗口后，"谁负责显示/隐藏它"必须**只有一个**答案，
-否则会出现"点了没反应""隐藏了又自己冒出来"这类鬼故事。所以这里把
-Island 窗口的引用与可见状态收在一处，两个入口（前端 JS API、Alt+I）都走它。
+主窗口之外还有两个 Island 窗口（触发把手 + 完整面板），"谁负责显示/隐藏它"必须
+**只有一个**答案，否则会出现"点了没反应""隐藏了又自己冒出来"这类鬼故事。
+所以这里把窗口引用与两个正交状态收在一处，所有入口（前端 JS API、Alt+I、Esc）都走它。
+
+## 两个正交状态（规格 §2.3）
+
+    displayMode: auto_hide | pinned     （用户偏好，重启保留，存 desktop-config.json）
+    visibility:  hidden   | expanded    （当前是否展开）
+
+| displayMode | visibility | 用户看到什么 |
+|---|---|---|
+| auto_hide | hidden | 只有顶部触发把手 |
+| auto_hide | expanded | 完整面板，可收起 |
+| pinned | expanded | 完整面板常驻置顶 |
 
 ## pywebview 的线程约束（很重要）
 
@@ -10,9 +21,7 @@ GUI 事件循环跑在**主线程**上，而 `webview.start()` 会阻塞在那�
 窗口的 `show()/hide()/resize()` 属于 GUI 操作，**不能从主线程调用**，
 否则要么没反应要么直接崩。本模块的所有窗口操作都保证从"非 GUI 线程"进入：
 - 前端通过 `window.pywebview.api.*` 调进来 —— pywebview 把它放在工作线程执行，天然合规；
-- Alt+I 由前端转发到同一个 api —— 走的还是工作线程。
-
-这也是为什么**没有**再加一个"键盘监听线程"：多一条通路就多一种竞态。
+- Alt+I / Esc 由前端转发到同一个 api —— 走的还是工作线程。
 """
 
 from __future__ import annotations
@@ -21,11 +30,32 @@ import logging
 import threading
 from typing import Any
 
+import config as desktop_config
+from config import next_visibility
+
 log = logging.getLogger("miniplane.windows")
+
+#: 观测钩子：由 launcher 注入 `_log`（冻结版没有控制台，logging 的输出没人看得到）。
+#: 每个窗口 API 调用都记一行 —— "点击没反应"这类问题必须先能看见调用有没有到。
+_notify: Any = None
+
+
+def set_notify(fn: Any) -> None:
+    global _notify
+    _notify = fn
+
+
+def _say(message: str) -> None:
+    if _notify is not None:
+        try:
+            _notify(message)
+        except Exception:
+            pass
+    log.info(message)
 
 
 class DesktopApi:
-    """暴露给前端的 `window.pywebview.api`（主窗口与 Island 窗口共用同一个实例）。
+    """暴露给前端的 `window.pywebview.api`（三个窗口共用同一个实例）。
 
     方法名用下划线（`toggle_island`）而不是驼峰：pywebview 会把 Python 属性
     原样挂到 JS 上，前端 `lib/desktopBridge.ts` 与之对应。
@@ -35,102 +65,199 @@ class DesktopApi:
         self._manager = manager
 
     def toggle_island(self) -> dict:
+        _say("[api] toggle_island")
         return self._manager.toggle_island()
 
     def show_island(self) -> dict:
+        _say("[api] show_island")
         return self._manager.show_island()
 
     def hide_island(self) -> dict:
+        _say("[api] hide_island")
         return self._manager.hide_island()
+
+    def pin_island(self) -> dict:
+        _say("[api] pin_island")
+        return self._manager.pin_island()
+
+    def unpin_island(self) -> dict:
+        _say("[api] unpin_island")
+        return self._manager.unpin_island()
 
     def island_state(self) -> dict:
         return self._manager.island_state()
 
-    # pywebview 会把返回的 dict 序列化给 JS；出错时也让前端拿到原因而不是 undefined
-    def _result(self, ok: bool, message: str, **extra: Any) -> dict:
-        if not ok:
-            log.warning("窗口操作失败：%s", message)
-        return {"ok": ok, "message": message, **extra}
-
 
 class WindowManager:
-    """持有窗口引用与 Island 可见状态。"""
+    """持有三个窗口的引用与 Island 的两个正交状态。"""
 
     def __init__(self) -> None:
         self._island: Any | None = None
-        self._island_visible = False
+        self._trigger: Any | None = None
+        self._main: Any | None = None
+        # 启动时由 restore_preferences() 用 desktop-config.json 的值初始化
+        self._display_mode: str = desktop_config.DEFAULT_DISPLAY_MODE
+        self._visibility: str = "hidden"
+        self._cfg: dict[str, Any] = desktop_config.default_config()
 
     # ── 登记 ────────────────────────────────────────────────
     def register_island(self, window: Any) -> None:
         self._island = window
-        self._island_visible = False
-        # 关掉 Island 窗口 ≠ 退出应用：这里只标记为隐藏，不碰主窗口
+        try:
+            window.events.moved += self._on_window_moved
+        except Exception:
+            pass
         try:
             window.events.closed += self._on_island_closed
         except Exception:  # 老版本没有 events，不影响主流程
             pass
 
+    def register_trigger(self, window: Any) -> None:
+        self._trigger = window
+        try:
+            window.events.moved += self._on_window_moved
+        except Exception:
+            pass
+
     def _on_island_closed(self, *_args: Any) -> None:
-        self._island_visible = False
+        # 面板被关掉（无边框窗口也有 Alt+F4）≠ 退出应用：退回隐藏式，把手还在
+        self._visibility = "hidden"
+        log.info("Island 面板已关闭 → 退回隐藏式（触发把手仍在）")
+
+    # ── 启动时恢复偏好 ──────────────────────────────────────
+    def restore_preferences(self, cfg: dict[str, Any] | None = None) -> dict:
+        """按 desktop-config.json 恢复 displayMode / visibility，返回最终状态。"""
+        self._cfg = cfg or desktop_config.load_desktop_config()
+        mode = self._cfg.get("displayMode")
+        self._display_mode = mode if mode in desktop_config.DISPLAY_MODES else "auto_hide"
+        # pinned 启动即展开；auto_hide 启动只显示把手
+        self._visibility = "expanded" if self._display_mode == "pinned" else "hidden"
+        desktop_config.save_desktop_config(self._cfg)  # 启动即落盘：自愈缺失/损坏，也便于用户查看
+        log.info(
+            "Island 偏好已恢复：displayMode=%s visibility=%s", self._display_mode, self._visibility
+        )
+        return self.island_state()
 
     # ── 状态 ────────────────────────────────────────────────
     def island_state(self) -> dict:
         return {
             "registered": self._island is not None,
-            "visible": self._island_visible,
+            "trigger": self._trigger is not None,
+            "displayMode": self._display_mode,
+            "visibility": self._visibility,
+            "pinned": self._display_mode == "pinned",
+            "visible": self._visibility == "expanded",
         }
+
+    # ── 位置持久化 ──────────────────────────────────────────
+    def _on_window_moved(self, *_args: Any) -> None:
+        """窗口被拖动 → 记住新位置（规格 §1.3：首版同时记忆窗口位置）。"""
+        cfg = dict(self._cfg)
+        if self._trigger is not None:
+            try:
+                cfg["triggerX"] = int(self._trigger.x)
+            except Exception:
+                pass
+        if self._island is not None:
+            try:
+                cfg["panelX"] = int(self._island.x)
+                cfg["panelY"] = int(self._island.y)
+            except Exception:
+                pass
+        self._cfg = cfg
+        desktop_config.save_desktop_config(cfg)
 
     # ── 操作 ────────────────────────────────────────────────
     def show_island(self) -> dict:
         if self._island is None:
-            return {"ok": False, "message": "Island 窗口未启用"}
+            return self._fail("Island 窗口未启用")
         try:
             self._island.show()
-            self._island_visible = True
-            return {"ok": True, "message": "Island 已显示", "visible": True}
+            self._visibility = "expanded"
+            _say("[island] 面板已展开")
+            return self._ok("Island 已展开", visible=True)
         except Exception as exc:  # GUI 线程状态异常时不能把前端带崩
-            return {"ok": False, "message": f"显示失败：{exc}", "visible": self._island_visible}
+            return self._fail(f"展开失败：{exc}")
 
     def hide_island(self) -> dict:
         if self._island is None:
-            return {"ok": False, "message": "Island 窗口未启用"}
+            return self._fail("Island 窗口未启用")
+        # 固定模式下拒绝收起（规格 §2.3：pinned + expanded 要常驻）。
+        # Esc / 把手点击都走这条路，护栏放在这里而不是各入口各判一遍。
+        if self._display_mode == "pinned":
+            return self._ok("已固定，不会收起", pinned=True, visible=True)
         try:
             self._island.hide()
-            self._island_visible = False
-            return {"ok": True, "message": "Island 已隐藏", "visible": False}
+            self._visibility = "hidden"
+            _say("[island] 面板已收起")
+            return self._ok("Island 已收起", visible=False)
         except Exception as exc:
-            return {"ok": False, "message": f"隐藏失败：{exc}", "visible": self._island_visible}
+            return self._fail(f"收起失败：{exc}")
 
     def toggle_island(self) -> dict:
-        return self.hide_island() if self._island_visible else self.show_island()
+        """点把手 / Alt+I：按状态机推进 visibility（pinned 时永远展开）。"""
+        target = next_visibility(self._display_mode, self._visibility)
+        return self.show_island() if target == "expanded" else self.hide_island()
+
+    def pin_island(self) -> dict:
+        """图钉固定：displayMode → pinned 并展开；偏好落盘。"""
+        self._display_mode = "pinned"
+        self._visibility = "expanded"
+        self._cfg = {**self._cfg, "displayMode": "pinned"}
+        desktop_config.save_desktop_config(self._cfg)
+        log.info("Island 已固定（displayMode=pinned，重启后仍固定）")
+        return self._ok("已固定，面板常驻", pinned=True, visible=True)
+
+    def unpin_island(self) -> dict:
+        """取消固定：displayMode → auto_hide。
+
+        **不自动收起**（规格 §2.3）：否则用户会以为图钉按钮失灵 ——
+        "点了没变化"比"面板还在"更糟。收起交给用户自己点把手 / Esc。
+        """
+        self._display_mode = "auto_hide"
+        self._cfg = {**self._cfg, "displayMode": "auto_hide"}
+        desktop_config.save_desktop_config(self._cfg)
+        log.info("Island 已取消固定（displayMode=auto_hide，面板仍展开）")
+        return self._ok("已取消固定", pinned=False, visible=self._visibility == "expanded")
+
+    # ── 结果构造 ────────────────────────────────────────────
+    def _ok(self, message: str, **extra: Any) -> dict:
+        return {"ok": True, "message": message, **self.island_state(), **extra}
+
+    def _fail(self, message: str) -> dict:
+        log.warning("窗口操作失败：%s", message)
+        return {"ok": False, "message": message, **self.island_state()}
 
     # ── 生命周期：主窗口关闭即退出整个应用 ──────────────────────
-    def bind_main_window(self, main_window: Any, island_window: Any | None) -> None:
-        """主窗口关闭 → 连带销毁 Island 窗口，让 `webview.start()` 返回。
+    def bind_main_window(
+        self, main_window: Any, island_window: Any | None, trigger_window: Any | None
+    ) -> None:
+        """主窗口关闭 → 连带销毁 Island 与把手，让 `webview.start()` 返回。
 
         **为什么必须显式做**（2026-10-03 用户被这个坑到第二次）：
         pywebview 的 `start()` 只有在**所有**窗口都关闭后才返回，而启动器的
         `finally: kill_tree(...)`（停后端/前端）挂在它返回之后。
-        Sprint 15 加了 Island 窗口之后，用户关掉主窗口 → Island 窗口（哪怕是隐藏的）
-        仍然存在 → start() 不返回 → 后端与前端**继续占着 8000/3000**，
-        界面上看着"关掉了"，后台其实还在跑（而且下次双击会复用这一套）。
+        只关主窗口的话，另外两个窗口（哪怕是隐藏的）仍存在 → start() 不返回 →
+        后端与前端**继续占着 8000/3000**，界面上看着"关掉了"，后台其实还在跑。
 
         用户的要求很明确：**关掉界面，后台进程直接全退。** 这就是这条绑定的意义。
         """
 
         def _on_main_closed(*_args: Any) -> None:
-            log.info("主窗口已关闭 → 退出整个应用（销毁 Island 窗口并停服务）")
-            if island_window is None:
-                return
+            log.info("主窗口已关闭 → 退出整个应用（销毁 Island 与把手，停服务）")
+            self._main = None
+            for win in (island_window, trigger_window):
+                if win is None:
+                    continue
 
-            # 窗口操作不能在 GUI 线程里同步做（会重入 GUI 循环），放工作线程
-            def _destroy() -> None:
-                try:
-                    island_window.destroy()
-                except Exception as exc:  # 已经被关掉等情况
-                    log.debug("Island 窗口销毁跳过：%r", exc)
+                # 窗口操作不能在 GUI 线程里同步做（会重入 GUI 循环），放工作线程
+                def _destroy(w: Any = win) -> None:
+                    try:
+                        w.destroy()
+                    except Exception as exc:  # 已经被关掉等情况
+                        log.debug("窗口销毁跳过：%r", exc)
 
-            threading.Thread(target=_destroy, daemon=True).start()
+                threading.Thread(target=_destroy, daemon=True).start()
 
         try:
             main_window.events.closed += _on_main_closed

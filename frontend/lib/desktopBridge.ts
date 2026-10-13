@@ -9,10 +9,28 @@
  * 所以每次调用都现取属性，而不是在模块顶层缓存一个可能为 undefined 的引用。
  */
 
+/**
+ * Island 窗口状态（Island V2 阶段 2 · 规格 §2.3 的两个正交状态）。
+ * 字段与 desktop/window_manager.WindowManager.island_state() 一一对应。
+ */
+export interface IslandState {
+  registered: boolean;
+  trigger: boolean;
+  /** auto_hide = 隐藏式（默认）；pinned = 图钉固定 */
+  displayMode: "auto_hide" | "pinned";
+  /** hidden = 只显示把手；expanded = 完整面板可见 */
+  visibility: "hidden" | "expanded";
+  pinned: boolean;
+  visible: boolean;
+}
+
 export interface IslandWindowApi {
-  toggle_island?: () => void;
-  show_island?: () => void;
-  hide_island?: () => void;
+  toggle_island?: () => IslandState | void;
+  show_island?: () => IslandState | void;
+  hide_island?: () => IslandState | void;
+  pin_island?: () => IslandState | void;
+  unpin_island?: () => IslandState | void;
+  island_state?: () => IslandState;
 }
 
 interface PywebviewWindow {
@@ -45,7 +63,24 @@ export const desktopBridge = {
   toggleIsland: () => call("toggle_island"),
   showIsland: () => call("show_island"),
   hideIsland: () => call("hide_island"),
+  pinIsland: () => call("pin_island"),
+  unpinIsland: () => call("unpin_island"),
 };
+
+/**
+ * 读取 Island 当前状态（异步：pywebview 的 api 方法返回 Promise）。
+ * 浏览器里（无桥）返回 null，调用方按"非桌面"处理。
+ */
+export async function readIslandState(): Promise<IslandState | null> {
+  const fn = api()?.island_state;
+  if (typeof fn !== "function") return null;
+  try {
+    const state = await fn();
+    return state ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** Island 窗口之间共享"当前图纸"的 storage key（两个 WebView2 窗口同源同 profile）。 */
 export const ISLAND_SHEET_KEY = "mp-island-sheet";

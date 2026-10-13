@@ -81,7 +81,7 @@ export function EngineeringIslandOverview({
       className="rounded-[26px] border border-[color:var(--color-rule)] bg-[color:var(--color-paper-2)] p-3 shadow-[0_1px_3px_rgba(27,26,23,0.07)]"
     >
       <div className="px-1 pb-2">
-        <IslandHeader projectCount={projects.length} isPanel={isPanel} pinned={false} />
+        <IslandHeader projectCount={projects.length} isPanel={isPanel} />
       </div>
 
       {/* 面板内滚动：高度由外层容器约束，这里只负责"多了就滚" */}
