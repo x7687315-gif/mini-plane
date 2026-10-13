@@ -107,8 +107,44 @@ class AgentSessionSerializer(serializers.ModelSerializer):
             "elapsed_seconds",
             "agent",
             "note",
+            # Island V2 阶段 3：Agent 上报的执行进度（规格 §6.1）
+            "current_step",
+            "step_index",
+            "step_total",
+            "method_summary",
         ]
         read_only_fields = fields
+
+
+class AgentSessionProgressSerializer(serializers.Serializer):
+    """session.progress 请求体（Island V2 阶段 3 · 规格 §6.2）。
+
+    四个字段全部**可选**：Agent 在有意义时点上报（开始执行 / 切换步骤 / 步骤完成），
+    不必每次带全。约束只有两条：
+    - `step_index` ≤ `step_total`（序号不可能超过总数）；
+    - 空字符串表示"清空"（例如步骤做完了要撤回），None 表示"这次不碰这个字段"。
+    """
+
+    current_step = serializers.CharField(
+        max_length=200, required=False, allow_blank=True, default=""
+    )
+    step_index = serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=9999
+    )
+    step_total = serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=9999
+    )
+    method_summary = serializers.CharField(
+        max_length=300, required=False, allow_blank=True, default=""
+    )
+
+    def validate(self, attrs):
+        idx, total = attrs.get("step_index"), attrs.get("step_total")
+        if idx is not None and total is not None and idx > total:
+            raise serializers.ValidationError(
+                {"step_index": f"当前步骤 {idx} 不能超过总步骤数 {total}。"}
+            )
+        return attrs
 
 
 class AgentSessionStartSerializer(serializers.Serializer):

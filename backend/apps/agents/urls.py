@@ -34,4 +34,10 @@ urlpatterns = [
     ),
     path("sessions/", views.agent_session_start, name="agent-session-start"),
     path("sessions/<uuid:session_id>/end/", views.agent_session_end, name="agent-session-end"),
+    # Island V2 阶段 3：Agent 上报当前步骤与执行方法（规格 §6.2）
+    path(
+        "sessions/<uuid:session_id>/progress/",
+        views.agent_session_progress,
+        name="agent-session-progress",
+    ),
 ]

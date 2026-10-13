@@ -34,6 +34,7 @@ from apps.agents.serializers import (
     AgentProgressSerializer,
     AgentProjectSnapshotSerializer,
     AgentSessionEndSerializer,
+    AgentSessionProgressSerializer,
     AgentSessionSerializer,
     AgentSessionStartSerializer,
     AgentTaskCreateSerializer,
@@ -358,3 +359,41 @@ def agent_session_end(request, session_id):
         session, status=v.get("status", AgentSessionStatus.DONE), note=v.get("note", "")
     )
     return Response(AgentSessionSerializer(session).data)
+
+
+@extend_schema(
+    summary="session.progress：上报当前执行步骤与方法（Island V2 阶段 3）",
+    request=AgentSessionProgressSerializer,
+    responses={200: AgentSessionSerializer},
+)
+@api_view(["POST"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_session_progress(request, session_id):
+    """Agent 上报 STEP / HOW（规格 §6.2）。
+
+    四条硬约束，逐条对应规格：
+    1. 认证走现有 Agent Token，scope 取现有的最小写权限（不新增 scope）；
+    2. 会话必须属于该 token **有权访问的项目** —— 跨项目写入一律 404（防枚举）；
+    3. **已结束的会话拒绝补写**（400）：否则步骤与运行时长会和事实矛盾；
+    4. 遵守现有 `Idempotency-Key` 约定，重复上报直接回放首次响应。
+    """
+    require_scope(request, AgentScopes.WRITE_TASK)
+    cached = _replay(request, "session.progress")
+    if cached is not None:
+        return cached
+
+    session = get_object_or_404(
+        AgentSession, id=session_id, project_id__in=accessible_project_ids(request.user)
+    )
+    if session.status != AgentSessionStatus.RUNNING:
+        return Response(
+            {"detail": f"会话已结束（{session.get_status_display()}），不能更新执行进度。"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    serializer = AgentSessionProgressSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    session = agent_services.update_progress(session, **serializer.validated_data)
+    resp = Response(AgentSessionSerializer(session).data)
+    return _remember(request, "session.progress", resp)

@@ -108,11 +108,42 @@ class ProjectEngineeringSerializer(serializers.Serializer):
     agent_running = serializers.BooleanField(help_text="是否有运行中的 Agent 会话（Sprint 13）")
     last_activity = serializers.DateTimeField(allow_null=True)
 
+    # ── Island V2 阶段 3：DONE / STEP / HOW（规格 §2 信息设计）─────────
+    # DONE 必须来自**真实完成记录**：优先取最近完成的任务标题（视图注入，单次查询），
+    # 没有标题时才回退为已完成计数。语义红线：Task 与 Worklog 不合并，
+    # 所以这里**不**用最新日志结论冒充已完成任务。
+    recent_done = serializers.SerializerMethodField(
+        help_text="最近完成的任务标题（最多 3 条，真实记录；无则为空列表）"
+    )
+    latest_log = serializers.SerializerMethodField(
+        help_text="最新工程日志：{title, summary, date}（实际做过什么、结论如何）"
+    )
+    # STEP / HOW 只来自 Agent 上报（运行中会话的 current_step / method_summary）
+    agent_step = serializers.CharField(allow_null=True, help_text="Agent 当前执行步骤")
+    agent_step_index = serializers.IntegerField(allow_null=True)
+    agent_step_total = serializers.IntegerField(allow_null=True)
+    agent_method = serializers.CharField(allow_null=True, help_text="Agent 执行方法简述")
+    agent_session_title = serializers.CharField(allow_null=True, help_text="运行中 Agent 会话标题")
+
     def _plan_stages(self, obj):
         plan = getattr(obj, "plan", None)
         if plan is None:
             return []
         return list(plan.stages.all())  # prefetch 命中，无额外查询
+
+    def get_recent_done(self, obj) -> list[str]:
+        # 视图按项目批量取好后放进 context（一次查询，不是每项目一次）
+        return list(self._extra(obj).get("recent_done", {}).get(str(obj.id), []))
+
+    def get_latest_log(self, obj) -> dict | None:
+        return self._extra(obj).get("latest_log", {}).get(str(obj.id))
+
+    def _extra(self, obj) -> dict:
+        ctx = self.context or {}
+        return {
+            "recent_done": ctx.get("recent_done", {}),
+            "latest_log": ctx.get("latest_log", {}),
+        }
 
     def get_progress(self, obj) -> float:
         stages = self._plan_stages(obj)

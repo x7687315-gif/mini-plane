@@ -300,13 +300,87 @@ def my_projects_summary(request):
                     project=OuterRef("pk"), status=AgentSessionStatus.RUNNING
                 )
             ),
+            # Island V2 阶段 3：Agent 上报的 STEP / HOW（规格 §6.1）。
+            # 取"最近开始的运行中会话"的四个字段 —— 同一项目可能有多轮会话，
+            # 只有正在跑的那轮有步骤可言；没有运行中会话时全部为 NULL（界面显示"尚未记录"）。
+            agent_step=_agent_field("current_step"),
+            agent_step_index=_agent_field("step_index"),
+            agent_step_total=_agent_field("step_total"),
+            agent_method=_agent_field("method_summary"),
+            agent_session_title=_agent_field("title"),
         )
         # Plan/Stages 用 prefetch 一次取回（2 条额外查询），供 progress/current_stage 优先读 Plan
         .prefetch_related("plan__stages")
         .order_by("-last_activity", "name")
     )
 
-    return Response(ProjectEngineeringSerializer(queryset, many=True).data)
+    # Island V2 阶段 3：DONE 与最新日志用**两条批量查询**取回，再按项目分组。
+    # 为什么不用 ArrayAgg：桌面版跑 SQLite，没有数组聚合；而"每项目一条查询"
+    # 就是规格明令禁止的 N+1。两条查询 + Python 分组 = O(1) 次查询。
+    project_ids = list(queryset.values_list("id", flat=True))
+    recent_done = _recent_done_titles(project_ids)
+    latest_log = _latest_logs(project_ids)
+
+    return Response(
+        ProjectEngineeringSerializer(
+            queryset,
+            many=True,
+            context={"recent_done": recent_done, "latest_log": latest_log},
+        ).data
+    )
+
+
+# ── Island V2 阶段 3：批量取 DONE / 最新日志（供 /projects/mine/ 使用）─────────
+
+
+def _agent_field(field: str) -> Subquery:
+    """最近一个**运行中** Agent 会话的指定字段；没有则为 NULL。"""
+    return Subquery(
+        AgentSession.objects.filter(project=OuterRef("pk"), status=AgentSessionStatus.RUNNING)
+        .order_by("-started_at")
+        .values(field)[:1],
+        output_field=CharField()
+        if field in ("current_step", "method_summary", "title")
+        else IntegerField(),
+    )
+
+
+def _recent_done_titles(project_ids: list) -> dict[str, list[str]]:
+    """每个项目最近完成的 3 个任务标题（真实完成记录，非日志结论）。
+
+    一条查询取回所有项目的已完成任务，再在 Python 里按项目分组并各取前 3 条。
+    """
+    if not project_ids:
+        return {}
+    rows = (
+        Issue.objects.filter(project_id__in=project_ids, state__group=StateGroups.COMPLETED)
+        .order_by("project_id", "-updated_at")
+        .values_list("project_id", "title")
+    )
+    out: dict[str, list[str]] = {}
+    for pid, title in rows:
+        bucket = out.setdefault(str(pid), [])
+        if len(bucket) < 3:  # 每个项目只要最近 3 条，卡片放得下
+            bucket.append(title)
+    return out
+
+
+def _latest_logs(project_ids: list) -> dict[str, dict]:
+    """每个项目最新一条工程日志的标题与结论（实际做了什么）。"""
+    if not project_ids:
+        return {}
+    rows = (
+        Worklog.objects.filter(project_id__in=project_ids)
+        .order_by("project_id", "-date", "-created_at")
+        .values_list("project_id", "title", "summary", "date")
+    )
+    out: dict[str, dict] = {}
+    for pid, title, summary, date in rows:
+        key = str(pid)
+        if key in out:
+            continue  # 已按 (project, -date) 排序，第一个就是最新
+        out[key] = {"title": title, "summary": summary, "date": date.isoformat()}
+    return out
 
 
 # ── Sprint 10：Global Plan / Stage（PRODUCT_REFACTOR_PLAN §5/§6）──────────────

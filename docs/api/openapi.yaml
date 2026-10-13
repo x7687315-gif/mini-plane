@@ -160,6 +160,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/AgentSession'
           description: ''
+  /api/v1/agent/sessions/{session_id}/progress/:
+    post:
+      operationId: v1_agent_sessions_progress_create
+      description: |-
+        Agent 上报 STEP / HOW（规格 §6.2）。
+
+        四条硬约束，逐条对应规格：
+        1. 认证走现有 Agent Token，scope 取现有的最小写权限（不新增 scope）；
+        2. 会话必须属于该 token **有权访问的项目** —— 跨项目写入一律 404（防枚举）；
+        3. **已结束的会话拒绝补写**（400）：否则步骤与运行时长会和事实矛盾；
+        4. 遵守现有 `Idempotency-Key` 约定，重复上报直接回放首次响应。
+      summary: session.progress：上报当前执行步骤与方法（Island V2 阶段 3）
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentSessionProgress'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentSessionProgress'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentSessionProgress'
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSession'
+          description: ''
   /api/v1/agent/tasks/:
     post:
       operationId: v1_agent_tasks_create
@@ -2318,15 +2359,37 @@ components:
           type: string
           readOnly: true
           title: 备注
+        current_step:
+          type: string
+          readOnly: true
+          title: 当前执行步骤
+        step_index:
+          type: integer
+          readOnly: true
+          nullable: true
+          title: 当前步骤序号
+        step_total:
+          type: integer
+          readOnly: true
+          nullable: true
+          title: 总步骤数
+        method_summary:
+          type: string
+          readOnly: true
+          title: 执行方法简述
       required:
       - agent
+      - current_step
       - elapsed_seconds
       - ended_at
       - id
+      - method_summary
       - note
       - project
       - started_at
       - status
+      - step_index
+      - step_total
       - task
       - title
     AgentSessionEnd:
@@ -2348,6 +2411,34 @@ components:
         * `done` - done
         * `failed` - failed
         * `stopped` - stopped
+    AgentSessionProgress:
+      type: object
+      description: |-
+        session.progress 请求体（Island V2 阶段 3 · 规格 §6.2）。
+
+        四个字段全部**可选**：Agent 在有意义时点上报（开始执行 / 切换步骤 / 步骤完成），
+        不必每次带全。约束只有两条：
+        - `step_index` ≤ `step_total`（序号不可能超过总数）；
+        - 空字符串表示"清空"（例如步骤做完了要撤回），None 表示"这次不碰这个字段"。
+      properties:
+        current_step:
+          type: string
+          default: ''
+          maxLength: 200
+        step_index:
+          type: integer
+          maximum: 9999
+          minimum: 1
+          nullable: true
+        step_total:
+          type: integer
+          maximum: 9999
+          minimum: 1
+          nullable: true
+        method_summary:
+          type: string
+          default: ''
+          maxLength: 300
     AgentSessionStart:
       type: object
       properties:
@@ -3152,18 +3243,55 @@ components:
           type: string
           format: date-time
           nullable: true
+        recent_done:
+          type: array
+          items:
+            type: string
+          readOnly: true
+          description: 最近完成的任务标题（最多 3 条，真实记录；无则为空列表）
+        latest_log:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+          description: 最新工程日志：{title, summary, date}（实际做过什么、结论如何）
+        agent_step:
+          type: string
+          nullable: true
+          description: Agent 当前执行步骤
+        agent_step_index:
+          type: integer
+          nullable: true
+        agent_step_total:
+          type: integer
+          nullable: true
+        agent_method:
+          type: string
+          nullable: true
+          description: Agent 执行方法简述
+        agent_session_title:
+          type: string
+          nullable: true
+          description: 运行中 Agent 会话标题
       required:
+      - agent_method
       - agent_running
+      - agent_session_title
+      - agent_step
+      - agent_step_index
+      - agent_step_total
       - current_stage
       - done_tasks
       - id
       - identifier
       - last_activity
+      - latest_log
       - name
       - next_task
       - now_task
       - open_tasks
       - progress
+      - recent_done
       - started_tasks
       - today_logs
       - total_tasks

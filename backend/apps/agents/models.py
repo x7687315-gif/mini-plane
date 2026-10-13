@@ -150,6 +150,14 @@ class AgentSession(BaseModel):
         choices=AgentSessionStatus.choices,
         default=AgentSessionStatus.RUNNING,
     )
+    # ── Island V2 阶段 3：Agent 主动上报的执行进度（规格 §6.1）──────────
+    # 为什么挂在 AgentSession 上：它就是"这一轮 Agent 正在干什么"的自然归属，
+    # 不必为它新建通用工作流引擎（规格 §6.1 明确排除）。
+    # 四个字段**只由 Agent 经接口写入**，界面不得推测填充；缺失即显示"尚未记录"。
+    current_step = models.CharField("当前执行步骤", max_length=200, blank=True, default="")
+    step_index = models.PositiveIntegerField("当前步骤序号", null=True, blank=True)
+    step_total = models.PositiveIntegerField("总步骤数", null=True, blank=True)
+    method_summary = models.CharField("执行方法简述", max_length=300, blank=True, default="")
     started_at = models.DateTimeField("开始时间", auto_now_add=True)
     ended_at = models.DateTimeField("结束时间", null=True, blank=True)
     note = models.TextField("备注", blank=True, default="")
