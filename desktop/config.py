@@ -45,6 +45,9 @@ def default_config() -> dict[str, Any]:
         "triggerX": None,
         "panelX": None,
         "panelY": None,
+        # M1 默认首展（2026-10-14）：False = 用户还没表达过偏好 → 启动即展开完整面板，
+        # 第一眼就看到"记忆中的悬浮窗"；一旦收起/固定过就置 True，之后按记住的偏好走
+        "onboarded": False,
     }
 
 
@@ -67,6 +70,8 @@ def load_desktop_config() -> dict[str, Any]:
     mode = raw.get("displayMode")
     if mode in DISPLAY_MODES:
         cfg["displayMode"] = mode
+    if isinstance(raw.get("onboarded"), bool):
+        cfg["onboarded"] = raw["onboarded"]
     for key in ("triggerX", "panelX", "panelY"):
         value = raw.get(key)
         # 只接受有限数值：NaN/inf/字符串都会让窗口定位出错
@@ -85,6 +90,7 @@ def save_desktop_config(cfg: dict[str, Any]) -> bool:
         "triggerX": _int_or_none(cfg.get("triggerX")),
         "panelX": _int_or_none(cfg.get("panelX")),
         "panelY": _int_or_none(cfg.get("panelY")),
+        "onboarded": bool(cfg.get("onboarded")),
     }
     try:
         path.parent.mkdir(parents=True, exist_ok=True)

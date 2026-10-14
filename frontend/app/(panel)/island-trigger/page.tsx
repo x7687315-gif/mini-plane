@@ -28,27 +28,20 @@ export default function IslandTriggerPage() {
       title="工程 Island（Alt+I）"
       data-testid="island-trigger"
       className={[
-        "group flex h-full w-full items-center justify-center gap-2 rounded-full",
+        "group flex h-full w-full items-center justify-center gap-2 rounded-full px-3",
         "border border-[color:var(--color-accent)] bg-[color:var(--color-paper)]",
-        "transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] motion-reduce:transition-none",
-        "hover:border-[color:var(--color-ink-2)]",
+        "shadow-[0_1px_3px_rgba(27,26,23,0.18)]",
+        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] motion-reduce:transition-none",
+        "hover:border-[color:var(--color-ink-2)] hover:bg-[color:var(--color-paper-2)]",
       ].join(" ")}
     >
-      {/* 常驻的小圆点：静止时也能看出"这里有个东西" */}
-      <span className="h-[5px] w-[5px] rounded-full bg-[color:var(--color-accent)]" aria-hidden />
-      {/* 悬停才出现的文字：默认极窄，不抢视线 */}
-      <span
-        className={[
-          "bp-uppercase max-w-0 overflow-hidden whitespace-nowrap text-[color:var(--color-ink-2)]",
-          "transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] motion-reduce:transition-none",
-          "group-hover:max-w-[120px]",
-        ].join(" ")}
-        aria-hidden
-      >
+      {/* 常驻的小圆点 */}
+      <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-[color:var(--color-accent)]" aria-hidden />
+      {/* M2（2026-10-14）：文字**常显**——把手从 140x14 加大到 200x32 之后，
+          再用"hover 才显字"的老做法就没有存在意义了：入口必须不靠运气发现 */}
+      <span className="bp-uppercase whitespace-nowrap text-[12px] text-[color:var(--color-ink-2)]">
         工程 Island
       </span>
-      {/* 读屏与自动化测试用的恒定文本（视觉上隐藏） */}
-      <span className="sr-only">工程 Island</span>
       {onDesktop ? null : (
         <span className="sr-only">（仅在桌面版可用，浏览器里点击无效果）</span>
       )}

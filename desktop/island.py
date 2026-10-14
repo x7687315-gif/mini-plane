@@ -38,8 +38,8 @@ ISLAND_HEIGHT = int(os.environ.get("MINIPLANE_ISLAND_HEIGHT", "420"))
 ISLAND_MIN_SIZE = (360, 96)
 
 #: 触发把手尺寸（规格 §1.2：约 120×12；悬停加宽由前端 CSS 做，窗口本身给足宽度）
-TRIGGER_WIDTH = int(os.environ.get("MINIPLANE_TRIGGER_WIDTH", "140"))
-TRIGGER_HEIGHT = int(os.environ.get("MINIPLANE_TRIGGER_HEIGHT", "14"))
+TRIGGER_WIDTH = int(os.environ.get("MINIPLANE_TRIGGER_WIDTH", "200"))
+TRIGGER_HEIGHT = int(os.environ.get("MINIPLANE_TRIGGER_HEIGHT", "32"))
 
 
 def island_enabled() -> bool:

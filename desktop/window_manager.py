@@ -130,8 +130,13 @@ class WindowManager:
         self._cfg = cfg or desktop_config.load_desktop_config()
         mode = self._cfg.get("displayMode")
         self._display_mode = mode if mode in desktop_config.DISPLAY_MODES else "auto_hide"
-        # pinned 启动即展开；auto_hide 启动只显示把手
-        self._visibility = "expanded" if self._display_mode == "pinned" else "hidden"
+        self._onboarded = bool(self._cfg.get("onboarded"))
+        # M1 默认首展：用户从未表达过偏好（没收起/固定过）→ 启动即展开完整面板，
+        # 第一眼看到"记忆中的悬浮窗"；表达过之后按记住的偏好走（pinned 恒展开）
+        if self._display_mode == "pinned" or not self._onboarded:
+            self._visibility = "expanded"
+        else:
+            self._visibility = "hidden"
         desktop_config.save_desktop_config(self._cfg)  # 启动即落盘：自愈缺失/损坏，也便于用户查看
         log.info(
             "Island 偏好已恢复：displayMode=%s visibility=%s", self._display_mode, self._visibility
@@ -148,6 +153,14 @@ class WindowManager:
             "pinned": self._display_mode == "pinned",
             "visible": self._visibility == "expanded",
         }
+
+    def _mark_onboarded(self) -> None:
+        """用户表达过一次偏好（收起/固定）→ 此后启动按记住的偏好走（M1）。"""
+        if not self._onboarded:
+            self._onboarded = True
+            self._cfg = {**self._cfg, "onboarded": True}
+            desktop_config.save_desktop_config(self._cfg)
+            _say("[island] 用户已表达窗口偏好，此后按记住的模式启动")
 
     # ── 位置持久化 ──────────────────────────────────────────
     def _on_window_moved(self, *_args: Any) -> None:
@@ -189,6 +202,7 @@ class WindowManager:
         try:
             self._island.hide()
             self._visibility = "hidden"
+            self._mark_onboarded()
             _say("[island] 面板已收起")
             return self._ok("Island 已收起", visible=False)
         except Exception as exc:
@@ -203,7 +217,8 @@ class WindowManager:
         """图钉固定：displayMode → pinned 并展开；偏好落盘。"""
         self._display_mode = "pinned"
         self._visibility = "expanded"
-        self._cfg = {**self._cfg, "displayMode": "pinned"}
+        self._mark_onboarded()
+        self._cfg = {**self._cfg, "displayMode": "pinned", "onboarded": True}
         desktop_config.save_desktop_config(self._cfg)
         log.info("Island 已固定（displayMode=pinned，重启后仍固定）")
         return self._ok("已固定，面板常驻", pinned=True, visible=True)
@@ -215,7 +230,7 @@ class WindowManager:
         "点了没变化"比"面板还在"更糟。收起交给用户自己点把手 / Esc。
         """
         self._display_mode = "auto_hide"
-        self._cfg = {**self._cfg, "displayMode": "auto_hide"}
+        self._cfg = {**self._cfg, "displayMode": "auto_hide", "onboarded": True}
         desktop_config.save_desktop_config(self._cfg)
         log.info("Island 已取消固定（displayMode=auto_hide，面板仍展开）")
         return self._ok("已取消固定", pinned=False, visible=self._visibility == "expanded")
