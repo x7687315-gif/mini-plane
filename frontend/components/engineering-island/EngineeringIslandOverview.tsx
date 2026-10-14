@@ -11,6 +11,7 @@
  */
 
 import { useMemo } from "react";
+import { isDesktop, trackWindowResize } from "@/lib/desktopBridge";
 import { useMyProjects } from "@/features/project";
 import { useProjectRealtime } from "@/features/realtime";
 import { useAgentSessionStore } from "@/stores/agentSession";
@@ -95,6 +96,43 @@ export function EngineeringIslandOverview({
           </li>
         ))}
       </ul>
+      {isPanel && isDesktop() ? <ResizeHitboxes /> : null}
     </section>
+  );
+}
+
+/**
+ * M3：面板边缘缩放热区（fixed 贴窗口四边 + 四角，6px/12px）。
+ * 按下即进入 pointer capture，事件始终回到热区；桥接发位移增量，Python 侧自算边界。
+ * 浏览器里不渲染（无桥，点了没反应比没有更糟）。
+ */
+const EDGES: { edge: string; className: string; cursor: string }[] = [
+  { edge: "top", className: "top-0 left-2 right-2 h-[6px]", cursor: "ns-resize" },
+  { edge: "bottom", className: "bottom-0 left-2 right-2 h-[6px]", cursor: "ns-resize" },
+  { edge: "left", className: "left-0 top-2 bottom-2 w-[6px]", cursor: "ew-resize" },
+  { edge: "right", className: "right-0 top-2 bottom-2 w-[6px]", cursor: "ew-resize" },
+  { edge: "topleft", className: "top-0 left-0 h-[12px] w-[12px]", cursor: "nwse-resize" },
+  { edge: "topright", className: "top-0 right-0 h-[12px] w-[12px]", cursor: "nesw-resize" },
+  { edge: "bottomleft", className: "bottom-0 left-0 h-[12px] w-[12px]", cursor: "nesw-resize" },
+  { edge: "bottomright", className: "bottom-0 right-0 h-[12px] w-[12px]", cursor: "nwse-resize" },
+];
+
+function ResizeHitboxes() {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50" aria-hidden>
+      {EDGES.map(({ edge, className, cursor }) => (
+        <div
+          key={edge}
+          className={`pointer-events-auto absolute ${className}`}
+          style={{ cursor }}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            trackWindowResize("panel", edge, e);
+          }}
+        />
+      ))}
+    </div>
   );
 }

@@ -15,7 +15,7 @@
  * 视觉：纸色填充 + 钴蓝细边 + 胶囊形（Island 专属例外，DESIGN.md §3.3）。
  */
 
-import { desktopBridge, isDesktop } from "@/lib/desktopBridge";
+import { desktopBridge, isDesktop, trackWindowMove } from "@/lib/desktopBridge";
 
 export default function IslandTriggerPage() {
   const onDesktop = isDesktop();
@@ -23,6 +23,11 @@ export default function IslandTriggerPage() {
   return (
     <button
       type="button"
+      onPointerDown={(e) => {
+        // M3：把手可拖（easy_drag 在 Windows 后端是空操作）；与 click 共存——
+        // pointer capture 下 click 仍会在松手时触发，未拖动即普通点击
+        if (e.button === 0) trackWindowMove("trigger", e);
+      }}
       onClick={() => desktopBridge.toggleIsland()}
       aria-label="展开或收起工程 Island 面板"
       title="工程 Island（Alt+I）"

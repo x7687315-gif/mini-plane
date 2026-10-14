@@ -109,10 +109,12 @@ def create_island_window(
         min_size=ISLAND_MIN_SIZE,
         resizable=True,
         frameless=True,  # 无边框：这是一块"图纸"，不需要窗口装饰
-        easy_drag=True,  # 整窗可拖（注意参数名是 easy_drag）
+        # easy_drag：Windows 后端没实现（整窗拖动改走页眉 JS 桥接，见 window_manager）
+        easy_drag=True,
         on_top=True,  # 置顶：切到别的程序也看得见 NOW
         hidden=hidden,  # 首次不打扰，需要时用触发把手 / Alt+I 唤出
         text_select=True,  # 任务标题要能选中复制
+        shadow=True,  # 原生窗口阴影（Windows only）：与桌面分层，替代被否决的 transparent
         background_color="#F4F1EA",  # 纸色，避免加载瞬间闪白
     )
 

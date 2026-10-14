@@ -15,6 +15,7 @@ import {
   desktopBridge,
   isDesktop,
   readIslandState,
+  trackWindowMove,
   type IslandState,
 } from "@/lib/desktopBridge";
 
@@ -48,8 +49,23 @@ export function IslandHeader({
 
   const pinned = state?.pinned ?? false;
 
+  // M3：页眉 = 拖动区。按住空白处拖动整个面板；按钮不参与（防误拖）。
+  // 无边框窗在 Windows 没有系统拖动（easy_drag 未实现），这是唯一入口。
+  const onHeaderPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (!onDesktop || e.button !== 0) return;
+      if ((e.target as HTMLElement).closest("button")) return;
+      e.preventDefault(); // 防止拖动时选中文本（text_select=True）
+      trackWindowMove("panel", e);
+    },
+    [onDesktop],
+  );
+
   return (
-    <header className="flex items-center justify-between gap-3">
+    <header
+      className="flex items-center justify-between gap-3 select-none"
+      onPointerDown={onHeaderPointerDown}
+    >
       <div className="flex items-baseline gap-2">
         <h2 className="font-serif italic text-[18px] leading-tight">Engineering Island</h2>
         <span className="bp-uppercase text-[color:var(--color-ink-3)]">

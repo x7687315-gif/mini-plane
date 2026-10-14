@@ -87,6 +87,15 @@ class DesktopApi:
     def island_state(self) -> dict:
         return self._manager.island_state()
 
+    def move_window_by(self, target: str, dx: float, dy: float) -> dict:
+        return self._manager.move_window_by(target, int(dx), int(dy))
+
+    def resize_window_by(self, target: str, edge: str, dx: float, dy: float) -> dict:
+        return self._manager.resize_window_by(target, edge, int(dx), int(dy))
+
+    def end_window_drag(self, target: str) -> dict:
+        return self._manager.end_window_drag(target)
+
 
 class WindowManager:
     """持有三个窗口的引用与 Island 的两个正交状态。"""
@@ -242,6 +251,57 @@ class WindowManager:
     def _fail(self, message: str) -> dict:
         log.warning("窗口操作失败：%s", message)
         return {"ok": False, "message": message, **self.island_state()}
+
+    # ── 窗口拖动 / 缩放（M3，2026-10-14）──────────────────────
+    # 路线说明：easy_drag 在 Windows 后端没实现，Win32 的 HTCAPTION 又会和
+    # WebView2 的鼠标捕获互相干扰（按下时捕获在子窗口上，模态循环收不到 mousemove）。
+    # 所以采用 JS pointer capture + 节流桥接：前端在 pointermove 里发**位移增量**，
+    # Python 侧基于窗口当前位置自算绝对坐标（丢事件自愈），节流约 30fps。
+
+    _PANEL_MIN = (360, 96)
+
+    def _win(self, target: str) -> Any | None:
+        return self._island if target == "panel" else self._trigger
+
+    def move_window_by(self, target: str, dx: int, dy: int) -> dict:
+        win = self._win(target)
+        if win is None:
+            return self._fail(f"窗口 {target} 未启用")
+        try:
+            win.move(int(win.x) + dx, int(win.y) + dy)
+            return self._ok("已移动")
+        except Exception as exc:
+            return self._fail(f"移动失败：{exc}")
+
+    def resize_window_by(self, target: str, edge: str, dx: int, dy: int) -> dict:
+        win = self._win(target)
+        if win is None:
+            return self._fail(f"窗口 {target} 未启用")
+        try:
+            x, y = int(win.x), int(win.y)
+            w, h = int(win.width), int(win.height)
+            if "right" in edge:
+                w += dx
+            if "bottom" in edge:
+                h += dy
+            if "left" in edge:
+                x += dx
+                w -= dx
+            if "top" in edge:
+                y += dy
+                h -= dy
+            w = max(self._PANEL_MIN[0], w)
+            h = max(self._PANEL_MIN[1], h)
+            win.move(x, y)
+            win.resize(w, h)
+            return self._ok("已缩放")
+        except Exception as exc:
+            return self._fail(f"缩放失败：{exc}")
+
+    def end_window_drag(self, target: str) -> dict:
+        """拖动/缩放结束 → 立即持久化（拖动过程中的高频 move 不逐次写盘）。"""
+        self._on_window_moved()
+        return self._ok("位置已保存")
 
     # ── 生命周期：主窗口关闭即退出整个应用 ──────────────────────
     def bind_main_window(
