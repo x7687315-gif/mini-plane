@@ -156,14 +156,29 @@ visibility:  hidden   | expanded     （当前是否展开）
 
 ## 5. 实时同步
 
-- 新增**一条**认证后的 Engineering Overview WebSocket 通道（`/ws/engineering/overview/`），
-  连接时订阅当前用户有权访问的项目组。
-- Island **所有项目共用这一条连接**，不按卡片建连接。
+> 2026-10-14 修订：原"连接时订阅全部可访问项目"升级为**客户端订阅协议 + 权限重校验**
+> （C-lite，Baserow 同构的成熟架构）。调研依据：`docs/research/2026-10-14-overview-websocket-preflight.md`。
+
+- 新增**一条**认证后的 Engineering Overview WebSocket 通道（`/ws/engineering/overview/`）。
+  Island **所有项目共用这一条连接**，不按卡片建连接。
+- **订阅协议**：connect 后客户端发 `{type:"subscribe", project_ids:[...]}`；服务端逐个
+  校验"该用户可访问该项目"，通过则 `group_add(project.{id})`，逐项回执
+  `subscribed` / `denied`；`unsubscribe` 对称。服务端在连接内存中记录订阅集。
+- **权限重校验**：每个连接额外加入 `permission.{user_id}` 组。项目成员增删/角色变更
+  （`add_member` / `change_role` / `remove_member`，事务提交后）向受影响用户的
+  permission 组广播 `membership.changed` → 消费者重查订阅集并**退出无权项目的组**，
+  同时向客户端发 `subscriptions.updated`（客户端据此失效缓存）。
+- **心跳**：服务端每 30s 发 `{"type":"ping"}`；前端超过 90s 未收到任何帧即主动断开重连
+  （应对"浏览器静默断线不抛 close"的已知行为，channels#1244）。
 - 写操作（任务创建/状态、Stage 进度、Worklog 创建/修改、Agent 开始/结束/步骤更新）
-  在事务提交后广播统一的「工程摘要可能已变」事件。
-- 前端收到事件 → 失效 `/projects/mine/` 与相关 Worklog 查询缓存。
+  在事务提交后经既有 `defer_*` 广播到项目组，由 overview 通道转发给订阅者
+  （转发时注入 `project_id`）。
+- 前端收到事件 → 按事件类型失效 `/projects/mine/` 与相关 Worklog 查询缓存
+  （避免每次事件全量失效造成 refetch 风暴）。
 - **事件只是通知，不是事实数据**：断线重连后以 HTTP 摘要为准重新拉取，不依赖事件回放；
   断线期间界面显示非实时状态，**不虚报 LIVE**。
+- 已知边界（登记技术债）：`channels_redis` 每通道容量默认 100，满后**静默丢弃**——
+  靠"重连重取"兜底；客户端卡顿不消费导致丢事件属于可接受降级。
 
 ---
 
@@ -175,8 +190,9 @@ visibility:  hidden   | expanded     （当前是否展开）
 | **1 多项目总览 UI** | `EngineeringIslandOverview` / `ProjectSummaryCard` 等；先用现有字段；STEP/HOW/DONE 缺数据时诚实占位 | ≥2 项目同时可见、无翻页依赖、长文本不撑破窗口、空态明确 |
 | **2 桌面隐藏/固定** | 触发窗口 + 图钉 + `runtime/desktop-config.json` 持久化 + `Alt+I`/`Esc` | 默认只出现把手；固定后不自动收起；重启恢复偏好；退出无残留进程 |
 | **3 摘要数据 + Agent 步骤 API** | `/projects/mine/` 扩充 + `AgentSession` 四字段 + 迁移 + progress 端点 + OpenAPI 快照 | DONE 来自真实记录；STEP/HOW 可经 API 更新；无 N+1；后端门禁全绿 |
-| **4 跨项目实时闭环** | overview WS + 事务后广播 + 缓存失效 + 重连重取 | Agent 更新步骤后卡片无刷新更新；两项目同时运行不串状态；单连接 |
+| **4 跨项目实时闭环** | overview WS（**C-lite：订阅协议 + 权限重校验 + 心跳**）+ 事务后广播 + 缓存失效 + 重连重取 | Agent 更新步骤后卡片无刷新更新；两项目同时运行不串状态；单连接；**移出项目后订阅即时收敛** |
 | **5 回归与交付** | 更新单测/E2E（去掉翻页验收）+ 桌面 smoke + 重新打包 + README/指南/路线 | 全部门禁绿；桌面包确实含 V2；无进程残留 |
+| **6 打磨（新增 2026-10-14）** | 界面 / 动画 / 操作手感（守 DESIGN.md 红线：150–250ms、无渐变、reduced-motion；先做一轮小调研） | 交互反馈完整、无突兀跳变、动效可关 |
 
 > 每阶段顺序：**先规格/验收 → 编码 → 便宜门禁（lint/typecheck）→ 单测 → 后端测试 → E2E
 > → 生产构建 → 文档 → commit → push → 核对 CI**。
