@@ -71,7 +71,7 @@ class OverviewConsumerTests(RealtimeTestCase):
         await communicator.disconnect()
 
     def _make_stranger_project(self):
-        """ stranger 自己 workspace 里的项目：member 真正不可访问（防枚举用例）。"""
+        """stranger 自己 workspace 里的项目：member 真正不可访问（防枚举用例）。"""
         from apps.projects.services import create_project
         from apps.workspaces.services import create_workspace
 
