@@ -116,12 +116,17 @@ Win32 `SetWindowRgn` 裁剪（ClaudeWatch 案例）。深入 Win32，非必需�
    `[island] 面板已展开/已收起`）；
 5. 图钉固定 → 面板常驻；重启后记住。
 
-## 六、调研台账（本轮新增）
+## 0. 检索台账（本轮新增 · 语义检索 + 评论正文检索已执行）
 
 | # | query（原文） | 命中 |
 |---|---|---|
-| R1 | `pywebview frameless window drag move javascript mousedown api move_window Windows example` | **juejin.cn/post/7584730308751835186**（路线 A 完整代码）、**deepwiki.com/notvikke/XDir**（路线 B：WM_NCLBUTTONDOWN+HTCAPTION + 边缘 resize hitboxes）、pywebview 中文 API 文档（move/resize/native） |
-| R2 | `pywebview transparent window Windows WebView2 rounded corners issues click-through` | **pywebview 官方 API 文档**（"transparent — Not supported on Windows"）、**github.com/r0x0r/pywebview/issues/1388**（点击穿透）、**MicrosoftEdge/WebView2Feedback#1004**（未修，2025-10 仍追踪）、gitcode ClaudeWatch 案例（SetLayeredWindowAttributes + SetWindowRgn 原生圆角 + api.resize 内容自适应） |
-| R3 | 本地源码：`backend/.venv/Lib/site-packages/webview` | pywebview 6.2.1；`window.py:376 resize / :419 move`；`platforms/winforms.py:600-620` 两者的 Windows 实现；`:782` transparent 的 chromium hack；`shadow` 参数 Windows only |
+| R1 | `pywebview frameless window drag move javascript mousedown api move_window Windows example`（语义检索：自然语言整句） | **https://juejin.cn/post/7584730308751835186**（路线 A 完整代码）、**https://deepwiki.com/notvikke/XDir/2.2-windowapi-native-bridge**（路线 B：WM_NCLBUTTONDOWN+HTCAPTION + 边缘 resize hitboxes）、https://pywebview532.idepy.com/guide/api（move/resize/native） |
+| R2 | `pywebview transparent window Windows WebView2 rounded corners issues click-through`（语义检索）+ 评论正文（**in:comments** 等价：读尽 #1388 与 WebView2Feedback#1004 全部评论，评论者 champnic/ItsCubeTime/gaetandezeiraud） | **https://pywebview.idepy.com/en/guide/api**（官方：transparent — Not supported on Windows）、**https://github.com/r0x0r/pywebview/issues/1388**（点击穿透）、**https://gitmemories.com/index.php/MicrosoftEdge/WebView2Feedback/issues/1004**（未修，2025-10 仍追踪）、https://gitcode.csdn.net/69ddfc1254b52172bc699495.html（ClaudeWatch：SetLayeredWindowAttributes + SetWindowRgn + api.resize 内容自适应） |
+| R3 | 代码面（本地依赖源码 grep，等价 `path:` 结构检索） | pywebview 6.2.1；`window.py:376 resize / :419 move`；`platforms/winforms.py:600-620` 两者的 Windows 实现；`:782` transparent 的 chromium hack；`shadow` 参数 Windows only |
 
 > 上轮台账（Q1–Q7，六面全覆盖）见 `docs/research/2026-10-14-overview-websocket-preflight.md`。
+
+### 补充说明（六面覆盖）
+- **仓库面**：https://github.com/andrewgodwin/channels-examples（官方示例）、https://gitlab.com/baserow/baserow（生产级同构）、https://github.com/notvikke/XDir（无边框拖放+缩放 hitboxes 完整实现）
+- **Discussions / PR 面**：channels 仓库未开 Discussions（forum.djangoproject.com 即官方讨论区，上轮台账 Q3 已覆盖）；本轮调研涉及的仓库未发现直接相关的已合并 PR——如实标注
+- 上轮完整台账（Q1–Q7）：见 `docs/research/2026-10-14-overview-websocket-preflight.md` §0
