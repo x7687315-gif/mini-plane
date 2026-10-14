@@ -43,9 +43,28 @@
 
 `role` 是当前用户在该项目的生效角色（20/15/5），可用于隐藏无权限的操作入口。
 
-## 二、服务端推送的事件（当前三个：issue.updated / comment.created / agent.session）
+## 二、服务端推送的事件（四个：issue.updated / comment.created / agent.session / membership.changed）
 
 每一帧都是：`{ "event": "<事件名>", "payload": { ... } }`
+
+### 2.0 Engineering Overview 通道（Island V2 阶段 4 · 2026-10-14）
+
+URL：`/ws/engineering/overview/`。Island **所有项目共用这一条连接**（不按卡片建连）。
+
+**订阅协议（C-lite）**：连接后客户端发 `{"type":"subscribe","project_ids":[...]}`，
+服务端逐项校验可访问性，回执 `{"event":"subscriptions","payload":{"subscribed":[],"denied":[]}}`；
+`unsubscribe` 对称。单次上限 200 个。
+
+**权限重校验**：每个连接额外加入 `permission.{user_id}` 组。项目/工作区成员增删或
+角色变更（事务提交后）向该组发 `membership.changed` → 消费者重查订阅并**退出无权
+项目的组**，同时向客户端回 `membership.changed` 帧（payload.subscribed / removed）。
+
+**心跳**：服务端每 30s 推 `{"event":"ping"}`；前端超过 90s 未收到任何帧即主动
+断开重连（应对浏览器静默断线不抛 close，channels#1244）。客户端也可发 `ping`，
+服务端回 `pong`。
+
+**事件转发**：订阅的项目组事件原样转发，payload **注入 `project_id`**
+（前端按项目失效缓存）。事件仍是通知不是数据 —— 重连后以 REST 为事实来源重取。
 
 ### 2.1 `issue.updated`
 
@@ -145,3 +164,4 @@ Agent 会话状态变化（开始 / 结束），payload 带足渲染信息，前
 | 2026-09-10 | 初稿（后端起草，Sprint 7）：连接 URL、Session 鉴权、4401/4404 关闭码、握手确认帧、`issue.updated` 与 `comment.created` 两个事件、心跳与错误帧、部署配置 | 待前端确认 |
 | 2026-09-18 | **修实现偏差**：consumer 原先在 `accept()` 前 `close()`，导致 daphne 回 HTTP 403、**关闭码 4401/4404 根本送不到客户端**（前端只会看到 1006 并被归为「可重连」→ 无限重连）。改为 `reject_with()`：先 accept 再 close。并补上实现约束说明 | 已冻结（含修正） |
 | 2026-09-17 | **冻结**（前端 Sprint 7 实现并确认）。前端侧补两条落地约定：① **`issue.updated` 的 payload 是展示用 diff（不含 `state.id` / 标签对象），结构上无法重建 Issue** —— 前端采用「作废并重取」而非「按 payload patch 本地」，与 §2.3「事件只做提示刷新，不承载最终状态」一致；② `comment.created` 会广播给包括作者在内的整个频道，前端**必须比对 `payload.author.id` 跳过自己刚乐观插入的评论**，否则作者会短暂看到重复。另：重连后全量刷新已按 §2.3 落地（作废该项目全部缓存） | 已冻结 |
+| 2026-10-14 | Island V2 阶段 4：新增 Engineering Overview 通道（`/ws/engineering/overview/`，C-lite 订阅协议 + permission 组重校验 + 服务端 30s 心跳）；`membership.changed` 入事件清单。原通道行为不变 | 阶段 4 落地

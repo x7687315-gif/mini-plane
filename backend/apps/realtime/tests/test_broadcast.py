@@ -43,8 +43,13 @@ class BroadcastTests(RealtimeTestCase):
 
         Sprint 13 起加入第三个事件 `agent.session`（Agent 会话状态 → 桌面实时投影），
         仍属"工程状态变化"而非全站广播，符合收窄初衷。
+        Island V2 阶段 4 起加入第四个事件 `membership.changed`（成员/角色变化 →
+        overview 连接重校验订阅，规格 §7.2 C-lite）。
         """
-        self.assertEqual(KNOWN_EVENTS, ("issue.updated", "comment.created", "agent.session"))
+        self.assertEqual(
+            KNOWN_EVENTS,
+            ("issue.updated", "comment.created", "agent.session", "membership.changed"),
+        )
 
     def test_group_name_format(self):
         """Channels 组名不允许冒号（实测 TypeError），所以用点号分隔。"""

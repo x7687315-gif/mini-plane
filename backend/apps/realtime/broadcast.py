@@ -26,8 +26,21 @@ EVENT_ISSUE_UPDATED = "issue.updated"
 EVENT_COMMENT_CREATED = "comment.created"
 EVENT_AGENT_SESSION = "agent.session"
 
+# Island V2 阶段 4：成员/角色变化 → 相关用户的 overview 连接重校验订阅（规格 §7.2）
+EVENT_MEMBERSHIP_CHANGED = "membership.changed"
+
 #: 客户端能收到的事件集合（契约 08 的权威清单）
-KNOWN_EVENTS = (EVENT_ISSUE_UPDATED, EVENT_COMMENT_CREATED, EVENT_AGENT_SESSION)
+KNOWN_EVENTS = (
+    EVENT_ISSUE_UPDATED,
+    EVENT_COMMENT_CREATED,
+    EVENT_AGENT_SESSION,
+    EVENT_MEMBERSHIP_CHANGED,
+)
+
+
+def permission_group(user_id) -> str:
+    """权限重校验组（Island V2 阶段 4）。组名同样不能带冒号（Channels 校验）。"""
+    return f"permission.{user_id}"
 
 
 def project_group(project_id) -> str:
@@ -103,3 +116,25 @@ def defer_agent_session(*, project_id, session) -> None:
             "agent": session.token.name if session.token else "agent",
         },
     )
+
+
+def defer_membership_changed(*, user_ids) -> None:
+    """项目成员/角色变化 → 相关用户的 overview 连接重校验订阅（规格 §7.2 C-lite）。
+
+    每个 user 一条 permission 组消息；事务提交后发送（与 defer_* 同约定）。
+    """
+    for uid in user_ids:
+        transaction.on_commit(_send_membership_changed(str(uid)))
+
+
+def _send_membership_changed(uid: str):
+    def _send() -> None:
+        layer = get_channel_layer()
+        if layer is None:  # pragma: no cover
+            return
+        async_to_sync(layer.group_send)(
+            permission_group(uid),
+            {"type": "membership.changed", "payload": {}},
+        )
+
+    return _send

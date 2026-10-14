@@ -22,9 +22,12 @@ import {
 export function IslandHeader({
   projectCount,
   isPanel,
+  live = false,
 }: {
   projectCount: number;
   isPanel: boolean;
+  /** overview 通道是否在线（规格：断线不虚报 LIVE）*/
+  live?: boolean;
 }) {
   const [state, setState] = useState<IslandState | null>(null);
   const onDesktop = isPanel && isDesktop();
@@ -70,6 +73,16 @@ export function IslandHeader({
         <h2 className="font-serif italic text-[18px] leading-tight">Engineering Island</h2>
         <span className="bp-uppercase text-[color:var(--color-ink-3)]">
           {projectCount} 个项目 · 总览
+        </span>
+        <span
+          className={`bp-uppercase flex items-center gap-1.5 ${live ? "text-[color:var(--color-accent)]" : "text-[color:var(--color-ink-3)]"}`}
+          title={live ? "实时同步中" : "未连接实时通道，显示的是最近一次加载的数据"}
+        >
+          <span
+            aria-hidden
+            className={`inline-block h-[5px] w-[5px] rounded-full ${live ? "bg-[color:var(--color-accent)] motion-safe:animate-pulse" : "border border-[color:var(--color-ink-3)]"}`}
+          />
+          {live ? "LIVE" : "离线"}
         </span>
       </div>
 

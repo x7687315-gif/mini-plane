@@ -12,6 +12,7 @@ from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import create_default_states
 from apps.projects import cache as project_cache
 from apps.projects.models import Project, ProjectMember, ProjectPlan, ProjectRoles, ProjectStage
+from apps.realtime.broadcast import defer_membership_changed
 from apps.users.models import User
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
 
@@ -109,6 +110,8 @@ def add_member(workspace: Workspace, project: Project, user_id, role: int) -> Pr
         # 双击/并发添加的竞态：唯一约束兜底转 400（与预检查同文案）
         raise ValidationError({"user_id": ["该用户已是项目成员。"]}) from None
     _invalidate_project_cache(project)
+    # Island V2 阶段 4：新成员的 overview 连接要能开始收这个项目的事件
+    defer_membership_changed(user_ids=[user.id])
     return member
 
 
@@ -116,6 +119,7 @@ def change_role(project: Project, member: ProjectMember, role: int) -> ProjectMe
     member.role = role
     member.save(update_fields=["role", "updated_at"])
     _invalidate_project_cache(project)
+    defer_membership_changed(user_ids=[member.user_id])
     return member
 
 
@@ -126,6 +130,8 @@ def remove_member(project: Project, member: ProjectMember) -> None:
         raise ValidationError({"detail": "至少保留一位项目管理员。"})
     member.delete()
     _invalidate_project_cache(project)
+    # 移出项目 → 该用户的 overview 连接立即退出该项目组（权限实时收敛）
+    defer_membership_changed(user_ids=[member.user_id])
 
 
 def _invalidate_project_cache(project: Project) -> None:

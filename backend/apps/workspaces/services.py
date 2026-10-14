@@ -12,6 +12,7 @@ from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
 
 from apps.projects.models import ProjectMember
+from apps.realtime.broadcast import defer_membership_changed
 from apps.users.models import User
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
 
@@ -132,6 +133,9 @@ def remove_member(workspace: Workspace, member: WorkspaceMember) -> None:
     member.delete()
     # 被移除者可能不再是任何项目的成员 → 它能看到的所有项目详情缓存都要作废
     _invalidate_projects_of(workspace)
+    # Island V2 阶段 4：workspace 成员被移除 → 其全部项目访问权消失，
+    # overview 连接必须重校验订阅（权限实时收敛，规格 §7.2）
+    defer_membership_changed(user_ids=[member.user_id])
 
 
 def _invalidate_projects_of(workspace: Workspace) -> int:

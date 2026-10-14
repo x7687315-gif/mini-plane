@@ -13,7 +13,7 @@
 import { useMemo } from "react";
 import { isDesktop, trackWindowResize } from "@/lib/desktopBridge";
 import { useMyProjects } from "@/features/project";
-import { useProjectRealtime } from "@/features/realtime";
+import { useEngineeringOverview } from "@/features/realtime";
 import { useAgentSessionStore } from "@/stores/agentSession";
 import type { ProjectEngineering } from "@/types/project";
 import { IslandHeader } from "./IslandHeader";
@@ -35,9 +35,10 @@ export function EngineeringIslandOverview({
   // Island 页面**不能一条连接都没有** —— 2026-10-12 真机验证时抓到过这个回归：
   // 去掉项目级订阅后顶栏退回 `polling`、Agent 起会话 Island 不再自动变 RUNNING。
   // 所以这里先挂一条（与第一代默认显示第一张图纸的项目一致），Phase 4 换掉它。
-  useProjectRealtime(
-    projects[0]?.workspace_slug,
-    projects[0]?.id,
+  // Island V2 阶段 4：一条 overview 连接覆盖全部项目（替代阶段 1 的
+  // '只订阅第一个项目'临时通路；也替代第一代的单项目通道）。
+  const { live } = useEngineeringOverview(
+    projects.map((p) => p.id),
     Boolean(projects[0]),
   );
 
@@ -82,7 +83,7 @@ export function EngineeringIslandOverview({
       className="rounded-[26px] border border-[color:var(--color-rule)] bg-[color:var(--color-paper-2)] p-3 shadow-[0_1px_3px_rgba(27,26,23,0.07)]"
     >
       <div className="px-1 pb-2">
-        <IslandHeader projectCount={projects.length} isPanel={isPanel} />
+        <IslandHeader projectCount={projects.length} isPanel={isPanel} live={live} />
       </div>
 
       {/* 面板内滚动：高度由外层容器约束，这里只负责"多了就滚" */}
