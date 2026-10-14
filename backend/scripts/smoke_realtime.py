@@ -354,6 +354,40 @@ def main() -> int:
         step("无会话连项目（契约：关闭码 4401）"), handshake_rejected, closed_code, 4401
     )
 
+    # ── Island V2 阶段 4：Engineering Overview 通道（真机）────────────
+    print("\n── overview 通道（Island V2 阶段 4）──────────────────")
+    ws_overview = f"{WS_BASE}/ws/engineering/overview/"
+    with connect_ws(
+        ws_overview, additional_headers={"Origin": ORIGIN, "Cookie": member.cookie_header()}
+    ) as ws:
+        hello = recv_json(ws)
+        check(step("overview 握手确认帧 event"), hello.get("event"), "connected")
+        check(step("握手帧带 user_id"), bool(hello["payload"].get("user_id")), True)
+
+        ws.send(json.dumps({"type": "subscribe", "project_ids": [str(pid)]}))
+        receipt = recv_json(ws)
+        check(step("subscribe 回执 event"), receipt.get("event"), "subscriptions")
+        check(
+            step("回执 subscribed 含该项目"),
+            receipt["payload"].get("subscribed"),
+            [str(pid)],
+        )
+        check(step("回执 denied 为空（member 有权限）"), receipt["payload"].get("denied"), [])
+
+        ws.send(json.dumps({"type": "ping"}))
+        pong = recv_json(ws)
+        check(step("overview 心跳 pong"), pong.get("event"), "pong")
+
+    # 匿名 → 4401（与项目通道同一关闭码语义）
+    try:
+        with connect_ws(ws_overview, additional_headers={"Origin": ORIGIN}) as ws:
+            ws.recv(timeout=5)
+        check(step("匿名连 overview 应被拒"), False, "应抛 ConnectionClosed/HandshakeRejected")
+    except ConnectionClosed as exc:
+        check(step("匿名连 overview 的关闭码"), _close_code(exc), 4401)
+    except HandshakeRejected:
+        report_close_behavior("匿名连 overview", True, None, 4401)
+
     # ── 清理 ──────────────────────────────────────────────
     print("\n── 清理 ──────────────────────────────────────────────")
     check(

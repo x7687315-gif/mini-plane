@@ -36,8 +36,10 @@ export default function IslandTriggerPage() {
         "group flex h-full w-full items-center justify-center gap-2 rounded-full px-3",
         "border border-[color:var(--color-accent)] bg-[color:var(--color-paper)]",
         "shadow-[0_1px_3px_rgba(27,26,23,0.18)]",
-        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] motion-reduce:transition-none",
+        "transition-[transform,background-color,border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)] motion-reduce:transition-none",
         "hover:border-[color:var(--color-ink-2)] hover:bg-[color:var(--color-paper-2)]",
+        // 阶段 6：按下反馈（ui-skills/Emil：0.95 以下是卡通，0.97–0.98 是"压实"）
+        "active:scale-[0.97] motion-reduce:active:scale-100",
       ].join(" ")}
     >
       {/* 常驻的小圆点 */}

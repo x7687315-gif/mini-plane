@@ -78,6 +78,8 @@
 
   /* Motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* 阶段 6：轻过冲（入场小回弹）；只用于 transform 的小元素，页面级入场禁用 */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-slow: 300ms;
@@ -276,4 +278,21 @@ body {
 ::selection {
   background: var(--color-accent-soft);
   color: var(--color-accent);
+}
+/* Island V2 阶段 6：卡片进场（fade + rise 8px）；stagger 由内联 animation-delay 控制。
+   motion-reduce 用户直接呈现终态（不闪不跳）。 */
+@media (prefers-reduced-motion: no-preference) {
+  .island-card-enter {
+    animation: island-card-enter var(--duration-slow) var(--ease-out) both;
+  }
+  @keyframes island-card-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }

@@ -91,9 +91,13 @@ export function EngineeringIslandOverview({
         data-testid="island-project-list"
         className="max-h-[var(--island-list-max,420px)] space-y-3 overflow-y-auto overscroll-contain px-1 pb-1"
       >
-        {projects.map((project) => (
+        {projects.map((project, i) => (
           <li key={project.id}>
-            <ProjectSummaryCard project={project} live={liveByProject[project.id] ?? null} />
+            <ProjectSummaryCard
+              project={project}
+              live={liveByProject[project.id] ?? null}
+              index={i}
+            />
           </li>
         ))}
       </ul>

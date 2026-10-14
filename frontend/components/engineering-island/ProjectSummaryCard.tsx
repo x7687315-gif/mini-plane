@@ -36,9 +36,12 @@ const SUMMARY_MAX = 48;
 export function ProjectSummaryCard({
   project,
   live,
+  index = -1,
 }: {
   project: ProjectEngineering;
   live: AgentSessionLive | null | undefined;
+  /** 列表序号：进场 stagger（-1 = 不参与，如独立渲染） */
+  index?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const percent = progressPercent(project.progress);
@@ -56,7 +59,14 @@ export function ProjectSummaryCard({
     <article
       aria-label={`${project.name} 摘要`}
       data-testid="project-summary-card"
-      className="rounded-[14px] border border-[color:var(--color-rule)] bg-[color:var(--color-panel)] p-4 shadow-[0_1px_2px_rgba(27,26,23,0.06)]"
+      style={index >= 0 ? { animationDelay: `${index * 40}ms` } : undefined}
+      className={
+        "island-card-enter rounded-[14px] border border-[color:var(--color-rule)] bg-[color:var(--color-panel)] p-4 shadow-[0_1px_2px_rgba(27,26,23,0.06)]"
+        + " motion-safe:transition-[transform,border-color] motion-safe:duration-[var(--duration-fast)] motion-safe:ease-[var(--ease-out)]"
+        + " hover:-translate-y-[2px] hover:border-[color:var(--color-ink-3)]"
+        + " active:scale-[0.98]"
+        + " motion-reduce:transform-none"
+      }
     >
       {/* 抬头：标识符 + 名称 + 进度 */}
       <div className="flex items-baseline justify-between gap-3">
