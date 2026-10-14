@@ -9,10 +9,12 @@
 
 | # | 检索 query（原文） | 面 | 命中 |
 |---|---|---|---|
-| R1 | `DWMWA_WINDOW_CORNER_PREFERENCE frameless popup window Windows 11 rounded corners WebView2 winforms`（语义检索） | 外部 | **https://learn.microsoft.com/zh-cn/windows/apps/desktop/modernize/apply-rounded-corners**（官方：API 定义、适用条件、互斥约束）、stackoverflow 15243463（WinForms P/Invoke 完整代码）、bbccb.com（无边框窗 + DWM 圆角 + HTCAPTION 拖动组合实例）、umatechnology（"Windows 可能忽略 borderless/layered 窗口的偏好"） |
-| R2 | 本地源码（`backend/.venv/Lib/site-packages/webview`） | 代码 | `window.native` → WinForms Form（`native.Handle` 可取 HWND）；`create_window(shadow=True)` 与 `frameless` 并存确认 |
+| R1 | `DWMWA_WINDOW_CORNER_PREFERENCE frameless popup window Windows 11 rounded corners WebView2 winforms`（语义检索） | 外部 | **https://learn.microsoft.com/zh-cn/windows/apps/desktop/modernize/apply-rounded-corners**（官方：API 定义、适用条件、互斥约束）、https://stackoverflow.com/questions/15243463（WinForms P/Invoke 完整代码）、**https://github.com/MicrosoftDocs/windows-dev-docs/blob/docs/hub/apps/desktop/modernize/ui/apply-rounded-corners.md**（仓库面：官方文档源；关键细节——**最大化/贴靠/VM 时按设计不圆**；无框窗需 opt-in；DWM 三类判定）、https://www.bbccb.com/html/20260806/35979.html（无边框 + DWM 圆角 + HTCAPTION 组合实例）、https://umatechnology.org/how-to-enable-or-disable-rounded-corners-in-windows-11（"borderless/layered 可能被忽略"） |
+| R2 | `pywebview transparent window Windows WebView2 rounded corners issues click-through`（上轮 master-plan 台账 R2，本轮沿用其结论作为红线依据） | Issues + **评论正文（in:comments 等价：读尽 #1388 与 WebView2Feedback#1004 全部评论）** | **https://github.com/r0x0r/pywebview/issues/1388**（transparent 点击穿透）、**https://gitmemories.com/index.php/MicrosoftEdge/WebView2Feedback/issues/1004**（未修，2025-10 仍追踪）、https://gitcode.csdn.net/69ddfc1254b52172bc699495.html（ClaudeWatch：SetWindowRgn 原生圆角先例） |
+| R3 | `in:comments` 检索 `DWMWCP_ROUND frameless borderless not rounded ignored`（Issues/评论面） | Issues | **未找到独立 issue 讨论该组合**（官方文档即最权威来源，R1 的 GitHub 文档源覆盖）；相关评论证据沿用 R2（WebView2Feedback#1004 评论区）。如实标注：本主题在 issue 评论区无额外发现 |
+| R4 | 代码面（本地 grep `backend/.venv/Lib/site-packages/webview`） | 代码 | pywebview 6.2.1：`window.native` → WinForms Form（`native.Handle` 可取 HWND）；实施中实测 **System.IntPtr 不支持 int() 直转**（TypeError）→ 必须 `ToInt64()`；诊断 print 在冻结版不可见 → 必须走 `_log` 通道 |
 
-**Discussions / PR 面**：Windows API 层面无仓库 PR 可考（OS 能力，非库能力）——如实标注；
+**Discussions / PR 面**：DWM 圆角是 Windows OS 能力（非库能力），无对应仓库 PR/Discussions 可考——如实标注；
 核心结论来源为 **Microsoft Learn 官方文档**（最高置信）。
 
 ## 1. 关键事实（官方文档）
