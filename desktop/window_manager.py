@@ -108,6 +108,9 @@ class WindowManager:
         self._display_mode: str = desktop_config.DEFAULT_DISPLAY_MODE
         self._visibility: str = "hidden"
         self._cfg: dict[str, Any] = desktop_config.default_config()
+        self._rounded_mode: str = (
+            "none"  # 阶段 7：dwm / region / none（apply_rounded_corners 写入）
+        )
 
     # ── 登记 ────────────────────────────────────────────────
     def register_island(self, window: Any) -> None:
@@ -301,6 +304,13 @@ class WindowManager:
     def end_window_drag(self, target: str) -> dict:
         """拖动/缩放结束 → 立即持久化（拖动过程中的高频 move 不逐次写盘）。"""
         self._on_window_moved()
+        # 阶段 7：region 档下窗口缩放后区域不跟随窗口，必须重设
+        if self._rounded_mode == "region":
+            import window_style
+
+            win = self._win(target)
+            if win is not None:
+                window_style.reapply_region(win)
         return self._ok("位置已保存")
 
     # ── 生命周期：主窗口关闭即退出整个应用 ──────────────────────

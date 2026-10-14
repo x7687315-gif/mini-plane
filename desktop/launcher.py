@@ -24,6 +24,7 @@ import http.client
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -565,6 +566,26 @@ def open_window(url: str, procs: list[subprocess.Popen]) -> int:
                 notify=_log,
                 on_quit=lambda: stop_services(procs, hard_exit=True),
             )
+
+        # ── 阶段 7：窗口圆角（实验）────────────────────────────
+        # HWND 要等 GUI 循环起来才有效，所以延迟 5s 在工作线程里应用；
+        # 生效档写进日志（dwm / region / none），用户可从 launcher.log 确认。
+        import window_style as _ws
+
+        _ws.set_notify(_log)
+
+        def _apply_rounding():
+            import time as _t
+
+            _t.sleep(5)
+            for name, win in (("面板", island_window), ("把手", trigger_window)):
+                if win is None:
+                    continue
+                windows._rounded_mode = _ws.apply(win)  # 供 end_window_drag 判断 region 档
+                _log(f"[island] {name}窗口圆角={windows._rounded_mode}")
+
+        _round_thread = threading.Thread(target=_apply_rounding, daemon=True)
+        _round_thread.start()
 
         # private_mode 默认 True → 不保留 cookie/localStorage，导致每次启动都要重新登录。
         # 关掉私有模式 + 指定持久 storage_path（runtime/ 下），sessionid cookie 跨启动保留，
