@@ -68,7 +68,8 @@ export default function MyEngineeringPage() {
       {isError && (
         <Card>
           <p className="text-[13px] text-[color:var(--color-ink-2)] p-4">
-            无法加载我的工程。请确认后端已启动后重试。
+            无法加载我的工程。可能是后端未启动，也可能是数据服务异常；
+            可查看 runtime\launcher.log 与 backend.log 定位。
           </p>
         </Card>
       )}

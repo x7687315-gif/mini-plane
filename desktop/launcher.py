@@ -254,8 +254,14 @@ def wait_ready(port: int, path: str, timeout: int = READY_TIMEOUT_S) -> bool:
 
 
 # ──────────────────────────────────────────────────────────────
-def first_run_migrate() -> None:
-    """在 SQLite 上建表（幂等）。用 desktop 配置，无需 PostgreSQL。"""
+def ensure_migrated() -> None:
+    """确保 SQLite schema 与代码一致（幂等，每次启动都跑）。
+
+    2026-10-17 修的坑：原来是"首次启动跑一次 + 标记文件" 的一次性逻辑，
+    导致 10-13 新增的 agents.0003 迁移**永远不会被应用**——运行时库停在
+    9-21 的 schema，mine/ 查询报 no such column: current_step，用户看到
+    "工程数据加载失败"。migrate 幂等（无迁移时毫秒级返回），正确性优先。
+    """
     env = os.environ.copy()
     env["DJANGO_SETTINGS_MODULE"] = "config.settings.desktop"
     py = venv_python()
@@ -392,10 +398,33 @@ def _probe_webview_gui() -> int:
         return 2
 
 
+def acquire_single_instance() -> bool:
+    """单实例锁：已有一个 MiniPlane 在跑时，第二个实例直接退出。
+
+    2026-10-17 实测：用户双开过两个实例（launcher.log 里两套启动记录），
+    两个实例互相抢端口/后端。命名 mutex 是 Windows 上最轻量的单实例手段
+    （进程退出时内核自动释放，无残留）。
+    """
+    if os.name != "nt":
+        return True
+    import ctypes
+
+    kernel32 = ctypes.windll.kernel32
+    ERROR_ALREADY_EXISTS = 183
+    kernel32.CreateMutexW(None, False, "MiniPlane.SingleInstance.v1")
+    return kernel32.GetLastError() != ERROR_ALREADY_EXISTS
+
+
 def main() -> int:
     # 打包自检：验证冻结包能否真正创建窗口（含 GUI 后端惰性加载），随即退出。
     if os.environ.get("MINIPLANE_CHECK_WEBVIEW") == "1":
         return _probe_webview_gui()
+
+    # 单实例：已有一个 MiniPlane 在跑就静默退出（2026-10-17 实测用户双开过，
+    # 两个实例互相抢端口/后端，观感就是"莫名连不上"）
+    if not acquire_single_instance():
+        print("已有一个 Mini Plane 在运行，本次启动直接退出。")
+        return 0
 
     ad = app_dir()
     py = venv_python()
@@ -420,9 +449,8 @@ def main() -> int:
     procs: list[subprocess.Popen] = []
     try:
         runtime = runtime_dir()
-        if not (runtime / "miniplane_migrated").exists():
-            first_run_migrate()
-            (runtime / "miniplane_migrated").write_text("ok", encoding="ascii")
+        # 每次启动都确保 schema 最新（幂等；删除 2026-10-17 前的一次性标记逻辑）
+        ensure_migrated()
 
         # 端口被占用时**先验明正身**再复用：必须是"本项目 + 用内嵌 SQLite 的桌面后端"。
         # 否则宁可直接失败也不要默默接上去 —— 接错数据库会让用户看到另一套数据，

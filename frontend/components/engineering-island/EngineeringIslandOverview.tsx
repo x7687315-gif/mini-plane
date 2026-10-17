@@ -59,7 +59,10 @@ export function EngineeringIslandOverview({
   if (isError) {
     return (
       <div className="rounded-[14px] border border-[color:var(--color-rule)] bg-[color:var(--color-panel)] p-4 text-[13px] text-[color:var(--color-ink-2)]">
-        工程数据加载失败。检查后端是否在运行（scripts\dev.cmd status）。
+        {/* 2026-10-17：原文案只提示"后端没运行"，但真实故障也可能是后端在跑、
+            查询失败（本次事故：迁移没应用导致 mine/ 500）。文案不再替用户猜原因。 */}
+        工程数据加载失败。可能是后端未启动，也可能是数据服务异常；
+        可查看 runtime\launcher.log 与 backend.log 定位。
       </div>
     );
   }
