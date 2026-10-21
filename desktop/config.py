@@ -45,6 +45,10 @@ def default_config() -> dict[str, Any]:
         "triggerX": None,
         "panelX": None,
         "panelY": None,
+        # Island V3（2026-10-21）：单窗折叠后窗口有收起/展开两个形态，
+        # 自由缩放过的尺寸要记忆（None = 用 island.py 的默认 COLLAPSED/EXPANDED）
+        "panelWidth": None,
+        "panelHeight": None,
         # M1 默认首展（2026-10-14）：False = 用户还没表达过偏好 → 启动即展开完整面板，
         # 第一眼就看到"记忆中的悬浮窗"；一旦收起/固定过就置 True，之后按记住的偏好走
         "onboarded": False,
@@ -72,7 +76,7 @@ def load_desktop_config() -> dict[str, Any]:
         cfg["displayMode"] = mode
     if isinstance(raw.get("onboarded"), bool):
         cfg["onboarded"] = raw["onboarded"]
-    for key in ("triggerX", "panelX", "panelY"):
+    for key in ("triggerX", "panelX", "panelY", "panelWidth", "panelHeight"):
         value = raw.get(key)
         # 只接受有限数值：NaN/inf/字符串都会让窗口定位出错
         if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -90,6 +94,8 @@ def save_desktop_config(cfg: dict[str, Any]) -> bool:
         "triggerX": _int_or_none(cfg.get("triggerX")),
         "panelX": _int_or_none(cfg.get("panelX")),
         "panelY": _int_or_none(cfg.get("panelY")),
+        "panelWidth": _int_or_none(cfg.get("panelWidth")),
+        "panelHeight": _int_or_none(cfg.get("panelHeight")),
         "onboarded": bool(cfg.get("onboarded")),
     }
     try:

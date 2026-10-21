@@ -10,7 +10,7 @@ import pathlib
 import sys
 import tempfile
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "desktop"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 import config as cfg  # noqa: E402
 
@@ -31,6 +31,9 @@ def test_default_when_missing():
         c = cfg.load_desktop_config()
         assert c["displayMode"] == "auto_hide", c
         assert c["triggerX"] is None, c
+        # Island V3：宽高默认不记忆（None = 用代码里的 COLLAPSED/EXPANDED 默认值）
+        assert c["panelWidth"] is None, c
+        assert c["panelHeight"] is None, c
 
     with_tmp_dir(body)
 
@@ -38,11 +41,26 @@ def test_default_when_missing():
 def test_roundtrip():
     def body(_tmp):
         ok = cfg.save_desktop_config(
-            {"displayMode": "pinned", "triggerX": 100, "panelX": 640, "panelY": 24}
+            {
+                "displayMode": "pinned",
+                "triggerX": 100,
+                "panelX": 640,
+                "panelY": 24,
+                "panelWidth": 520,
+                "panelHeight": 420,
+            }
         )
         assert ok, "写配置应成功"
         c = cfg.load_desktop_config()
-        assert c == {"displayMode": "pinned", "triggerX": 100, "panelX": 640, "panelY": 24}, c
+        assert c == {
+            "displayMode": "pinned",
+            "triggerX": 100,
+            "panelX": 640,
+            "panelY": 24,
+            "panelWidth": 520,
+            "panelHeight": 420,
+            "onboarded": False,
+        }, c
 
     with_tmp_dir(body)
 
@@ -64,6 +82,22 @@ def test_unknown_mode_falls_back():
         c = cfg.load_desktop_config()
         assert c["displayMode"] == "auto_hide", c
         assert c["triggerX"] is None, c  # 非数值一律丢弃，不让窗口定位出错
+
+    with_tmp_dir(body)
+
+
+def test_bad_size_falls_back():
+    """Island V3：宽高写坏也不能让窗口定位出错（同 triggerX 的降级路径）。"""
+
+    def body(tmp):
+        (tmp / "desktop-config.json").write_text(
+            json.dumps({"panelWidth": "wide", "panelHeight": True, "panelX": 1.9}),
+            encoding="utf-8",
+        )
+        c = cfg.load_desktop_config()
+        assert c["panelWidth"] is None, c
+        assert c["panelHeight"] is None, c
+        assert c["panelX"] == 1, c  # 合法数值取整保留
 
     with_tmp_dir(body)
 
