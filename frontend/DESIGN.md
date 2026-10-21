@@ -83,6 +83,7 @@
 | 装饰大写 / Logo / 编号 / 标签 | **Cormorant Garamond**（Italic） | Google Fonts |
 | 正文 / UI / 表格 | **Inter** | Google Fonts |
 | 等宽（trace ID、commit hash） | **JetBrains Mono**（可选） | Google Fonts |
+| 等宽 · **Island 仪表数据层**（V3，2026-10-21） | **JetBrains Mono** + `tabular-nums` | 同上；Island 的 NOW/STEP/HOW/NEXT/DONE/AGENT、百分比、时间戳（见 §3.3） |
 
 字体导入（在 app/layout.tsx）：
 
@@ -169,20 +170,29 @@ background-size: 32px 32px, 32px 32px;
 
 > **圆角克制**：绝大多数元素是直角（参考图全是大尖角 + 直角构图），只有头像、状态点、输入框可以用小圆角。**绝不**用 12px+ 大圆角。
 
-#### ⚠️ 唯一例外：Engineering Island（2026-10-12 冻结，见 `docs/ISLAND_V2_SPEC.md` §3）
+#### ⚠️ 唯一例外：Engineering Island（2026-10-12 冻结 → **2026-10-21 V3 修订**，见 `docs/ISLAND_V2_SPEC.md` §3）
 
-桌面 Island 是**唯一允许大圆角**的区域，规则如下（只对 Island 窗口及其内部组件生效）：
+桌面 Island 曾是**唯一允许大圆角**的区域。**Island V3「工程浮页」起修订为小圆角**——
+真实使用反馈：26px 外框圆角与主程序的直角蓝图风相互冲突，且原生窗口圆角（DWM 系统半径）
+与 CSS 26px 不是同一个半径，双层弧度叠加显拼装感。修订后规则（只对 Island 窗口及其内部组件生效）：
 
-| 元素 | 圆角 | 阴影 |
-|------|------|------|
-| Island 面板外框 | **22–30px**（胶囊 / 大圆角矩形） | 允许单层很淡阴影与桌面背景分离 |
-| 项目摘要卡片 | **12–16px** | 同上 |
+| 元素 | 圆角（V3） | 阴影（V3） |
+|------|-----------|-----------|
+| Island 窗口外框 | **4–8px**（或极轻的原生窗口圆角，二选一，不叠加） | 整个窗口最多一层非常淡的原生阴影（DWM），替代被否决的 transparent |
+| 项目分隔 | **0px**：细线 + 留白 + 标题层级区分，**不再做带阴影的独立卡片** | 无 |
 | 进度条 / 状态点 / 小控件 | 全圆角 | 无 |
 
-边界（**硬约束**）：
+V3 起 Island 的「科技感」表达（不突破上述红线）：
+- **等宽字体=仪表数据层**：NOW / STEP / HOW / NEXT / DONE / AGENT 状态、百分比、时间戳一律
+  JetBrains Mono + `tabular-nums`（把 §2.1 里"可选"的 JetBrains Mono 升格为 Island 的
+  系统性角色）；标题与叙述性文字保持 Inter；
+- **微标签体系**：全大写 + letterspacing 的 micro-label，钴蓝只标「进行中 / 运行中」；
+- 信息优先级三层：现在发生了什么 > 正在如何推进 > 细节（项目内展开/面板滚动容纳长文本）。
+
+边界（**硬约束不变**）：
 - 普通应用页面继续遵守上面的「直角为主、圆角 ≤ 4px」，**不得**因为 Island 例外而一并圆角化；
-- Island 例外**不引入**渐变、毛玻璃、霓虹发光、厚重阴影，也不改配色 / 字体 / 线条 / 排版原则；
-- 动效仍遵守 150–250ms 与 `prefers-reduced-motion`；
+- Island **不引入**渐变、毛玻璃、霓虹发光、厚重阴影，也不改配色 / 字体 / 线条 / 排版原则；
+- 动效仍遵守 150–250ms 与 `prefers-reduced-motion`（窗口折叠动画 ~250ms 亦守此线）；
 - 实现上 Island 的圆角写在 `components/engineering-island/` 内部（不新建全局 radius token），
   避免例外扩散到全应用。
 
@@ -522,7 +532,7 @@ background-size: 32px 32px, 32px 32px;
 | ❌ 不要 | 原因 |
 |--------|------|
 | 渐变 / 模糊 / 毛玻璃 | 破坏「蓝图」克制感 |
-| 大圆角（> 4px 用于普通元素） | 破坏直角构图。**唯一例外：Engineering Island 外壳与卡片**（见 §3.3） |
+| 大圆角（> 4px 用于普通元素） | 破坏直角构图。Island 例外**已于 V3（2026-10-21）收紧至 4–8px**，普通元素仍全面禁止（见 §3.3） |
 | 阴影堆叠（多层 box-shadow） | 不是「设计感」是廉价感。**Island 允许单层淡阴影** |
 | emoji / 图标字体（icon font） | 用 inline SVG 自绘极简单线条图标 |
 | 任何动效 > 400ms | 慢 |
