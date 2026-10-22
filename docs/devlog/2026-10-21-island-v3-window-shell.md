@@ -60,8 +60,12 @@
 
 **顺带修的债**：`desktop/verify_island_v3_spike.py` 提交版自带 2 个 F401
 （`import sys` / main 里的 `import os`）——即上个提交（f77d7e1）推上去时
-desktop 的 ruff 门禁就是红的（main 分支保护被管理员直推绕过）。本轮连同
-新代码一起修绿；**推送后需自行确认 GitHub Actions 的 desktop job 转绿**。
+desktop 的 ruff 门禁就是红的（main 分支保护被管理员直推绕过），且 188bccb
+再挂一次（用户 10-22 发现「每次 CL 都报错」，REST 核实 #99/#100 均为
+`ruff check（desktop/）` 单步骤失败、前端 job 全绿；git archive 到 188bccb
+本地复现坐实就这 2 个 F401）。本轮连同新代码一起修绿；**推送后已确认
+GitHub Actions run #101（c370504）双 job 全绿、零失败步骤**。用户据此立了
+新铁律：每次推送后必须查 Actions，有报错立即修复。
 
 **未跑（留给真机冒烟，见规格 §8）**：exe 重建后的双态切换 / 重启恢复 /
 退出干净。壳层行为目前由桩窗口单测覆盖，真机窗口层（WebView2 + daphne 式
