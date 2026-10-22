@@ -1,5 +1,7 @@
 /**
- * 真实截图采集 —— 用真实登录态打开真实页面，截成 docs/assets/ 里的图。
+ * E2E 演示数据截图采集 —— 用 E2E 测试生成的**演示数据**（非真实用户数据）打开页面，
+ * 截成 docs/assets/ 里的图。注意：本脚本产出的是测试夹具数据，**不是真实用户数据**；
+ * 真实数据截图请改用 `capture-real.mjs`（用本机真实账户登录采集）。
  *
  * 为什么是独立脚本而不是一条 E2E 用例：它不是断言，是**资产生产**。
  * 混进 `pnpm test:e2e` 会让每次跑测试都重写仓库里的图片（diff 噪声），
@@ -12,14 +14,14 @@
  * 用法：
  *   node scripts/capture-screenshots.mjs
  *
- * 产出（frontend/docs/assets/）：
- *   real-issue-list.png            列表页（含真实数据：状态/优先级/标签/指派人）
+ * 产出（frontend/docs/assets/，E2E 演示数据）：
+ *   real-issue-list.png            列表页（演示数据：状态/优先级/标签/指派人）
  *   real-issue-drawer-activity.png 抽屉 · Activity 审计时间线
  *   real-issue-drawer-comments.png 抽屉 · Comments 对话
  *   real-bulk-actions.png          多选后的批量操作条
  *   real-my-engineering.png        首页 · My Engineering（顶栏 ⇄ 模式切换按钮可见）
- *   real-workspace-rail.png        团队层 · 侧栏接真实工作区（Sprint 17）
- *   real-login-quick.png           登录页 · 「直接进入」快捷入口
+ *   real-workspace-rail.png        团队层 · 侧栏接演示工作区（Sprint 17）
+ *   real-login-quick.png           登录页 · 「直接进入」快捷入口（演示账户 E2E_OWNER）
  */
 
 import { chromium } from "@playwright/test";

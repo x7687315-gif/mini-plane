@@ -8,12 +8,12 @@
 </p>
 
 <p align="center">
-  <sub>真实产品截图 · 真实数据（由 <code>scripts/capture-screenshots.mjs</code> 用真实登录态自动采集）</sub>
+  <sub>真实运行截图 · 真实数据（本机账户「北归」、真实项目「Mini Plane / MP」，由 <code>frontend/scripts/capture-real.mjs</code> 自动采集）</sub>
 </p>
 
 <p align="center">
   <b>Python 3.12</b> · <b>Django 5.2 LTS</b> · <b>Next.js 16</b> · <b>React 19</b> · <b>TypeScript</b> · <b>Tailwind v4</b> · <b>Channels/WebSocket</b> · <b>pywebview</b><br>
-  <b>后端 334</b> 用例 · <b>前端 129</b> 单测 · <b>33</b> 条浏览器 E2E · <b>CI 双 job</b>
+  <b>后端 334</b> 用例 · <b>前端 143</b> 单测 · <b>34</b> 个浏览器 E2E · <b>CI 双 job</b>
 </p>
 
 ---
@@ -75,12 +75,12 @@
 
 ## 2. 界面导览（逐屏）
 
-界面为中文，衬线大标题按设计语言保留英文。
+界面为中文，衬线大标题按设计语言保留英文。以下截图全部来自**真实运行态**——本机账户「北归」登录、真实项目「Mini Plane（MP）」，不是测试夹具。
 
 ### 2.1 进入 —— 记住"上次是谁"
 
 <p align="center">
-  <img src="frontend/docs/assets/real-login-quick.png" width="420" alt="登录页 · 直接进入">
+  <img src="frontend/docs/assets/real-login-quick.png" width="440" alt="登录页 · 直接进入">
 </p>
 
 **昵称优先的免密入口**：输入昵称即可开始（本地单机版不该在第一次打开时逼你注册），密码与邮箱可在设置里自助绑定。
@@ -98,10 +98,10 @@
 ### 2.2 我的工程（首页 `/`）
 
 <p align="center">
-  <img src="frontend/docs/assets/real-my-engineering.png" width="720" alt="My Engineering 首页">
+  <img src="frontend/docs/assets/real-my-engineering.png" width="760" alt="My Engineering 首页">
 </p>
 
-跨项目聚合视图，不再以"工作区列表"开头：顶部是**今日工程状态条**（活跃工程 / 待办任务 / 进行中 / 今日日志数），下面是每个项目一张卡片——进度条、**NOW**（当前在做的事）、**NEXT**（队列里下一件）、开关数、是否有 Agent 在跑。
+跨项目聚合视图，不再以"工作区列表"开头：顶部是**今日工程状态条**（活跃工程 / 待办任务 / 进行中 / 今日日志数），下面是每个项目一张卡片——进度、**NOW**（当前在做的事）、**NEXT**（队列里下一件）、开关数与 **AGENT** 运行态。
 
 `/projects/mine/` 由**一条 SQL 聚合**返回（correlated subquery + Coalesce + Exists），无 N+1。
 
@@ -114,32 +114,76 @@
 
 切换时 URL 跟着变（链接可分享），左侧竖栏按层换内容但**宽度不变**（主区域零抖动）。"上次在哪"记在 localStorage 的 `mp-last-team-path`。
 
-### 2.4 Engineering Island —— 当前工程状态的实时投影
+### 2.4 项目页 —— Global Plan / Stage / Worklog / Task 一屏
 
-**Island V2（2026-10 重构）**：**所有项目同时可见**，不再是单张图纸轮播——一块面板就是你的全部工程，Agent 每动一步，面板自动跟着变。
+<p align="center">
+  <img src="frontend/docs/assets/real-issue-list.png" width="880" alt="项目页 · 阶段路线 + 工程日志 + 任务列表">
+</p>
 
-```text
-┌──────────────────────────────────────────────┐
-│ AMI · SHEET 03 / 08                  ● LIVE  │   ← 页眉：图号 + 修订标记
-│                                              │
-│ TTS Stability                        72%     │   ← 阶段 + 进度
-│ ███████████████░░░░                         │
-│                                              │
-│ NOW                                          │
-│ 验证 216–260 字长文本                         │   ← 当前在做的事
-│                                              │
-│ TODAY                                        │
-│ ✓ 参考音频重新训练                            │   ← 今天的工程日志
-│ ✓ 推理参数调整                                │
-│                                              │
-│ NEXT                                         │
-│ 整理实验结果                                  │   ← 队列里下一件
-│                                              │
-│ AGENT · RUNNING 02:14                        │   ← Agent 会话与计时
-├──────────────────────────────────────────────┤
-│ FIG · 03 / 08              ── MY ENGINEERING │   ← 页脚：图号 + 标注线
-└──────────────────────────────────────────────┘
-```
+项目页分四段，一屏读完"这个工程进行到哪了"：
+
+- **GLOBAL PLAN**：阶段路线，每个阶段有 `weight` / `progress` / `is_current`（同一计划仅一个当前阶段）。进度不是单一百分比，而是 `Σ(阶段权重 × 阶段进度) / Σ权重`
+- **当前状态**：当前阶段 / 进度 / NOW / TODAY / NEXT
+- **ENGINEERING LOG**：工程日志（date / 标题 / 摘要 / 详情 / 结论 / 下一步 / 阻塞 / 关联阶段 / 来源 `MANUAL·AGENT`）
+- **TASKS**：任务列表（下方 2.5 与 2.6 展开）
+
+新建项目自动预置五状态：`Backlog → Todo → In Progress → Done → Cancelled`。
+
+### 2.5 任务列表 —— 筛选即 URL
+
+支持状态 / 优先级 / 指派人 / 标签多选、标题搜索、按时间 / 编号 / 优先级排序、分页。**所有筛选都写进 URL**——复制链接给同事，对方看到完全相同的视图；非法参数被静默丢弃而不是报错。
+
+### 2.6 任务抽屉 —— 动态审计 + 评论对话
+
+<p align="center">
+  <img src="frontend/docs/assets/real-issue-drawer-activity.png" width="300" alt="动态审计">
+  &nbsp;&nbsp;
+  <img src="frontend/docs/assets/real-issue-drawer-comments.png" width="300" alt="评论对话">
+</p>
+
+同一个抽屉里两个列表**顺序相反是故意的**：动态（Activity）**倒序**——审计要看"最新发生了什么"；评论（Comments）**正序**——评论是对话。
+
+- 四个字段**就地编辑**（状态 / 优先级 / 指派人 / 标签），乐观更新、失败自动回滚
+- 动态记录"谁在何时把什么改成了什么"（含可显示的旧值/新值，不是 UUID）
+- 评论可编辑自己的；**作者优先于角色**——管理员也不改别人的评论
+- 改动会**产生活动留痕**，因此前端写操作会同时失效活动缓存
+
+### 2.7 批量操作
+
+<p align="center">
+  <img src="frontend/docs/assets/real-bulk-actions.png" width="720" alt="批量操作条">
+</p>
+
+勾选多行 → 底部浮出操作条：改状态 / 优先级 / 指派（逐条下发，**部分失败如实汇报**并支持「重试失败项」）、改标签（覆盖式，走异步任务）、删除（二次确认）。
+
+### 2.8 团队层（工作区 · 成员 · 角色）
+
+<p align="center">
+  <img src="frontend/docs/assets/real-workspace-rail.png" width="760" alt="团队层 · 工作区首页">
+</p>
+
+团队能力完整保留，只是从"产品中心"降级为"协作基础设施"：工作区列表、成员管理、三级角色（管理员 / 成员 / 只读）、工作区设置、项目与任务、评论、动态、实时协作。
+
+### 2.9 Engineering Island —— 单窗两态「工程浮页」（V3）
+
+**Island 是当前工程状态的实时投影。** V3 把它做成**一张可收起 / 展开 / 固定在桌面上的工程图纸**——原来的「触发把手窗口」已退役，**同一窗口只有两种形态**：
+
+<p align="center">
+  <img src="frontend/docs/assets/real-island-expanded.png" width="330" alt="Island 展开态 520×420">
+  &nbsp;&nbsp;&nbsp;
+  <img src="frontend/docs/assets/real-island-dock.png" width="330" alt="Island 收起态把手条 360×44">
+</p>
+
+<p align="center">
+  <sub>左：<code>expanded</code> 520×420（默认，可缩放）· 右：<code>collapsed</code> 360×44（把手条，即入口）</sub>
+</p>
+
+| 形态 | 尺寸（DIP） | 内容 |
+|---|---|---|
+| `collapsed` | **360×44** | 把手条：标题 + 项目数 + LIVE 点 + 图钉 + 「展开」 |
+| `expanded` | **520×420**（默认，可自由缩放） | 多项目总览（V2 一号位不变） |
+
+**窗口永不隐藏**——收起态就是把手条本身，不是隐藏。两态经同一路由 `/island-panel` 承载，用 `?form=collapsed\|expanded` 区分首帧。
 
 | 能力 | 说明 |
 |------|------|
@@ -150,72 +194,18 @@
 | 权限实时收敛 | 被移出项目 → 订阅**立即**退出该项目组（`membership.changed`），后续事件不再送达 |
 | 视觉 | Island 专属圆角例外（外壳 26px / 卡片 14px / 单层淡阴影）；配色与动效仍守 Blueprint Editorial |
 
-### 2.5 桌面版：主窗口 + Island 悬浮窗
+### 2.10 桌面 App 的窗口行为（V3 单窗两态）
 
-桌面 App（pywebview + WebView2）会开**两个窗口**：
+桌面 App（pywebview + WebView2）有两个原生窗口：**主窗口**（完整应用）+ **Island 窗口**（同一窗口的两种形态）。行为全部持久化在 `runtime/desktop-config.json`，重启恢复：
 
-- **主窗口**：完整应用
-- **Island 面板**：520×420 起 · 置顶 · 原生阴影 · **页眉可拖动** · **边缘可缩放**（最小 360×96）
-- **触发把手**：200×32 胶囊贴屏幕顶边，"工程 Island"文字常显，点击展开 / 收起面板
-
-窗口行为（全部持久化在 `runtime/desktop-config.json`，重启恢复）：
-
-- **首次启动直接展开完整面板**——第一眼就看到悬浮窗；你收起（把手 / `Esc`）或固定（图钉）过一次，之后按记住的模式启动
-- **图钉**：固定后面板常驻置顶，`Esc` 与把手都不再收起（防止误关）
-- **快捷键**：`Alt+I` 全局可用（主窗口任何页面都能唤出 / 收起）
-- **拖动 / 缩放**：页眉拖动、边缘热区缩放——`easy_drag` 在 Windows 后端未实现，所以是自实现的 JS 桥接（`window.move/resize`）
-- **退出干净**：关掉主窗口 → 面板、把手、后端、前端**全部退出**，端口释放
-
-### 2.6 项目 · Global Plan / Stage
-
-项目页分三段：**GLOBAL PLAN**（阶段路线，带权重与进度）→ **当前状态**（当前阶段 / 进度 / NOW / TODAY / NEXT）→ **TASKS** 与 **ENGINEERING LOG**。
-
-- 进度不是单一百分比：`Σ(阶段权重 × 阶段进度) / Σ权重`
-- Stage 有 `weight` / `progress` / `is_current`（同一计划内仅一个当前阶段）
-- 新建项目自动预置五状态：`Backlog → Todo → In Progress → Done → Cancelled`
-
-### 2.7 任务列表 —— 筛选即 URL
-
-<p align="center">
-  <img src="frontend/docs/assets/real-issue-list.png" width="880" alt="任务列表">
-</p>
-
-支持状态 / 优先级 / 指派人 / 标签多选、标题搜索、按时间 / 编号 / 优先级排序、分页。**所有筛选都写进 URL**——复制链接给同事，对方看到完全相同的视图；非法参数被静默丢弃而不是报错。
-
-### 2.8 任务抽屉 —— 动态审计 + 评论对话
-
-<p align="center">
-  <img src="frontend/docs/assets/real-issue-drawer-activity.png" width="290" alt="动态审计">
-  &nbsp;&nbsp;
-  <img src="frontend/docs/assets/real-issue-drawer-comments.png" width="290" alt="评论对话">
-</p>
-
-同一个抽屉里两个列表**顺序相反是故意的**：动态（Activity）**倒序**——审计要看"最新发生了什么"；评论（Comments）**正序**——评论是对话。
-
-- 四个字段**就地编辑**（状态 / 优先级 / 指派人 / 标签），乐观更新、失败自动回滚
-- 动态记录"谁在何时把什么改成了什么"（含可显示的旧值/新值，不是 UUID）
-- 评论可编辑自己的；**作者优先于角色**——管理员也不改别人的评论
-- 改动会**产生活动留痕**，因此前端写操作会同时失效活动缓存
-
-### 2.9 批量操作
-
-<p align="center">
-  <img src="frontend/docs/assets/real-bulk-actions.png" width="700" alt="批量操作条">
-</p>
-
-勾选多行 → 底部浮出操作条：改状态 / 优先级 / 指派（逐条下发，**部分失败如实汇报**并支持「重试失败项」）、改标签（覆盖式，走异步任务）、删除（二次确认）。
-
-### 2.10 团队层（工作区 · 成员 · 角色）
-
-<p align="center">
-  <img src="frontend/docs/assets/real-workspace-rail.png" width="300" alt="团队层 · 侧栏与工作区">
-</p>
-
-团队能力完整保留，只是从"产品中心"降级为"协作基础设施"：工作区列表、成员管理、三级角色（管理员 / 成员 / 只读）、工作区设置、项目与任务、评论、动态、实时协作。
-
-<p align="center">
-  <sub>共 14 条路由 · <code>(protected)</code> 个人层 4 条 · <code>(protected)/w/[slug]</code> 团队层 6 条 · <code>(panel)</code> 桌面 Island 1 条</sub>
-</p>
+| 行为 | 说明 |
+|------|------|
+| **首启默认展开** | 第一眼就看到 520×420 完整面板；你收起 / 固定过一次，之后按记住的模式启动 |
+| **展开 / 收起** | 点把手条或 `Alt+I` → 250ms 平滑切换（15 步 × 16ms ease-out，左上锚定零漂移）；`Esc` 收起 |
+| **图钉固定** | `pinned` 后面板常驻置顶，`Esc` 与关闭都不收起（防止误关）；取消固定**不自动收起** |
+| **拖动 / 缩放** | 把手条整条是拖动区；展开态边缘热区缩放（`easy_drag` 在 Windows 后端未实现，故为 JS 桥接） |
+| **位置记忆** | 拖动后位置、展开态尺寸都落盘；收起态**不**被 360×44 污染 |
+| **退出干净** | 关掉主窗口 → Island、后端、前端**全部退出**，端口释放（运行期不 `destroy()`，避免工作线程互等挂死） |
 
 ---
 
@@ -228,13 +218,13 @@
 | **项目** | 标识符 · 预置五状态 · 懒创建 | ✅ |
 | **Global Plan / Stage** | 阶段路线 · 权重 · 加权进度 · 当前/下一阶段 | ✅ |
 | **任务** | 状态 / 优先级 / 指派人 / 标签 · 就地编辑 · 搜索 · 6 种排序 · 分页 | ✅ |
-| **工程日志** | date/标题/摘要/详情/结论/下一步/阻塞 · 关联阶段 · 来源标记 | ✅ |
+| **工程日志** | date/标题/摘要/详情/结论/下一步/阻塞 · 关联阶段 · 来源标记（MANUAL / AGENT） | ✅ |
 | **评论** | 对话流 · 编辑自己的 · 作者优先于角色 | ✅ |
 | **动态审计** | 谁在何时改了什么 · 倒序时间线 | ✅ |
 | **批量操作** | 改状态/优先级/指派/标签 · 异步任务 · 部分失败重试 | ✅ |
 | **实时协作** | WebSocket 广播（issue.updated / comment.created / agent.session）· 断线退避重连 | ✅ |
-| **Engineering Island** | 多项目总览（六问 + AGENT）· 单一实时连接（LIVE/离线）· 诚实占位 · 权限实时收敛 · 桌面拖动/缩放/图钉 | ✅ |
-| **桌面 Island 窗口** | 置顶 · 可拖 · 顶部居中 · 隐藏启动 · 跨窗口同步 | ✅ |
+| **Engineering Island** | 单窗两态（360×44 把手条 / 520×420 面板）· 多项目总览（六问 + AGENT）· 单一实时连接（LIVE/离线）· 诚实占位 · 权限实时收敛 | ✅ |
+| **桌面窗口（V3）** | 首启展开 · 折叠动画（250ms）· 图钉常驻 · 拖动/缩放 · 位置与尺寸持久化 · 关主窗即全退 | ✅ |
 | **Agent Local API** | Token（只显示一次明文）· scope 白名单 · 幂等键 · Session 与实时投影 | ✅ |
 | **个人 ⇄ 团队切换** | 顶栏 ⇄ 按钮 · URL 即状态 · 记住上次团队位置 | ✅ |
 | **桌面 App** | pywebview 原生窗口 · 内嵌 SQLite · 会话持久化 · 关窗停服 · PyInstaller 单文件 exe | ✅ |
@@ -284,13 +274,13 @@ backend\.venv\Scripts\python.exe desktop\build.py           :: 打包 dist\MiniP
 ```
 
 双击即用：原生窗口、内嵌 SQLite（**不用装 PostgreSQL**）、首跑自动建库、会话持久化、关窗干净停服。
-`Alt+I` 唤出置顶的 Island 悬浮窗。**改过前端源码后必须重跑这两条命令**，否则桌面版仍是旧界面。
+`Alt+I` 唤出置顶的 Island（同一窗口在把手条 / 面板两态间切换）。**改过前端源码后必须重跑这两条命令**，否则桌面版仍是旧界面。
 
 ### 方式二：开发模式
 
 ```bat
 scripts\dev.cmd          :: 起后端+前端，等就绪，自动开浏览器
-scripts\dev.cmd e2e      :: 起栈 → 跑 Playwright 33 用例 → 报结果
+scripts\dev.cmd e2e      :: 起栈 → 跑 Playwright 用例 → 报结果
 scripts\dev.cmd status   :: 两个端口各是什么状态
 scripts\dev.cmd down     :: 全部停掉
 ```
@@ -338,7 +328,7 @@ docker compose up --build -d
 
 1. **轻量**：聚合查询单条 SQL 杜绝 N+1 · 默认不启 Redis / Celery worker（eager 同步）· HTTP 与 WS 同端口 · 前端产物 `standalone`（Docker 镜像 22MB）
 2. **实时只广播工程事件**：刻意收窄为三类，不做全站广播
-3. **URL 是唯一事实来源**：筛选、抽屉、标签页、当前图纸、模式切换全在 URL
+3. **URL 是唯一事实来源**：筛选、抽屉、标签页、Island 形态全在 URL
 4. **契约先行**：接口契约 `docs/api/00–09` 是前后端唯一事实源，改接口必须重生成 `openapi.yaml`（CI 校验一致性）
 
 ```text
@@ -355,14 +345,16 @@ mini-plane/
 │   ├── features/        auth · workspace · project · issue · comment · activity
 │   │                    worklog · agent · realtime · engineering-island
 │   ├── lib/ stores/ types/
-│   ├── tests/           unit（129，零依赖）· e2e（33，Playwright）
+│   ├── tests/           unit（143，零依赖）· e2e（34，Playwright）
+│   ├── scripts/         capture-real.mjs（真实数据截图）· capture-screenshots.mjs（E2E 演示数据）
 │   ├── DESIGN.md · SCREEN_BLUEPRINTS.md · FRONTEND_ROADMAP.md
 │   └── docs/devlog/     前端各 Sprint 日志
-├── desktop/             launcher.py · island.py · window_manager.py · build.py
-├── scripts/             dev.cmd / dev.ps1 · package.py
+├── desktop/             launcher.py · island.py · window_manager.py · config.py · build.py
+├── scripts/             dev.cmd / dev.ps1 · package.py · import_progress.py
 ├── docs/                PRODUCT_REFACTOR_PLAN.md · HANDOVER.md · 使用指南.md
+│                        ISLAND_V2_SPEC.md · ISLAND_V3_SPEC.md
 │                        api/（契约 + openapi.yaml）· devlog/ · releases/
-├── runtime/             本机运行态（SQLite / SECRET_KEY / WebView2 profile）——不进仓库
+├── runtime/             本机运行态（SQLite / SECRET_KEY / desktop-config.json / WebView2 profile）——不进仓库
 └── dist/                打包产物——不进仓库
 ```
 
@@ -373,8 +365,8 @@ mini-plane/
 | 类别 | 数量 | 命令 |
 |------|------|------|
 | 后端 | **334** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
-| 前端单测 | **129** | `cd frontend && pnpm test`（`node --test`，零依赖） |
-| 浏览器 E2E | **33** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
+| 前端单测 | **143** | `cd frontend && pnpm test`（`node --test`，零依赖） |
+| 浏览器 E2E | **34** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，两个 job 全绿才可合并）：
 
@@ -397,6 +389,8 @@ CI（`.github/workflows/ci.yml`，两个 job 全绿才可合并）：
 
 **红线**（`frontend/DESIGN.md`）：不引组件库 · 不引图标库（图标全部自绘 SVG）· 不用渐变 / 毛玻璃 / 大圆角 / 多层阴影 / emoji · 字重不超过 500 · **动效只允许 `transform`/`opacity` 且 150–250ms** · 不用 loading spinner（一律骨架屏）。
 
+> Island V3 的折叠动画是受控例外：15 步 × 16ms、实测 235–250ms，仍守住 ≤400ms 红线。
+
 规格：[`frontend/DESIGN.md`](frontend/DESIGN.md) · [`frontend/SCREEN_BLUEPRINTS.md`](frontend/SCREEN_BLUEPRINTS.md) · [`frontend/DESIGN_DECISIONS.md`](frontend/DESIGN_DECISIONS.md)
 
 ---
@@ -412,13 +406,14 @@ v0.7.0 Agent Session & Realtime Sync     ✅ Sprint 13
 v0.8.0 Engineering Island MVP            ✅ Sprint 14
 v0.9.0 Engineering Island Desktop        ✅ Sprint 15
       Island Polish                       ✅ Sprint 16
-v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17
-      ── 待办：发版（tag + Release）
+v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
+      Island V3 单窗两态（壳层）            ✅ 2026-10-21
+      ── 下一周期：Blueprint Dock 视觉重排（信息三层 / Mono 仪表层）
       ── 可选：组件测试（Vitest）· Lighthouse 90 · Markdown → Worklog 导入
          Blocker 独立实体 · MCP 包装层 · 任务截止日期与逾期
 ```
 
-**非目标**（防止再次失控）：不删工作区 · 不删团队权限 · 不重写任务系统 · 不重写实时层 · 不重写桌面启动器 · 不立即做 MCP · 不做复杂 AI 自动规划 · 不做多人实时编辑。
+**非目标**（防止再次失控）：不删工作区 · 不删团队权限 · 不重写任务系统 · 不重写实时层 · 不重写桌面启动器 · 不立即做 MCP · 不做复杂 AI 自动规划 · 不做多人实时编辑 · 不做失焦自动收起。
 
 ---
 

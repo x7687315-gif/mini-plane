@@ -33,6 +33,8 @@ import django  # noqa: E402
 
 django.setup()
 
+from django.utils.text import slugify  # noqa: E402
+
 from apps.agents import services as agent_services  # noqa: E402
 from apps.agents.models import AgentToken  # noqa: E402
 from apps.issues.models import IssuePriorities  # noqa: E402
@@ -265,7 +267,14 @@ def main() -> int:
     # 教训（2026-10-03）：原实现是"复用该账户的第一个工作区"，
     # 结果把项目导进了用户自己的「阿米娅」工作区 —— 他可能有多个工作区，
     # "第一个"纯属任意猜测。专用工作区（slug 带账户名）语义清楚，也不会串味。
-    slug = f"mini-plane-{actor.username}"
+    #
+    # 教训（2026-10-23）：直接拼 username 会在中文昵称下产出非 ASCII slug
+    # （如「mini-plane-北归」）。Workspace.slug 的校验器只允许 [a-z0-9-]，
+    # 且 Django 的 `<slug:>` URL 转换器匹配不了中文 —— 于是
+    # `/api/v1/workspaces/<slug>/projects/...` 全部 404，项目页/团队页加载不出数据。
+    # 修法：slugify 昵称；中文昵称会被剥成空串，退回账户 UUID 的短片段做后缀。
+    user_slug = slugify(actor.username) or actor.id.hex[:6]
+    slug = f"mini-plane-{user_slug}"
     workspace = Workspace.objects.filter(slug=slug).first()
     if workspace is None:
         workspace = Workspace.objects.create(name="Mini Plane 开发", slug=slug, owner=actor)
