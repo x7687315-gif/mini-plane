@@ -1,65 +1,45 @@
 /**
- * Island 页眉（Island V2 阶段 2 · 规格 §1.3 图钉的归属处）。
+ * Island 页眉（Island V2 阶段 2 · 规格 §1.3 图钉的归属处；V3 起为纯展示组件）。
+ *
+ * V3 变化：状态不再由本组件自持——`EngineeringIsland` 是唯一持有 form/pinned 的
+ * 地方（单窗两态状态机的落脚点），这里只渲染 + 上报。V2 时页眉自己
+ * `readIslandState()`、自己乐观翻，和把手页各持一份，是漂移的温床。
  *
  * 图钉按钮**只在桌面面板里出现**（`isPanel && 有桥`）：
  * 浏览器里没有 pywebview 桥，渲染一个点了没反应的按钮比不渲染更糟
  * （规格 §1.3：网页版无把手与图钉窗口控制）。
  *
- * 状态来源：`readIslandState()`（异步，pywebview api 返回 Promise）。
- * 首帧按 `pinned=false` 渲染，状态回来后纠正 —— 按钮本身要有桥才渲染，
- * 不会出现"按钮闪现又消失"。
+ * M3：页眉 = 拖动区。按住空白处拖动整个面板；按钮不参与（防误拖）。
+ * 无边框窗在 Windows 没有系统拖动（easy_drag 未实现），这是唯一入口。
  */
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  desktopBridge,
-  isDesktop,
-  readIslandState,
-  trackWindowMove,
-  type IslandState,
-} from "@/lib/desktopBridge";
+import { useCallback } from "react";
+import { isDesktop, trackWindowMove } from "@/lib/desktopBridge";
+import { IslandPinButton } from "./IslandPinButton";
 
 export function IslandHeader({
   projectCount,
   isPanel,
   live = false,
+  pinned = false,
+  onTogglePin,
 }: {
   projectCount: number;
   isPanel: boolean;
   /** overview 通道是否在线（规格：断线不虚报 LIVE）*/
   live?: boolean;
+  /** 图钉状态（由 EngineeringIsland 对账后下发） */
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }) {
-  const [state, setState] = useState<IslandState | null>(null);
   const onDesktop = isPanel && isDesktop();
 
-  const refresh = useCallback(() => {
-    if (!onDesktop) return;
-    void readIslandState().then(setState);
-  }, [onDesktop]);
-
-  useEffect(refresh, [refresh]);
-
-  // 切换固定后本地立即纠正，不必等下一次轮询（Python 侧已落盘）
-  const onTogglePin = useCallback(() => {
-    if (state?.pinned) desktopBridge.unpinIsland();
-    else desktopBridge.pinIsland();
-    setState((prev) =>
-      prev
-        ? { ...prev, pinned: !prev.pinned, displayMode: prev.pinned ? "auto_hide" : "pinned" }
-        : prev,
-    );
-  }, [state?.pinned]);
-
-  const pinned = state?.pinned ?? false;
-
-  // M3：页眉 = 拖动区。按住空白处拖动整个面板；按钮不参与（防误拖）。
-  // 无边框窗在 Windows 没有系统拖动（easy_drag 未实现），这是唯一入口。
   const onHeaderPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!onDesktop || e.button !== 0) return;
       if ((e.target as HTMLElement).closest("button")) return;
       e.preventDefault(); // 防止拖动时选中文本（text_select=True）
-      trackWindowMove("panel", e);
+      trackWindowMove(e);
     },
     [onDesktop],
   );
@@ -90,42 +70,10 @@ export function IslandHeader({
         {isPanel ? (
           <span className="bp-uppercase text-[color:var(--color-ink-3)]">Alt+I 收起</span>
         ) : null}
-        {onDesktop ? (
-          <button
-            type="button"
-            onClick={onTogglePin}
-            aria-pressed={pinned}
-            aria-label={pinned ? "取消固定 Island 面板" : "固定 Island 面板"}
-            data-testid="island-pin"
-            className={[
-              "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px]",
-              "transition-colors duration-[var(--duration-fast)] hover:border-[color:var(--color-ink-2)]",
-              pinned
-                ? "border-[color:var(--color-accent)] text-[color:var(--color-accent)]"
-                : "border-[color:var(--color-rule)] text-[color:var(--color-ink-2)]",
-            ].join(" ")}
-          >
-            <PinIcon filled={pinned} />
-            {pinned ? "已固定" : "固定"}
-          </button>
+        {onDesktop && onTogglePin ? (
+          <IslandPinButton pinned={pinned} onToggle={onTogglePin} />
         ) : null}
       </div>
     </header>
-  );
-}
-
-/** 图钉：自绘 inline SVG（项目红线：不用图标库）。实心=固定，空心=未固定。 */
-function PinIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden focusable="false">
-      <path
-        d="M4 1h4v2l-1 1v3l1.5 1.5H3.5L5 7V5L4 3V1z"
-        fill={filled ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="1"
-        strokeLinejoin="round"
-      />
-      <path d="M6 8.5V11" stroke="currentColor" strokeWidth="1" />
-    </svg>
   );
 }

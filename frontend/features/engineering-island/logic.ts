@@ -1,11 +1,46 @@
 /**
- * Engineering Island 的纯逻辑（Sprint 14 · PRODUCT_REFACTOR_PLAN §16–§20）。
+ * Engineering Island 的纯逻辑（Sprint 14 · PRODUCT_REFACTOR_PLAN §16–§20；
+ * Island V3 起追加窗口形态解析，2026-10-21）。
  *
  * 为什么把这几行"看起来只是算一下"的东西单独抽出来：
- * 翻页边界、进度换算、计时格式化，恰恰是**动画类 bug 最爱藏的地方**——
- * 翻过头（index 越界）、进度冒出 103%、计时在 59 秒进位错。
+ * 翻页边界、进度换算、计时格式化、URL 形态解析，恰恰是**动画类 bug 最爱藏的地方**——
+ * 翻过头（index 越界）、进度冒出 103%、计时在 59 秒进位错、?form= 收到垃圾值白屏。
  * 做成无副作用纯函数，就能用 `node --test` 逐条钉死（tests/unit/island-logic.test.mts）。
  */
+
+import type { IslandForm } from "@/lib/desktopBridge";
+
+/** Island V3 的两种窗口形态（与 desktop/config.py 的 FORMS 一一对应）。 */
+export const ISLAND_FORMS: readonly IslandForm[] = ["collapsed", "expanded"];
+
+/** M1 默认首展：解析不到合法值就展开（与 Python restore_preferences 同规则）。 */
+export const DEFAULT_ISLAND_FORM: IslandForm = "expanded";
+
+/**
+ * 从 URL 查询串解析初始形态（Python 建窗时经 `?form=` 下发，见 desktop/island.py）。
+ *
+ * 只认枚举内的**小写**原值：大小写混写（`Collapsed`）、空串、数组式重复参数
+ * （`?form=a&form=b`）一律落回默认——URL 是用户可见可篡改的，宁可退回默认
+ * 也不渲染一个四不像。
+ */
+export const resolveIslandForm = (search: string): IslandForm => {
+  let value: string | null = null;
+  try {
+    value = new URLSearchParams(search).get("form");
+  } catch {
+    return DEFAULT_ISLAND_FORM; // 畸形查询串不该让页面白屏
+  }
+  return value === "collapsed" || value === "expanded" ? value : DEFAULT_ISLAND_FORM;
+};
+
+/**
+ * 乐观切换的预期形态（点把手条 / Alt+I 后本地先翻，Python 返回值到了再对账）。
+ *
+ * pinned 护栏在 Python 侧（collapse 被挡下并返回原形态），前端只管预期；
+ * `pinnedRef` 为真时调用方应跳过乐观翻转，避免"闪一下又弹回"。
+ */
+export const optimisticForm = (form: IslandForm): IslandForm =>
+  form === "expanded" ? "collapsed" : "expanded";
 
 /** Island 一页 = 一个 Project（计划 §19：左右滑动是「翻工程图纸」，不是切任务）。 */
 export const clampSheetIndex = (index: number, total: number): number => {

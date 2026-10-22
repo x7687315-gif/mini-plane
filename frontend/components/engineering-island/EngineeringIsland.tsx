@@ -1,59 +1,117 @@
 /**
- * Engineering Island 总入口（Island V2 · `docs/ISLAND_V2_SPEC.md`）。
+ * Engineering Island 总入口（Island V3 · `docs/ISLAND_V3_SPEC.md`）。
  *
  * 定位：**当前工程状态的实时投影**。信息密度高、噪音低、默认不打扰。
  *
- * ## V2 与第一代的区别（2026-10-12，规格 §1.4）
+ * ## V3 与 V2 的区别（2026-10-21，规格 §1）
  *
- * 第一代是「一个项目一张图纸、左右滑动翻页」，现在改为**多项目总览**：
- * 所有项目同时可见，项目多时在面板内部滚动。因此：
- * - `?sheet=<project_id>` 这个 URL 参数**已废弃**（翻页语义不存在了）；
- * - `IslandCarousel` / `IslandSheet` 随之退出一号位，只被 `IslandSheetParts`
- *   继续复用（进度条 / Agent 状态两件）。
+ * V2 是「多项目总览」+ 两个原生窗口（触发把手 + 完整面板）；
+ * V3 把两个窗口合并为**一个可折叠窗口**，形态由 `form` 表达：
+ *
+ *     collapsed  360×44   把手条：标题 + 项目数 + 图钉 + 「展开」
+ *     expanded   520×420  完整面板：多项目总览（V2 的一号位不变）
+ *
+ * 本组件是**形态状态机**的落脚点（唯一持有 form/pinned 的地方）：
+ * 1. 首帧形态从 URL `?form=` 解析（Python 建窗时下发，`resolveIslandForm`）；
+ * 2. 挂载后立刻 `readIslandState()` 与 Python 对账——**Python 是事实来源**，
+ *    URL 只是首帧提示（用户可能在上一会话改过形态）；
+ * 3. 用户操作（点把手条 / Alt+I / Esc / 图钉）先乐观翻本地状态，
+ *    Python 返回值到了再纠正。子组件（页眉 / 把手条）全是展示组件。
  *
  * ## 保留的两条既有决策
  *
  * 1. **Alt+I 显隐 Island 窗口**：主窗口与面板窗口都监听，走 `desktopBridge.toggleIsland()`。
- *    隐藏式触发把手与图钉固定在阶段 2 落地（规格 §1.1–§1.3）。
  * 2. **`variant`**：`page`（网页 /island，套在 AppShell 里）与 `panel`（桌面独立窗口，
- *    无 AppShell）。两者共用同一套总览组件——网页版不渲染把手与图钉窗口控制。
+ *    无 AppShell）。网页版没有窗口形态可言，恒为 expanded。
  */
 
-import { useEffect } from "react";
-import { desktopBridge, isDesktop } from "@/lib/desktopBridge";
+import { useCallback, useEffect, useState } from "react";
+import {
+  desktopBridge,
+  isDesktop,
+  readIslandState,
+  type IslandForm,
+  type IslandState,
+} from "@/lib/desktopBridge";
+import { optimisticForm, resolveIslandForm } from "@/features/engineering-island";
 import { EngineeringIslandOverview } from "./EngineeringIslandOverview";
 
 export function EngineeringIsland({ variant = "page" }: { variant?: "page" | "panel" }) {
   const isPanel = variant === "panel";
 
-  // 桌面版快捷键：Alt+I 显隐 Island 窗口（主窗口与面板窗口都监听）
+  // 首帧形态：URL ?form=（桌面窗口由 Python 下发）；网页版恒展开
+  const [form, setForm] = useState<IslandForm>(() =>
+    isPanel && typeof window !== "undefined"
+      ? resolveIslandForm(window.location.search)
+      : "expanded",
+  );
+  const [pinned, setPinned] = useState(false);
+
+  const reconcile = useCallback((state: IslandState | null) => {
+    if (!state) return;
+    setForm(state.form);
+    setPinned(state.pinned);
+  }, []);
+
+  // 对账：Python 是事实来源（挂载即读；之后每次操作的返回值也会走到这里）
+  useEffect(() => {
+    if (!isPanel || !isDesktop()) return;
+    void readIslandState().then(reconcile);
+  }, [isPanel, reconcile]);
+
+  /** 点把手条 / Alt+I：pinned 下不乐观翻（Python 也会挡），否则翻转 + 对账 */
+  const onToggle = useCallback(() => {
+    setForm((f) => (pinned ? f : optimisticForm(f)));
+    void desktopBridge.toggleIsland().then(reconcile);
+  }, [pinned, reconcile]);
+
+  /** Esc 收起：仅面板窗口（网页版按 Esc 收起一个网页面板没有意义，
+   *  还会和"Esc 关闭弹窗"这类既有行为打架；pinned 时的拒绝由 Python 侧状态机兜底）。 */
+  const onCollapse = useCallback(() => {
+    setForm((f) => (pinned ? f : "collapsed"));
+    void desktopBridge.collapseIsland().then(reconcile);
+  }, [pinned, reconcile]);
+
+  /** 图钉：pin 恒展开（Python 侧保证），unpin 不自动收起（规格 §2.3）。 */
+  const onTogglePin = useCallback(() => {
+    const willPin = !pinned;
+    setPinned(willPin);
+    if (willPin) setForm("expanded"); // pin → 展开，本地先翻，Python 返回值到了再纠正
+    void (willPin ? desktopBridge.pinIsland() : desktopBridge.unpinIsland()).then(reconcile);
+  }, [pinned, reconcile]);
+
+  // 桌面版快捷键：Alt+I 唤出/收起 Island 窗口（主窗口与面板窗口都监听）
   useEffect(() => {
     if (!isDesktop()) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
-        desktopBridge.toggleIsland();
+        onToggle();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [onToggle]);
 
-  // Esc 收起（规格 §1.1：仅 auto_hide + expanded 时）。
-  // 只绑在**面板窗口**上：网页版按 Esc 收起一个网页面板没有意义，还会和
-  // "Esc 关闭弹窗"这类既有行为打架。固定时的拒绝由 Python 侧状态机兜底
-  // （window_manager.hide_island 在 pinned 下直接返回不收起）。
   useEffect(() => {
     if (!isPanel || !isDesktop()) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        desktopBridge.hideIsland();
+        onCollapse();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isPanel]);
+  }, [isPanel, onCollapse]);
 
-  return <EngineeringIslandOverview variant={variant} />;
+  return (
+    <EngineeringIslandOverview
+      variant={variant}
+      form={isPanel ? form : "expanded"}
+      pinned={pinned}
+      onActivate={onToggle}
+      onTogglePin={onTogglePin}
+    />
+  );
 }

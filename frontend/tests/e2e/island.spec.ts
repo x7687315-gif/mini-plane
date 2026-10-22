@@ -1,11 +1,11 @@
 /**
- * Engineering Island 端到端（Island V2 · `docs/ISLAND_V2_SPEC.md` §8 验收）。
+ * Engineering Island 端到端（Island V3 · `docs/ISLAND_V3_SPEC.md` §8 验收）。
  *
  * 按 helpers.ts 的原则：**造数走 API，UI 只验交互**。
  *
- * V2 与第一代验收的根本区别：**不再验收"翻页"**（规格 §1.4：多项目同时可见，
- * 核心总览不依赖轮播），改为验收"两个以上项目**同时**在 DOM 里"。
- * 旧用例（切到第二张图纸 / 末页置灰 / 收起为最小态）随轮播一起退场。
+ * V3 与 V2 验收的根本区别：**单窗两态**。把手窗口退役，`/island-trigger` 路由随之
+ * 删除；收起态改由 `?form=collapsed` 驱动同一个面板路由（浏览器里没有 pywebview 桥，
+ * 形态只来自 URL——这正好让 e2e 能确定性地验收两种形态）。
  *
  * 三条诚实性断言对应规格红线：
  *   - STEP / HOW 没有 Agent 上报时显示约定文案，**不许**被任务描述冒充；
@@ -80,7 +80,7 @@ test.describe("Engineering Island V2 多项目总览", () => {
   });
 });
 
-test.describe("Island 独立窗口面板（Island V2）", () => {
+test.describe("Island 独立窗口面板（Island V3 单窗两态）", () => {
   test("面板不套 AppShell，也不出现未实现的桌面控件", async ({ page }) => {
     await page.goto("/island-panel");
 
@@ -91,7 +91,7 @@ test.describe("Island 独立窗口面板（Island V2）", () => {
     await expect(page.locator("footer")).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Plane/ })).toHaveCount(0);
 
-    // 阶段 2 的图钉**只在桌面面板里渲染**（有 pywebview 桥时才出现）；
+    // 图钉**只在桌面面板里渲染**（有 pywebview 桥时才出现）；
     // 浏览器里没有桥 → 不该出现（点了没反应比没有更糟）
     await expect(page.getByTestId("island-pin")).toHaveCount(0);
 
@@ -100,19 +100,29 @@ test.describe("Island 独立窗口面板（Island V2）", () => {
     await expect(page.getByRole("button", { name: "下一张图纸" })).toHaveCount(0);
   });
 
-  test("触发把手路由：可渲染、可点击，浏览器里是安全的 no-op", async ({ page }) => {
-    const errors: string[] = [];
-    page.on("pageerror", (e) => errors.push(String(e)));
+  test("收起态：?form=collapsed 只渲染把手条，不渲染总览", async ({ page }) => {
+    await page.goto("/island-panel?form=collapsed");
 
-    await page.goto("/island-trigger");
-    const trigger = page.getByTestId("island-trigger");
-    await expect(trigger).toBeVisible({ timeout: 20_000 });
-    await expect(trigger).toHaveAccessibleName(/展开或收起工程 Island 面板/);
+    // 把手条 = 收起态的全部内容（360×44 窗口里放不下总览）
+    const dock = page.getByTestId("island-dock");
+    await expect(dock).toBeVisible({ timeout: 20_000 });
+    await expect(dock.getByText("Engineering Island")).toBeVisible();
+    await expect(dock.getByText(/个项目|载入中/)).toBeVisible();
 
-    // 浏览器里没有 pywebview 桥：点击必须是 no-op，不能抛错把页面搞崩
-    await trigger.click();
-    await expect(trigger).toBeVisible();
-    expect(errors, "点击把手不应产生页面异常").toEqual([]);
+    // 收起态不渲染总览列表与缩放热区（把手条不接受缩放）
+    await expect(page.getByTestId("island-overview")).toHaveCount(0);
+    await expect(page.getByTestId("project-summary-card")).toHaveCount(0);
+
+    // 「展开」按钮在；图钉不在（浏览器里没有 pywebview 桥）
+    await expect(page.getByTestId("island-expand")).toBeVisible();
+    await expect(page.getByTestId("island-pin")).toHaveCount(0);
+  });
+
+  test("展开态（默认）：无 form 参数时渲染完整总览", async ({ page }) => {
+    await page.goto("/island-panel");
+    // 默认即展开（M1 默认首展）：把手条不出现，总览在
+    await expect(page.getByTestId("island-overview")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("island-dock")).toHaveCount(0);
   });
 });
 

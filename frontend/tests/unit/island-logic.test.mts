@@ -13,10 +13,12 @@ import {
   hasNextSheet,
   hasPrevSheet,
   nextSheetIndex,
+  optimisticForm,
   orDash,
   prevSheetIndex,
   percentValue,
   progressPercent,
+  resolveIslandForm,
   resolveSheetIndex,
   sheetPageLabel,
 } from "@/features/engineering-island/logic.ts";
@@ -113,5 +115,31 @@ describe("图纸页码标注与空值显示", () => {
     assert.equal(orDash(""), "—");
     assert.equal(orDash("   "), "—", "只有空白的字符串也要算空");
     assert.equal(orDash("验证长文本"), "验证长文本");
+  });
+});
+
+describe("Island V3 窗口形态解析（?form= 是 Python 下发的首帧提示）", () => {
+  test("合法原值原样返回", () => {
+    assert.equal(resolveIslandForm("?form=collapsed"), "collapsed");
+    assert.equal(resolveIslandForm("?form=expanded"), "expanded");
+    assert.equal(resolveIslandForm("form=expanded&x=1"), "expanded", "带其他参数不受影响");
+  });
+
+  test("缺失 / 空串 / 大小写混写 / 垃圾值一律落回默认展开", () => {
+    assert.equal(resolveIslandForm(""), "expanded");
+    assert.equal(resolveIslandForm("?form="), "expanded");
+    assert.equal(resolveIslandForm("?form=Collapsed"), "expanded", "大小写不猜");
+    assert.equal(resolveIslandForm("?form=banana"), "expanded");
+    assert.equal(resolveIslandForm("?form=a&form=b"), "expanded", "重复参数不猜");
+  });
+
+  test("畸形查询串不该让页面白屏", () => {
+    assert.equal(resolveIslandForm("%E0%A4%A"), "expanded");
+    assert.equal(resolveIslandForm("?&&&"), "expanded");
+  });
+
+  test("乐观切换就是翻转（pinned 护栏在 Python 侧，前端只做预期）", () => {
+    assert.equal(optimisticForm("collapsed"), "expanded");
+    assert.equal(optimisticForm("expanded"), "collapsed");
   });
 });

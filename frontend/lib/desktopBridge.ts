@@ -1,5 +1,5 @@
 /**
- * 桌面版（pywebview）桥接（Sprint 15 · Desktop Island）。
+ * 桌面版（pywebview）桥接（Island V3 · 单窗两态，2026-10-21 起）。
  *
  * 浏览器里 `window.pywebview` 不存在，所以这里**必须永远可用**：
  * 任何一环拿不到桥，就退化成"桌面功能不可用"的 no-op，而不是抛错让页面白屏。
@@ -10,33 +10,38 @@
  */
 
 /**
- * Island 窗口状态（Island V2 阶段 2 · 规格 §2.3 的两个正交状态）。
+ * Island 窗口状态（Island V3 · `docs/ISLAND_V3_SPEC.md` §2 的两个状态）。
  * 字段与 desktop/window_manager.WindowManager.island_state() 一一对应。
  */
 export interface IslandState {
   registered: boolean;
-  trigger: boolean;
-  /** auto_hide = 隐藏式（默认）；pinned = 图钉固定 */
+  /** auto_hide = 可收起（默认）；pinned = 固定保持展开 */
   displayMode: "auto_hide" | "pinned";
-  /** hidden = 只显示把手；expanded = 完整面板可见 */
-  visibility: "hidden" | "expanded";
+  /** collapsed = 360×44 把手条；expanded = 完整面板 */
+  form: "collapsed" | "expanded";
   pinned: boolean;
-  visible: boolean;
+  expanded: boolean;
 }
 
+/**
+ * Island 窗口形态（Island V3）：collapsed = 360×44 把手条，expanded = 完整面板。
+ * 与 Python 侧 desktop/config.py 的 FORMS 一一对应；从 IslandState 派生，单一事实来源。
+ */
+export type IslandForm = IslandState["form"];
+
 export interface IslandWindowApi {
-  toggle_island?: () => IslandState | void;
-  show_island?: () => IslandState | void;
-  hide_island?: () => IslandState | void;
-  pin_island?: () => IslandState | void;
-  unpin_island?: () => IslandState | void;
-  island_state?: () => IslandState;
-  /** M3：按位移增量移动窗口（target = "panel" | "trigger"） */
-  move_window_by?: (target: string, dx: number, dy: number) => unknown;
-  /** M3：按边缘缩放（edge 含 left/right/top/bottom 组合） */
-  resize_window_by?: (target: string, edge: string, dx: number, dy: number) => unknown;
-  /** M3：拖动/缩放结束 → 立即持久化位置 */
-  end_window_drag?: (target: string) => unknown;
+  toggle_island?: () => Promise<IslandState | void> | IslandState | void;
+  expand_island?: () => Promise<IslandState | void> | IslandState | void;
+  collapse_island?: () => Promise<IslandState | void> | IslandState | void;
+  pin_island?: () => Promise<IslandState | void> | IslandState | void;
+  unpin_island?: () => Promise<IslandState | void> | IslandState | void;
+  island_state?: () => Promise<IslandState> | IslandState;
+  /** M3：按位移增量移动窗口（单位 DIP） */
+  move_window_by?: (dx: number, dy: number) => unknown;
+  /** M3：按边缘缩放（edge 含 left/right/top/bottom 组合，仅展开态有效） */
+  resize_window_by?: (edge: string, dx: number, dy: number) => unknown;
+  /** M3：拖动/缩放结束 → 立即持久化位置与尺寸 */
+  end_window_drag?: () => unknown;
 }
 
 interface PywebviewWindow {
@@ -52,32 +57,6 @@ function api(): IslandWindowApi | null {
 /** 是否运行在桌面 App 里（浏览器里恒为 false，用于隐藏桌面专属控件）。 */
 export const isDesktop = (): boolean => api() !== null;
 
-function call(name: keyof IslandWindowApi): boolean {
-  const fn = api()?.[name];
-  if (typeof fn !== "function") return false;
-  try {
-    // pywebview 的 api 方法返回 Promise；这里故意不 await —— 触发即可，
-    // 失败不该影响界面（真正的状态变化由另一个窗口的 storage 事件回传）。
-    // 接口里混有带参方法（move/resize），零参调用需显式收窄成无参签名。
-    void (fn as () => unknown)();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export const desktopBridge = {
-  toggleIsland: () => call("toggle_island"),
-  showIsland: () => call("show_island"),
-  hideIsland: () => call("hide_island"),
-  pinIsland: () => call("pin_island"),
-  unpinIsland: () => call("unpin_island"),
-  moveWindowBy: (target: string, dx: number, dy: number) => callWith("move_window_by", target, dx, dy),
-  resizeWindowBy: (target: string, edge: string, dx: number, dy: number) =>
-    callWith("resize_window_by", target, edge, dx, dy),
-  endWindowDrag: (target: string) => callWith("end_window_drag", target),
-};
-
 /** 带参调用（pywebview 的 api 方法支持位置参数）。 */
 function callWith(name: keyof IslandWindowApi, ...args: unknown[]): boolean {
   const fn = api()?.[name];
@@ -91,14 +70,47 @@ function callWith(name: keyof IslandWindowApi, ...args: unknown[]): boolean {
 }
 
 /**
- * M3：窗口拖动/缩放（pointer capture + 节流桥接）。
+ * 会返回状态的调用：拿 Promise 解析值做**乐观切换后的对账**
+ * （Python 是事实来源，本地先翻形态，返回值到了再纠正）。
+ * 浏览器里（无桥）解析为 null，调用方按"非桌面"处理。
+ */
+async function callState(
+  name: "toggle_island" | "expand_island" | "collapse_island" | "pin_island" | "unpin_island",
+): Promise<IslandState | null> {
+  const fn = api()?.[name];
+  if (typeof fn !== "function") return null;
+  try {
+    const state = await (fn as () => Promise<IslandState | void>)();
+    return (state as IslandState | undefined) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export const desktopBridge = {
+  toggleIsland: () => callState("toggle_island"),
+  expandIsland: () => callState("expand_island"),
+  collapseIsland: () => callState("collapse_island"),
+  pinIsland: () => callState("pin_island"),
+  unpinIsland: () => callState("unpin_island"),
+  moveWindowBy: (dx: number, dy: number) => callWith("move_window_by", dx, dy),
+  resizeWindowBy: (edge: string, dx: number, dy: number) =>
+    callWith("resize_window_by", edge, dx, dy),
+  endWindowDrag: () => callWith("end_window_drag"),
+};
+
+/**
+ * M3：窗口拖动（pointer capture + 节流桥接）。
  *
  * 为什么不用 Win32 HTCAPTION：按下时鼠标捕获在 WebView2 子窗口上，原生模态拖动
  * 循环收不到 mousemove（需额外释放子窗口捕获，易碎）。pointer capture 让事件
  * **始终**回到发起元素（哪怕指针出了窗口）；桥接发**位移增量**，Python 按窗口
  * 当前位置自算绝对坐标 —— 丢事件自愈。
+ *
+ * Island V3 起只有一个 Island 窗口，不再需要 target 参数（V2 的 panel/trigger 之分
+ * 随把手窗口一起退役）。
  */
-export function trackWindowMove(target: string, e: React.PointerEvent): void {
+export function trackWindowMove(e: React.PointerEvent): void {
   let lastX = e.screenX;
   let lastY = e.screenY;
   let lastSent = 0;
@@ -113,13 +125,13 @@ export function trackWindowMove(target: string, e: React.PointerEvent): void {
     lastX = ev.screenX;
     lastY = ev.screenY;
     if (dx === 0 && dy === 0) return;
-    desktopBridge.moveWindowBy(target, dx, dy);
+    desktopBridge.moveWindowBy(dx, dy);
   };
   const onUp = () => {
     el.removeEventListener("pointermove", onMove);
     el.removeEventListener("pointerup", onUp);
     el.removeEventListener("pointercancel", onUp);
-    desktopBridge.endWindowDrag(target);
+    desktopBridge.endWindowDrag();
   };
   el.addEventListener("pointermove", onMove);
   el.addEventListener("pointerup", onUp);
@@ -127,11 +139,7 @@ export function trackWindowMove(target: string, e: React.PointerEvent): void {
 }
 
 /** M3：边缘缩放（edge 为 left/right/top/bottom 的组合，如 "topright"）。 */
-export function trackWindowResize(
-  target: string,
-  edge: string,
-  e: React.PointerEvent,
-): void {
+export function trackWindowResize(edge: string, e: React.PointerEvent): void {
   let lastX = e.screenX;
   let lastY = e.screenY;
   let lastSent = 0;
@@ -146,13 +154,13 @@ export function trackWindowResize(
     lastX = ev.screenX;
     lastY = ev.screenY;
     if (dx === 0 && dy === 0) return;
-    desktopBridge.resizeWindowBy(target, edge, dx, dy);
+    desktopBridge.resizeWindowBy(edge, dx, dy);
   };
   const onUp = () => {
     el.removeEventListener("pointermove", onMove);
     el.removeEventListener("pointerup", onUp);
     el.removeEventListener("pointercancel", onUp);
-    desktopBridge.endWindowDrag(target);
+    desktopBridge.endWindowDrag();
   };
   el.addEventListener("pointermove", onMove);
   el.addEventListener("pointerup", onUp);
@@ -171,23 +179,5 @@ export async function readIslandState(): Promise<IslandState | null> {
     return state ?? null;
   } catch {
     return null;
-  }
-}
-
-/** Island 窗口之间共享"当前图纸"的 storage key（两个 WebView2 窗口同源同 profile）。 */
-export const ISLAND_SHEET_KEY = "mp-island-sheet";
-
-export function readIslandSheet(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ISLAND_SHEET_KEY);
-}
-
-export function writeIslandSheet(projectId: string | null): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (projectId) window.localStorage.setItem(ISLAND_SHEET_KEY, projectId);
-    else window.localStorage.removeItem(ISLAND_SHEET_KEY);
-  } catch {
-    /* 隐私模式下 localStorage 可能不可写：忽略即可，Island 会退回各自独立选择 */
   }
 }

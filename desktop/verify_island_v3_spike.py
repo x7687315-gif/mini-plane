@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import ctypes
 import json
-import sys
 import time
 from ctypes import wintypes
 from pathlib import Path
@@ -240,7 +239,6 @@ def run_all(win_a, win_b) -> None:
 def main() -> int:
     import faulthandler
     import inspect
-    import os
 
     from webview.window import Window
 

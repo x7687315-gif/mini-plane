@@ -1,6 +1,10 @@
 """桌面 Island 配置与状态机的单测（不依赖 Django / pywebview，纯文件与纯函数）。
 
-覆盖规格 §2.3 的四宫格与"配置坏了也要能启动"的降级路径。
+覆盖 Island V3 单窗两态：
+- 配置键位（displayMode / form / panelX/Y / panelWidth/Height）与"配置坏了也要能启动"的降级路径；
+- 形态状态机四宫格（next_form / esc_collapses）；
+- 展开态尺寸夹取（clamp_panel_size）；
+- 折叠动画调度（resize_schedule：终点精确、逐帧单调、首帧即动）。
 """
 
 from __future__ import annotations
@@ -30,8 +34,9 @@ def test_default_when_missing():
     def body(_tmp):
         c = cfg.load_desktop_config()
         assert c["displayMode"] == "auto_hide", c
-        assert c["triggerX"] is None, c
-        # Island V3：宽高默认不记忆（None = 用代码里的 COLLAPSED/EXPANDED 默认值）
+        assert c["form"] is None, c  # 未记录 = 首启，由调用方按 M1 默认首展
+        assert c["panelX"] is None and c["panelY"] is None, c
+        # 宽高默认不记忆（None = 用 island.py 的默认 520×420）
         assert c["panelWidth"] is None, c
         assert c["panelHeight"] is None, c
 
@@ -43,7 +48,7 @@ def test_roundtrip():
         ok = cfg.save_desktop_config(
             {
                 "displayMode": "pinned",
-                "triggerX": 100,
+                "form": "expanded",
                 "panelX": 640,
                 "panelY": 24,
                 "panelWidth": 520,
@@ -54,13 +59,28 @@ def test_roundtrip():
         c = cfg.load_desktop_config()
         assert c == {
             "displayMode": "pinned",
-            "triggerX": 100,
+            "form": "expanded",
             "panelX": 640,
             "panelY": 24,
             "panelWidth": 520,
             "panelHeight": 420,
-            "onboarded": False,
         }, c
+
+    with_tmp_dir(body)
+
+
+def test_retired_keys_ignored():
+    """V2 的 triggerX / onboarded 已退役：旧配置文件里的它们必须被无害忽略。"""
+
+    def body(tmp):
+        (tmp / "desktop-config.json").write_text(
+            json.dumps({"displayMode": "auto_hide", "triggerX": 100, "onboarded": True}),
+            encoding="utf-8",
+        )
+        c = cfg.load_desktop_config()
+        assert "triggerX" not in c, c
+        assert "onboarded" not in c, c
+        assert c["displayMode"] == "auto_hide", c
 
     with_tmp_dir(body)
 
@@ -77,17 +97,19 @@ def test_corrupt_json_falls_back():
 def test_unknown_mode_falls_back():
     def body(tmp):
         (tmp / "desktop-config.json").write_text(
-            json.dumps({"displayMode": "banana", "triggerX": "left"}), encoding="utf-8"
+            json.dumps({"displayMode": "banana", "form": "banana", "panelX": "left"}),
+            encoding="utf-8",
         )
         c = cfg.load_desktop_config()
         assert c["displayMode"] == "auto_hide", c
-        assert c["triggerX"] is None, c  # 非数值一律丢弃，不让窗口定位出错
+        assert c["form"] is None, c  # 非法形态按"未记录"处理
+        assert c["panelX"] is None, c  # 非数值一律丢弃，不让窗口定位出错
 
     with_tmp_dir(body)
 
 
 def test_bad_size_falls_back():
-    """Island V3：宽高写坏也不能让窗口定位出错（同 triggerX 的降级路径）。"""
+    """宽高写坏也不能让窗口定位出错（同 panelX 的降级路径）。"""
 
     def body(tmp):
         (tmp / "desktop-config.json").write_text(
@@ -102,18 +124,64 @@ def test_bad_size_falls_back():
     with_tmp_dir(body)
 
 
-def test_next_visibility_matrix():
-    # auto_hide：翻转
-    assert cfg.next_visibility("auto_hide", "hidden") == "expanded"
-    assert cfg.next_visibility("auto_hide", "expanded") == "hidden"
+def test_next_form_matrix():
+    # auto_hide：collapsed/expanded 翻转
+    assert cfg.next_form("auto_hide", "collapsed") == "expanded"
+    assert cfg.next_form("auto_hide", "expanded") == "collapsed"
     # pinned：永远展开（点了不收起）
-    assert cfg.next_visibility("pinned", "hidden") == "expanded"
-    assert cfg.next_visibility("pinned", "expanded") == "expanded"
+    assert cfg.next_form("pinned", "collapsed") == "expanded"
+    assert cfg.next_form("pinned", "expanded") == "expanded"
 
 
 def test_esc_only_in_auto_hide():
     assert cfg.esc_collapses("auto_hide") is True
     assert cfg.esc_collapses("pinned") is False
+
+
+def test_clamp_panel_size():
+    # 下界：不许比把手条还小（用户从边缘往里拖）
+    assert cfg.clamp_panel_size(100, 10) == (360, 44)
+    # 上界：不许比屏幕还大（换过显示器时恢复记忆尺寸）
+    assert cfg.clamp_panel_size(9000, 9000, max_w=1920, max_h=1080) == (1920, 1080)
+    # 合法值原样通过
+    assert cfg.clamp_panel_size(520, 420) == (520, 420)
+
+
+def test_ease_out_cubic_endpoints():
+    assert cfg.ease_out_cubic(0) == 0.0
+    assert cfg.ease_out_cubic(1) == 1.0
+    assert cfg.ease_out_cubic(-1) == 0.0  # 夹取
+    assert cfg.ease_out_cubic(2) == 1.0
+    # 单调递增（ease-out 不允许回摆）
+    prev = -1.0
+    for i in range(11):
+        v = cfg.ease_out_cubic(i / 10)
+        assert v >= prev, f"t={i / 10} 处回摆：{v} < {prev}"
+        prev = v
+
+
+def test_resize_schedule_collapse():
+    """收起 520×420 → 360×44：终点精确、逐帧单调收缩、首帧即动。"""
+    frames = cfg.resize_schedule((520, 420), (360, 44))
+    assert len(frames) == cfg.ANIM_STEPS
+    assert frames[-1] == (360, 44), "终点必须精确命中（浮点累计误差不许留在尺寸里）"
+    assert frames[0] != (520, 420), "ease-out 首帧就要有可见位移"
+    for (w0, h0), (w1, h1) in zip(frames, frames[1:], strict=False):
+        assert w1 <= w0 and h1 <= h0, f"收起过程出现放大帧：{(w0, h0)} → {(w1, h1)}"
+
+
+def test_resize_schedule_expand_monotonic():
+    """展开 360×44 → 520×420：逐帧单调增长，终点精确。"""
+    frames = cfg.resize_schedule((360, 44), (520, 420))
+    assert frames[-1] == (520, 420)
+    for (w0, h0), (w1, h1) in zip(frames, frames[1:], strict=False):
+        assert w1 >= w0 and h1 >= h0, f"展开过程出现缩小帧：{(w0, h0)} → {(w1, h1)}"
+
+
+def test_resize_schedule_same_size_is_noop():
+    """目标 = 当前（理论上是 _apply_form 幂等挡掉的，这里钉纯函数也别抖）。"""
+    frames = cfg.resize_schedule((520, 420), (520, 420))
+    assert all(f == (520, 420) for f in frames)
 
 
 if __name__ == "__main__":
