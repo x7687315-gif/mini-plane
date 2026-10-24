@@ -2,20 +2,21 @@
 
 import Link from "next/link";
 import { AvatarMenu } from "./AvatarMenu";
-import { ModeSwitch } from "./ModeSwitch";
 import { Crosshair, MeasureLine } from "@/components/ui";
+import { useQuickLogStore } from "@/stores/quicklog";
 import { useWsStore, wsStatusLabel, type WsStatus } from "@/stores/ws";
 
 /**
- * TopBar — see SCREEN_BLUEPRINTS §1.1.
+ * TopBar — Phase 5 个人版（docs/refactor/ui-design/UI_TEMPLATE_V2_NOTES.md）。
  *
- * 56px fixed at the top of every authenticated page.
+ * 56px fixed at the top of every authenticated page. Phase 5 减法：
+ * - 「个人 ⇄ 团队」切换退场——团队入口收进 LeftRail 底部的协作区；
+ * - 「✎ 记一笔」上屏：Worklog 快速记录的全局入口（⌘/Ctrl+Shift+L 同效）。
  *
  * Props:
  * - workspace / project breadcrumb
  * - role badge (ADMIN / MEMBER / VIEWER)
  * - realtime connection status dot (Sprint 7: read straight from the ws store)
- * - avatar menu (click → sign out)
  */
 
 export interface TopBarProps {
@@ -63,6 +64,7 @@ export function TopBar({ workspace, project, role }: TopBarProps) {
   const wsStatus = useWsStore((s) => s.status);
   const wsDetail = useWsStore((s) => s.detail);
   const wsAttempts = useWsStore((s) => s.attempts);
+  const openQuickLog = useQuickLogStore((s) => s.openWith);
 
   const statusLabel =
     wsStatus === "reconnecting" && wsAttempts > 1
@@ -92,12 +94,19 @@ export function TopBar({ workspace, project, role }: TopBarProps) {
           搜索
           <kbd className="font-mono text-[9px] normal-case tracking-normal">Ctrl K</kbd>
         </button>
-        {/* 个人 ⇄ 团队 模式切换（Sprint 17）。放在这里是因为：右侧面包屑在个人模式下
-            不渲染，这里正好是空位；且"切换"与"搜索"都是跨页导航，放同一组语义一致。 */}
-        <ModeSwitch />
       </div>
 
       <div className="flex items-center gap-5">
+        {/* ✎ 记一笔：Worklog 快速记录的全局入口（Phase 5；⌘/Ctrl+Shift+L 同效） */}
+        <button
+          type="button"
+          onClick={() => openQuickLog(null)}
+          className="v2-ia hidden sm:inline-flex"
+          aria-label="记一笔"
+        >
+          <span className="mk" aria-hidden>✎</span>记一笔
+          <kbd className="font-mono text-[9px] normal-case tracking-normal opacity-60">⌘⇧L</kbd>
+        </button>
         {(workspace || project) && (
           <span className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-ink-3)] font-sans font-medium hidden md:inline">
             {workspace && <>{workspace} &middot; </>}

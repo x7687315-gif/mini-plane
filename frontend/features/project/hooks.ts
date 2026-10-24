@@ -13,6 +13,7 @@ import type { UpdateMemberRolePayload } from "@/types/workspace";
 import {
   addProjectMember,
   addStage,
+  createPersonalProject,
   createProject,
   createWorklog,
   deleteProject,
@@ -29,6 +30,18 @@ import {
   updateProjectMemberRole,
   updateStage,
 } from "./api";
+
+/** 创建个人工程（Phase 5 冷启动：只填名称，identifier 自动生成）。 */
+export function useCreatePersonalProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createPersonalProject,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      qc.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
 
 /** 查询键统一来自 lib/queryKeys 工厂（Phase 4 收敛；slug 退出缓存轴）。 */
 

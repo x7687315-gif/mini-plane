@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { AuthGuard } from "@/features/auth";
 import { AppShell } from "@/components/shell/AppShell";
 import { CommandPalette } from "@/components/CommandPalette";
+import { QuickLogModal } from "@/components/task/QuickLogModal";
 import { useWorkspaces } from "@/features/workspace";
 import { useChromeStore } from "@/stores/chrome";
 import { useRememberTeamPath } from "@/stores/mode";
@@ -57,8 +58,9 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
       >
         {children}
       </AppShell>
-      {/* 全局命令面板（Ctrl/Cmd+K）——跨页常驻，故挂在这里 */}
+      {/* 全局命令面板（Ctrl/Cmd+K）与「记一笔」（⌘/Ctrl+Shift+L）——跨页常驻，故挂在这里 */}
       <CommandPalette />
+      <QuickLogModal />
     </AuthGuard>
   );
 }

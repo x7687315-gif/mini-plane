@@ -296,3 +296,63 @@ body {
     }
   }
 }
+
+/* ═══ Blueprint v2 原语（Phase 5 · 个人版 UI）═══
+   五屏共享的一套排版/行/进度原语——整体感的来源是「全部屏幕用同一套」，
+   而不是逐屏调样式。只用既有 design tokens（自动跟随明暗主题）。 */
+
+/* 尺寸标注线进度：建筑图纸 dimension line（端点刻度 + 钴蓝填充段） */
+.v2-dim { position: relative; height: 12px; flex: 1; min-width: 80px; }
+.v2-dim::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--color-rule); }
+.v2-dim > i { position: absolute; display: block; }
+.v2-dim > .fill { left: 0; top: calc(50% - 1.5px); height: 3px; background: var(--color-accent); transition: width var(--duration-slow) var(--ease-out); }
+.v2-dim > .tick { top: calc(50% - 4.5px); width: 1px; height: 10px; background: var(--color-ink-2); }
+
+/* 区块标题：小型大写字 + 细线延伸 */
+.v2-sec { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 4px; color: var(--color-ink-3); }
+.v2-sec > .t { font: 500 10px 'Inter', sans-serif; letter-spacing: 0.22em; text-transform: uppercase; }
+.v2-sec::after { content: ""; flex: 1; height: 1px; background: var(--color-rule); }
+.v2-sec > .n { font: 400 10px 'JetBrains Mono', monospace; }
+
+/* 可交互横线行：整行即按钮，hover 浮现 ▸ */
+.v2-row { display: flex; align-items: baseline; gap: 12px; width: 100%; text-align: left;
+  padding: 8px 10px; border-bottom: 1px solid var(--color-rule); cursor: pointer;
+  transition: background-color var(--duration-fast); }
+.v2-row:hover { background: var(--color-accent-soft); }
+.v2-row .arr { margin-left: auto; color: var(--color-accent); opacity: 0; transform: translateX(-4px);
+  transition: opacity var(--duration-fast), transform var(--duration-fast); font-size: 11px; }
+.v2-row:hover .arr { opacity: 1; transform: none; }
+.v2-row .id { font: 400 10.5px 'JetBrains Mono', monospace; color: var(--color-ink-3); }
+
+/* 手写横线输入：只有底线（textarea 自带横格纸纹） */
+.v2-wline { position: relative; margin-bottom: 14px; }
+.v2-wline > label { display: block; font: 500 9px 'Inter', sans-serif; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--color-ink-3); margin-bottom: 2px; }
+.v2-wline input, .v2-wline textarea { width: 100%; border: 0; border-bottom: 1px solid var(--color-rule);
+  background: transparent; outline: none; padding: 3px 1px 5px; font-size: 13.5px; color: var(--color-ink); }
+.v2-wline textarea { resize: none; line-height: 1.65;
+  background-image: linear-gradient(var(--color-rule) 1px, transparent 1px);
+  background-size: 100% 21px; background-position: 0 3px; }
+.v2-wline input:focus, .v2-wline textarea:focus { border-bottom-color: var(--color-accent); }
+.v2-wline input::placeholder, .v2-wline textarea::placeholder { color: var(--color-ink-3); opacity: 0.75; }
+
+/* 新建空白横线：列表的下一条线即创建入口 */
+.v2-newline { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  padding: 9px 10px; border-bottom: 1px dashed var(--color-rule); color: var(--color-ink-3); font-size: 12.5px; }
+.v2-newline:hover { color: var(--color-accent); border-bottom-color: var(--color-accent); }
+.v2-inline-form { display: flex; gap: 10px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--color-accent); }
+.v2-inline-form input { flex: 1; border: 0; background: transparent; outline: none; font-size: 13px; color: var(--color-ink); }
+.v2-inline-form input::placeholder { color: var(--color-ink-3); }
+
+/* 墨水动作：钴蓝文字 + ▸，无框 */
+.v2-ia { display: inline-flex; align-items: center; gap: 6px; color: var(--color-accent);
+  font: 500 12.5px 'Inter', sans-serif; padding: 4px 6px; }
+.v2-ia:hover { background: var(--color-accent-soft); }
+.v2-ia .mk { font-size: 10px; }
+
+/* 状态文字过滤：无框文字 + 等宽计数，选中 = 钴蓝下划线 */
+.v2-fchip { font: 400 12px 'Inter', sans-serif; color: var(--color-ink-3); padding: 3px 1px;
+  border-bottom: 1.5px solid transparent; }
+.v2-fchip b { font: 400 10px 'JetBrains Mono', monospace; margin-left: 4px; }
+.v2-fchip:hover { color: var(--color-ink); }
+.v2-fchip[aria-pressed="true"] { color: var(--color-ink); border-bottom-color: var(--color-accent); font-weight: 500; }
