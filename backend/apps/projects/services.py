@@ -11,10 +11,49 @@ from apps.activity import services as activity_services
 from apps.activity.models import Actions as ActivityActions
 from apps.issues.models import create_default_states
 from apps.projects import cache as project_cache
-from apps.projects.models import Project, ProjectMember, ProjectPlan, ProjectRoles, ProjectStage
+from apps.projects.models import (
+    Project,
+    ProjectMember,
+    ProjectPlan,
+    ProjectRoles,
+    ProjectStage,
+    identifier_validator,
+)
 from apps.realtime.broadcast import defer_membership_changed
 from apps.users.models import User
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
+
+
+def generate_identifier(owner: User, workspace: Workspace | None, name: str) -> str:
+    """identifier 未提供时自动生成（个人版冷启动：只填名称即可建工程）。
+
+    规则：取名称中的 ASCII 字母数字大写（≤4 位，首字符必须为字母）；
+    中文名等取不到时回退 "PL"，再按唯一性追加数字后缀。
+    唯一范围与显式传入一致：私人按 (owner)、团队按 (workspace)。
+    """
+    base = "".join(ch for ch in name.upper() if ch.isascii() and ch.isalnum())
+    base = base[:4] or "PL"
+    if not base[0].isalpha():
+        base = f"P{base}"[:4]
+    if len(base) < 2:
+        base = f"{base}X"[:2]
+    scope = (
+        {"workspace__isnull": True, "owner": owner}
+        if workspace is None
+        else {"workspace": workspace}
+    )
+    candidate, n = base, 2
+    while Project.objects.filter(**scope, identifier=candidate).exists():
+        suffix = str(n)
+        candidate = f"{base[: 5 - len(suffix)]}{suffix}"
+        n += 1
+        if n > 9:  # 兜底：极端重名时随机两位字母
+            import secrets
+
+            candidate = f"{base[:3]}{secrets.token_hex(1).upper()}"
+            if not identifier_validator(candidate):
+                candidate = f"{base[:2]}{secrets.token_hex(1).upper()}"
+    return candidate
 
 
 @transaction.atomic
@@ -22,7 +61,7 @@ def create_project(
     owner: User,
     *,
     name,
-    identifier,
+    identifier=None,
     description="",
     workspace: Workspace | None = None,
 ) -> Project:
@@ -31,9 +70,11 @@ def create_project(
     所有权（ADR-001 方案 B）：
     - `owner` 必填（默认即创建者）；私人工程 `workspace=None`，仅 owner 可见；
     - 团队工程传 `workspace`：创建者额外获得 ProjectMember.ADMIN（协作显式加入）；
-    - identifier 唯一性按形态分流：私人按 (owner) 唯一、团队按 (workspace) 唯一，
-      写入前显式校验，数据库条件唯一约束兜底。
+    - identifier 可省略（自动生成，个人版冷启动）；提供时唯一性按形态分流：
+      私人按 (owner) 唯一、团队按 (workspace) 唯一，数据库条件唯一约束兜底。
     """
+    if identifier is None or identifier == "":
+        identifier = generate_identifier(owner, workspace, name)
     if workspace is None:
         dup = Project.objects.filter(workspace__isnull=True, owner=owner, identifier=identifier)
     else:

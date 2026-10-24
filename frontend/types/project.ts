@@ -37,6 +37,8 @@ export interface ProjectEngineering {
   progress_source: "plan" | "tasks";
   current_stage: string | null;
   now_task: string | null;
+  /** NOW 任务 id（Phase 5：首页「继续」行点击直达任务抽屉）；无则为 null。 */
+  now_task_id: string | null;
   next_task: string | null;
   /** 今日工程日志条数（Sprint 11）。 */
   today_logs: number;

@@ -4216,18 +4216,21 @@ components:
     PatchedProjectWrite:
       type: object
       description: |-
-        创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
-        由 service 显式校验。
+        创建 / 更新请求体。identifier 可省略（service 自动生成，个人版冷启动）；
+        提供时唯一性（私人按 owner / 团队按 workspace）由 service 显式校验。
       properties:
         name:
           type: string
           title: 名称
           maxLength: 120
         identifier:
-          type: string
-          description: 2-5 位大写字母数字，Issue 前缀
-          pattern: ^[A-Z][A-Z0-9]{1,4}$
-          maxLength: 5
+          description: 2-5 位大写字母数字，Task 前缀；省略则自动生成
+          oneOf:
+          - type: string
+            pattern: ^[A-Z][A-Z0-9]{1,4}$
+            maxLength: 5
+          - type: string
+            maxLength: 0
         description:
           type: string
           title: 描述
@@ -4397,6 +4400,11 @@ components:
           type: string
           nullable: true
           description: 当前正在做的任务标题
+        now_task_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: NOW 任务 id（点击直达任务抽屉）；语义与 now_task 同源，无则为 null
         next_task:
           type: string
           nullable: true
@@ -4457,6 +4465,7 @@ components:
       - name
       - next_task
       - now_task
+      - now_task_id
       - open_tasks
       - progress
       - progress_source
@@ -4615,23 +4624,25 @@ components:
     ProjectWrite:
       type: object
       description: |-
-        创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
-        由 service 显式校验。
+        创建 / 更新请求体。identifier 可省略（service 自动生成，个人版冷启动）；
+        提供时唯一性（私人按 owner / 团队按 workspace）由 service 显式校验。
       properties:
         name:
           type: string
           title: 名称
           maxLength: 120
         identifier:
-          type: string
-          description: 2-5 位大写字母数字，Issue 前缀
-          pattern: ^[A-Z][A-Z0-9]{1,4}$
-          maxLength: 5
+          description: 2-5 位大写字母数字，Task 前缀；省略则自动生成
+          oneOf:
+          - type: string
+            pattern: ^[A-Z][A-Z0-9]{1,4}$
+            maxLength: 5
+          - type: string
+            maxLength: 0
         description:
           type: string
           title: 描述
       required:
-      - identifier
       - name
     Register:
       type: object

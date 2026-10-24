@@ -44,16 +44,26 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 
 class ProjectWriteSerializer(serializers.ModelSerializer):
-    """创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
-    由 service 显式校验。"""
+    """创建 / 更新请求体。identifier 可省略（service 自动生成，个人版冷启动）；
+    提供时唯一性（私人按 owner / 团队按 workspace）由 service 显式校验。"""
 
     identifier = serializers.CharField(
-        max_length=5, validators=[identifier_validator], help_text="2-5 位大写字母数字，Issue 前缀"
+        max_length=5,
+        validators=[identifier_validator],
+        required=False,
+        allow_blank=True,
+        help_text="2-5 位大写字母数字，Task 前缀；省略则自动生成",
     )
 
     class Meta:
         model = Project
         fields = ["name", "identifier", "description"]
+
+    def validate(self, attrs):
+        # 空串统一视作「省略」：POST → 自动生成；PATCH → 不改动
+        if attrs.get("identifier") == "":
+            attrs.pop("identifier")
+        return attrs
 
 
 class ProjectMemberSerializer(serializers.ModelSerializer):
@@ -114,6 +124,10 @@ class ProjectEngineeringSerializer(serializers.Serializer):
         help_text="有 Plan 时为当前 Stage 名，否则回退 NOW 任务所在状态名"
     )
     now_task = serializers.CharField(allow_null=True, help_text="当前正在做的任务标题")
+    now_task_id = serializers.UUIDField(
+        allow_null=True,
+        help_text="NOW 任务 id（点击直达任务抽屉）；语义与 now_task 同源，无则为 null",
+    )
     next_task = serializers.CharField(allow_null=True, help_text="队列中下一个任务标题")
     today_logs = serializers.IntegerField(help_text="今日工程日志条数（Sprint 11）")
     agent_running = serializers.BooleanField(help_text="是否有运行中的 Agent 会话（Sprint 13）")

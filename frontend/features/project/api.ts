@@ -29,6 +29,11 @@ export async function listMyProjects(): Promise<ProjectEngineering[]> {
   return api<ProjectEngineering[]>("/projects/mine");
 }
 
+/** POST /api/v1/projects/ —— 创建个人工程（Phase 5 冷启动：只填名称，identifier 自动生成）。 */
+export async function createPersonalProject(name: string): Promise<Project> {
+  return api<Project>("/projects", { method: "POST", json: { name } });
+}
+
 /* ---------------- Global Plan / Stage（Sprint 10） ---------------- */
 
 export async function getPlan(slug: string, projectId: string): Promise<ProjectPlan> {

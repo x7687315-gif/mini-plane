@@ -1,0 +1,475 @@
+<div id="mpv2"></div>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500;1,600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+#mpv2{
+  --paper:#F4F1EA; --paper2:#ECE8DE; --paper3:#E2DDCE;
+  --ink:#1B1A17; --ink2:#5A5851; --ink3:#8F8B80;
+  --rule:#CFCAB9; --rule2:#DDD8C8;
+  --blue:#1F3FA8; --blue-soft:#E4E8F3; --blue-wash:#EDF0F8;
+  --red:#B4321F; --green:#1D7A5F;
+  font-family:'Inter',system-ui,sans-serif; color:var(--ink); font-size:13px; line-height:1.5;
+}
+#mpv2 *{box-sizing:border-box;margin:0;padding:0}
+#mpv2 button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer;font-size:inherit}
+#mpv2 input,#mpv2 textarea{font-family:inherit;font-size:inherit;color:var(--ink)}
+#mpv2 .serif{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+#mpv2 .mono{font-family:'JetBrains Mono',monospace}
+
+/* ── 预览铬（非产品） ── */
+#mpv2 .pv{display:flex;gap:2px;align-items:baseline;margin-bottom:12px;flex-wrap:wrap}
+#mpv2 .pv button{font:400 12px 'Inter';color:var(--ink2,#5A5851);padding:4px 10px;border-bottom:2px solid transparent}
+#mpv2 .pv button[aria-pressed="true"]{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+#mpv2 .pv .pv-note{margin-left:auto;font:400 11px 'Inter';color:var(--ink3,#8F8B80)}
+
+/* ── 图纸窗口 ── */
+#mpv2 .sheet{height:720px;background:var(--paper);border:1px solid var(--rule);display:flex;flex-direction:column;overflow:hidden;position:relative;
+  background-image:linear-gradient(rgba(31,63,168,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(31,63,168,.045) 1px,transparent 1px);
+  background-size:32px 32px;background-position:0 46px}
+
+/* 顶栏：一行，无框 */
+#mpv2 .bar{height:46px;flex:none;display:flex;align-items:center;gap:18px;padding:0 20px;border-bottom:1px solid var(--rule);background:var(--paper)}
+#mpv2 .logo{font:italic 500 19px 'Cormorant Garamond',Georgia,serif;letter-spacing:.01em}
+#mpv2 .logo em{font:500 9px 'JetBrains Mono';font-style:normal;letter-spacing:.18em;color:var(--ink3);margin-left:7px}
+#mpv2 .bar .sp{flex:1}
+#mpv2 .ia{display:inline-flex;align-items:center;gap:6px;color:var(--blue);font:500 12.5px 'Inter';padding:4px 6px}
+#mpv2 .ia:hover{background:var(--blue-soft)}
+#mpv2 .ia .mk{font-size:10px}
+#mpv2 .ia svg{width:14px;height:14px}
+#mpv2 .ava{width:24px;height:24px;border:1px solid var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';color:var(--blue)}
+#mpv2 .kbd{font:400 10px 'JetBrains Mono';letter-spacing:.12em;color:var(--ink3)}
+
+/* 左栏：四行，无框 */
+#mpv2 .body{flex:1;display:flex;min-height:0}
+#mpv2 .rail{width:148px;flex:none;padding:14px 0;display:flex;flex-direction:column;gap:1px}
+#mpv2 .ritem{display:flex;align-items:baseline;gap:8px;padding:6px 18px;border-left:2px solid transparent;color:var(--ink2);text-align:left}
+#mpv2 .ritem:hover{color:var(--ink)}
+#mpv2 .ritem.on{border-left-color:var(--blue);color:var(--ink);background:linear-gradient(90deg,var(--blue-soft),transparent 82%)}
+#mpv2 .ritem b{font-weight:500;font-size:12.5px}
+#mpv2 .ritem small{font-size:10px;color:var(--ink3);margin-left:auto}
+#mpv2 .rail .gap{flex:1}
+#mpv2 .rail .team{border-top:1px dashed var(--rule);margin:8px 14px 0;padding-top:10px;font-size:10.5px;color:var(--ink3)}
+#mpv2 .rail .team b{display:block;font:500 11.5px 'Inter';color:var(--ink2)}
+
+/* 主区 */
+#mpv2 .main{flex:1;min-width:0;overflow:hidden;position:relative;padding:20px 26px}
+
+/* 首页 */
+#mpv2 .home-head{display:flex;align-items:baseline}
+#mpv2 .h-serif{font:italic 500 28px 'Cormorant Garamond',Georgia,serif}
+#mpv2 .home-head .date{margin-left:auto;font:400 10px 'JetBrains Mono';letter-spacing:.14em;color:var(--ink3)}
+#mpv2 .sec{display:flex;align-items:baseline;gap:10px;margin:20px 0 6px;color:var(--ink3)}
+#mpv2 .sec .t{font:500 10px 'Inter';letter-spacing:.22em;text-transform:uppercase}
+#mpv2 .sec::after{content:"";flex:1;height:1px;background:var(--rule2)}
+#mpv2 .sec .n{font:400 10px 'JetBrains Mono'}
+
+/* 继续行：整行可点，无按钮 */
+#mpv2 .go{display:flex;align-items:baseline;gap:12px;padding:8px 8px 8px 10px;border-bottom:1px solid var(--rule2);cursor:pointer}
+#mpv2 .go:hover{background:var(--blue-wash)}
+#mpv2 .go .id{font:400 10.5px 'JetBrains Mono';color:var(--ink3);width:52px}
+#mpv2 .go .t{font-weight:500}
+#mpv2 .go .w{color:var(--ink3);font-size:11.5px}
+#mpv2 .go .arr{margin-left:auto;color:var(--blue);opacity:0;font-size:11px;transform:translateX(-4px);transition:.15s}
+#mpv2 .go:hover .arr{opacity:1;transform:none}
+
+/* 工程索引：图纸条目，无按钮 */
+#mpv2 .proj{padding:13px 10px 12px;border-bottom:1px solid var(--rule2);cursor:pointer;position:relative}
+#mpv2 .proj:hover{background:var(--blue-wash)}
+#mpv2 .proj .r1{display:flex;align-items:baseline;gap:12px}
+#mpv2 .proj .id{font:400 10.5px 'JetBrains Mono';color:var(--ink3)}
+#mpv2 .proj .nm{font:italic 500 18px 'Cormorant Garamond',Georgia,serif}
+#mpv2 .proj .st{margin-left:auto;font-size:11.5px;color:var(--ink2)}
+#mpv2 .proj .arr{color:var(--blue);opacity:0;margin-left:10px;transition:.15s;font-size:11px}
+#mpv2 .proj:hover .arr{opacity:1}
+/* 尺寸标注进度线 */
+#mpv2 .dim{position:relative;height:12px;flex:1;min-width:90px}
+#mpv2 .dim .base{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--rule)}
+#mpv2 .dim .fill{position:absolute;left:0;top:calc(50% - 1.5px);height:3px;background:var(--blue)}
+#mpv2 .dim .tick{position:absolute;top:calc(50% - 4.5px);width:1px;height:10px;background:var(--ink2)}
+#mpv2 .proj .r2{display:flex;align-items:center;gap:14px;margin-top:7px}
+#mpv2 .proj .pct{font:500 11px 'JetBrains Mono';color:var(--ink)}
+#mpv2 .proj .now{font-size:11.5px;color:var(--ink2)}
+#mpv2 .proj .now b{font-weight:400;font:500 9px 'Inter';letter-spacing:.16em;color:var(--blue)}
+#mpv2 .proj .ag{font:500 9px 'JetBrains Mono';letter-spacing:.1em;color:var(--green);display:inline-flex;align-items:center;gap:5px}
+#mpv2 .proj .ag i{width:5px;height:5px;border-radius:50%;background:var(--green)}
+#mpv2 .proj .r3{display:flex;gap:14px;margin-top:5px;font-size:11px;color:var(--ink3)}
+/* 新建：下一条空白横线 */
+#mpv2 .newline{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border-bottom:1px dashed var(--rule);color:var(--ink3);font-size:12.5px;text-align:left}
+#mpv2 .newline:hover{color:var(--blue);border-bottom-color:var(--blue)}
+#mpv2 .newline .plus{font:400 13px 'JetBrains Mono'}
+#mpv2 .inline-form{display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--blue)}
+#mpv2 .inline-form input{flex:1;border:0;background:transparent;outline:none;font-size:13px}
+#mpv2 .inline-form input::placeholder{color:var(--ink3)}
+#mpv2 .inline-form .hint{font:400 9.5px 'JetBrains Mono';letter-spacing:.1em;color:var(--ink3)}
+
+/* 工程台 */
+#mpv2 .bh1{display:flex;align-items:baseline}
+#mpv2 .bh1 .id{font:400 11px 'JetBrains Mono';color:var(--ink3);margin-left:12px}
+#mpv2 .bh1 .quiet{margin-left:auto;display:flex;gap:14px}
+#mpv2 .bh1 .quiet button{font:400 11.5px 'Inter';color:var(--ink3);padding:2px 2px}
+#mpv2 .bh1 .quiet button:hover{color:var(--blue)}
+/* 状态行：全部内联，无卡片 */
+#mpv2 .stateline{display:flex;align-items:center;gap:16px;margin:10px 0 2px;padding:9px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2);font-size:12px;flex-wrap:wrap}
+#mpv2 .stateline .stg b{font-weight:500;color:var(--ink)}
+#mpv2 .stateline .dim{width:150px;flex:none}
+#mpv2 .stateline .kv b{font:500 9px 'Inter';letter-spacing:.16em;color:var(--ink3);margin-right:6px}
+#mpv2 .stateline .kv{color:var(--ink2)}
+#mpv2 .stateline .ag{margin-left:auto;font:500 9px 'JetBrains Mono';letter-spacing:.1em;color:var(--green);display:inline-flex;align-items:center;gap:5px}
+#mpv2 .stateline .ag i{width:5px;height:5px;border-radius:50%;background:var(--green)}
+/* 过滤：文字+计数，无框 */
+#mpv2 .fchips{display:flex;gap:16px;margin:12px 0 2px;align-items:baseline}
+#mpv2 .fchips button{font:400 12px 'Inter';color:var(--ink3);padding:3px 1px;border-bottom:1.5px solid transparent}
+#mpv2 .fchips button b{font:400 10px 'JetBrains Mono';margin-left:4px}
+#mpv2 .fchips button:hover{color:var(--ink)}
+#mpv2 .fchips button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--blue);font-weight:500}
+#mpv2 .fchips .search{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--ink3);font-size:11.5px}
+#mpv2 .fchips .search input{border:0;border-bottom:1px solid var(--rule2);background:transparent;outline:none;width:130px;font-size:12px;padding:2px 0}
+#mpv2 .fchips .search input:focus{border-bottom-color:var(--blue)}
+/* 任务行 */
+#mpv2 .task{display:flex;align-items:baseline;gap:11px;padding:8px 8px 8px 10px;border-bottom:1px solid var(--rule2);cursor:pointer}
+#mpv2 .task:hover{background:var(--blue-wash)}
+#mpv2 .task .st{width:8px;height:8px;border-radius:50%;flex:none;position:relative;top:0}
+#mpv2 .task .id{font:400 10.5px 'JetBrains Mono';color:var(--ink3);width:52px}
+#mpv2 .task .t{font-size:13px}
+#mpv2 .task .pri{font:500 9px 'Inter';letter-spacing:.14em;color:var(--ink3);text-transform:uppercase}
+#mpv2 .task .age{margin-left:auto;font:400 10px 'JetBrains Mono';color:var(--ink3)}
+#mpv2 .task.now{background:var(--blue-wash);border-left:2px solid var(--blue);padding-left:8px}
+#mpv2 .task .nowtag{font:500 9px 'JetBrains Mono';letter-spacing:.12em;color:var(--blue)}
+#mpv2 .task.done .t{color:var(--ink3);text-decoration:line-through;text-decoration-thickness:1px}
+/* 路线 */
+#mpv2 .route{position:relative;margin:6px 0 0 7px;padding-left:24px}
+#mpv2 .route::before{content:"";position:absolute;left:3px;top:10px;bottom:10px;width:1px;background:var(--rule)}
+#mpv2 .rst{position:relative;padding:7px 0;display:flex;align-items:baseline;gap:12px;font-size:12.5px}
+#mpv2 .rst .node{position:absolute;left:-24px;top:14px;width:9px;height:9px;border-radius:50%;border:1px solid var(--ink3);background:var(--paper)}
+#mpv2 .rst.cur .node{background:var(--blue);border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+#mpv2 .rst .no{font:400 10px 'JetBrains Mono';color:var(--ink3);width:18px}
+#mpv2 .rst .nm{width:150px}
+#mpv2 .rst.cur .nm{color:var(--blue);font-weight:500}
+#mpv2 .rst .dim{max-width:190px}
+#mpv2 .rst .pc{font:400 10.5px 'JetBrains Mono';color:var(--ink2)}
+#mpv2 .rst input{width:46px;border:1px solid var(--rule);background:var(--paper);font:400 11px 'JetBrains Mono';padding:2px 5px}
+#mpv2 .rst .goal{font-size:11px;color:var(--ink3)}
+/* 日志：页缘笔记 */
+#mpv2 .wlog{display:flex;gap:16px;padding:9px 2px;border-bottom:1px solid var(--rule2)}
+#mpv2 .wlog .d{font:400 10px 'JetBrains Mono';color:var(--ink3);width:46px;flex:none;padding-top:2px}
+#mpv2 .wlog .b b{font-weight:500;font-size:12.5px}
+#mpv2 .wlog .b p{font-size:11.5px;color:var(--ink2);margin-top:1px}
+#mpv2 .wlog .src{margin-left:auto;flex:none;font:500 8.5px 'JetBrains Mono';letter-spacing:.14em;color:var(--ink3);padding-top:3px}
+#mpv2 .wlog .src.a{color:var(--blue)}
+
+/* 弹层 */
+#mpv2 .dimbg{position:absolute;inset:0;background:rgba(27,26,23,.34);z-index:30}
+#mpv2 .note{position:absolute;z-index:31;background:var(--paper);border:1px solid var(--ink);box-shadow:4px 4px 0 rgba(27,26,23,.08)}
+#mpv2 .note.log{left:50%;transform:translateX(-50%);top:66px;width:470px}
+#mpv2 .note .nh{display:flex;align-items:baseline;gap:10px;padding:12px 16px 9px;border-bottom:1px solid var(--rule2)}
+#mpv2 .note .nh .serif{font-size:17px}
+#mpv2 .note .nh .meta{margin-left:auto;font:400 9.5px 'JetBrains Mono';letter-spacing:.1em;color:var(--ink3)}
+#mpv2 .note .nb{padding:13px 16px 4px}
+/* 手写线输入：只有底线 */
+#mpv2 .wline{position:relative;margin-bottom:15px}
+#mpv2 .wline label{display:block;font:500 9px 'Inter';letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:2px}
+#mpv2 .wline input,#mpv2 .wline textarea{width:100%;border:0;border-bottom:1px solid var(--rule);background:transparent;outline:none;padding:3px 1px 5px;font-size:13.5px}
+#mpv2 .wline textarea{resize:none;line-height:1.65;background-image:linear-gradient(var(--rule2) 1px,transparent 1px);background-size:100% 21px;background-position:0 3px}
+#mpv2 .wline input:focus,#mpv2 .wline textarea:focus{border-bottom-color:var(--blue)}
+#mpv2 .wline input::placeholder,#mpv2 .wline textarea::placeholder{color:#B9B4A6}
+#mpv2 .more-toggle{font:400 11.5px 'Inter';color:var(--ink3);display:flex;align-items:center;gap:6px;padding:4px 0 10px}
+#mpv2 .more-toggle:hover{color:var(--blue)}
+#mpv2 .note .nf{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--rule2)}
+#mpv2 .note .nf .esc{font:400 10px 'JetBrains Mono';color:var(--ink3);letter-spacing:.08em}
+#mpv2 .note .nf .ia{margin-left:auto}
+
+/* 抽屉 */
+#mpv2 .drawer{position:absolute;top:0;right:0;bottom:0;width:410px;background:var(--paper);border-left:1px solid var(--ink);z-index:31;display:flex;flex-direction:column;box-shadow:-4px 0 0 rgba(27,26,23,.05)}
+#mpv2 .drawer .dh{padding:14px 18px 10px;border-bottom:1px solid var(--rule2)}
+#mpv2 .drawer .id-row{display:flex;align-items:center;font:400 9.5px 'JetBrains Mono';letter-spacing:.14em;color:var(--ink3)}
+#mpv2 .drawer .id-row button{margin-left:auto;color:var(--ink3)}
+#mpv2 .drawer .id-row button:hover{color:var(--ink)}
+#mpv2 .drawer .t-serif{font:italic 500 21px 'Cormorant Garamond',Georgia,serif;margin-top:3px}
+#mpv2 .drawer .db{flex:1;overflow:hidden;padding:4px 18px}
+#mpv2 .dfield{display:flex;align-items:baseline;gap:10px;padding:7px 2px;border-bottom:1px dashed var(--rule2);font-size:12.5px;cursor:pointer}
+#mpv2 .dfield:hover{background:var(--blue-wash)}
+#mpv2 .dfield .k{font:500 9px 'Inter';letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);width:58px;flex:none}
+#mpv2 .dfield .v{display:flex;align-items:center;gap:7px}
+#mpv2 .dfield .car{margin-left:auto;color:var(--ink3);font-size:10px}
+#mpv2 .dfield .lb{font:400 10px 'JetBrains Mono';color:var(--blue);border:1px solid var(--rule);padding:1px 6px}
+#mpv2 .ddesc{font-size:12.5px;color:var(--ink2);padding:10px 2px;border-bottom:1px solid var(--rule2)}
+#mpv2 .drawer details{border-bottom:1px solid var(--rule2)}
+#mpv2 .drawer summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;font:500 10px 'Inter';letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);padding:9px 2px}
+#mpv2 .drawer summary::-webkit-details-marker{display:none}
+#mpv2 .drawer summary .cnt{font:400 9.5px 'JetBrains Mono';letter-spacing:0;text-transform:none}
+#mpv2 .drawer summary .car{margin-left:auto;transition:.15s}
+#mpv2 .drawer details[open] summary .car{transform:rotate(90deg)}
+#mpv2 .drawer .sec-body{padding:2px 2px 10px}
+#mpv2 .cmt{display:flex;gap:10px;padding:7px 0}
+#mpv2 .cmt .who{width:20px;height:20px;border:1px solid var(--rule);border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font:500 9px 'Inter';color:var(--ink2)}
+#mpv2 .cmt .b .l1{font-size:10.5px;color:var(--ink3)}
+#mpv2 .cmt .b .l1 b{font-weight:500;color:var(--ink);font-size:11.5px}
+#mpv2 .cmt .b p{font-size:12.5px;margin-top:1px}
+#mpv2 .cwrite{margin-top:6px}
+#mpv2 .cwrite input{width:100%;border:0;border-bottom:1px solid var(--rule);background:transparent;outline:none;font-size:12.5px;padding:5px 1px}
+#mpv2 .cwrite input:focus{border-bottom-color:var(--blue)}
+#mpv2 .dz{display:flex;justify-content:flex-end;padding:10px 2px}
+#mpv2 .dz button{font:400 11.5px 'Inter';color:var(--red)}
+#mpv2 .dz button:hover{text-decoration:underline}
+#mpv2 .mrow{display:flex;gap:10px;font-size:11px;color:var(--ink2);padding:3px 2px}
+#mpv2 .mrow b{font-weight:400;color:var(--ink3);width:64px;flex:none;font:500 9px 'Inter';letter-spacing:.14em;padding-top:2px}
+
+/* 初见 */
+#mpv2 .onboard{height:100%;display:flex;align-items:center;justify-content:center}
+#mpv2 .onboard .inner{width:430px;text-align:center}
+#mpv2 .onboard .brand{font:italic 500 22px 'Cormorant Garamond',Georgia,serif}
+#mpv2 .onboard .brand em{font:400 9px 'JetBrains Mono';font-style:normal;letter-spacing:.2em;color:var(--ink3);margin-left:8px}
+#mpv2 .onboard h1{font:italic 500 30px 'Cormorant Garamond',Georgia,serif;margin:26px 0 6px}
+#mpv2 .onboard .sub{color:var(--ink2);font-size:12.5px}
+#mpv2 .onboard .wline{margin:30px 0 10px;text-align:left}
+#mpv2 .onboard .wline input{font-size:15px;text-align:center}
+#mpv2 .onboard .hints{display:flex;justify-content:center;gap:18px;font:400 9.5px 'JetBrains Mono';letter-spacing:.1em;color:var(--ink3)}
+#mpv2 [hidden]{display:none!important}
+</style>
+
+<div class="pv" role="toolbar" aria-label="模板屏幕切换">
+  <button type="button" data-s="onboard" aria-pressed="false">初见</button>
+  <button type="button" data-s="home" aria-pressed="true">我的工程</button>
+  <button type="button" data-s="bench" aria-pressed="false">工程台</button>
+  <button type="button" data-s="log" aria-pressed="false">记一笔</button>
+  <button type="button" data-s="task" aria-pressed="false">任务详情</button>
+  <span class="pv-note">Mini Plane · 个人版模板 v2 · Blueprint Editorial</span>
+</div>
+
+<div class="sheet">
+  <div class="bar">
+    <span class="logo">Plane<em>MINI · 2026.10.24</em></span>
+    <span class="sp"></span>
+    <button class="ia" data-goto="log"><i data-lucide="pen-line" aria-hidden="true"></i>记一笔<span class="kbd">⌘L</span></button>
+    <span class="kbd">⌘K 搜索</span>
+    <span class="ava">北</span>
+  </div>
+  <div class="body">
+    <aside class="rail">
+      <button class="ritem on" data-goto="home"><b>我的工程</b></button>
+      <button class="ritem"><b>我的工作</b></button>
+      <button class="ritem"><b>Island</b></button>
+      <button class="ritem"><b>设置</b></button>
+      <div class="gap"></div>
+      <div class="team"><b>协作 · 1 个团队工程</b>有团队数据时才出现</div>
+    </aside>
+
+    <main class="main">
+      <!-- ═══════════ 初见 ═══════════ -->
+      <section id="s-onboard" hidden>
+        <div class="onboard">
+          <div class="inner">
+            <div class="brand">Plane<em>MINI</em></div>
+            <h1>从一个工程开始。</h1>
+            <p class="sub">写下名称，回车即建——不需要工作区，不需要角色。</p>
+            <div class="wline"><input placeholder="工程名称，如：毕业设计" aria-label="工程名称"></div>
+            <div class="hints"><span>⏎ 创建并进入</span><span>数据只留在本机</span><span>之后随时可加入协作</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ 我的工程 ═══════════ -->
+      <section id="s-home">
+        <div class="home-head"><span class="h-serif">My Engineering</span><span class="date">N 31°14′ · FRI</span></div>
+
+        <div class="sec"><span class="t">继续</span><span class="n">2</span></div>
+        <button class="go" data-goto="task"><span class="id">MP-16</span><span class="t">Lighthouse 90</span><span class="w">· Mini Plane · 待办</span><span class="arr">▸</span></button>
+        <button class="go"><span class="id">TT-04</span><span class="t">音素缓存预热</span><span class="w">· TTS 语音板 · 待办</span><span class="arr">▸</span></button>
+
+        <div class="sec"><span class="t">工程</span><span class="n">3</span></div>
+        <button class="proj" data-goto="bench" style="display:block;width:100%;text-align:left">
+          <div class="r1"><span class="id">MP · 个人</span><span class="nm">Mini Plane</span><span class="st">05 收束与发布</span><span class="arr">▸</span></div>
+          <div class="r2"><div class="dim"><i class="base"></i><i class="fill" style="width:60%"></i><i class="tick" style="left:0"></i><i class="tick" style="left:60%"></i><i class="tick" style="right:0"></i></div><span class="pct">60%</span><span class="now"><b>NOW</b> Lighthouse 90</span><span class="ag"><i></i>AGENT·RUNNING</span></div>
+          <div class="r3"><span>4 待办 · 12 已完成</span><span>最近：今天</span></div>
+        </button>
+        <button class="proj" style="display:block;width:100%;text-align:left">
+          <div class="r1"><span class="id">TTS · 个人</span><span class="nm">TTS 语音板</span><span class="st">02 联调</span><span class="arr">▸</span></div>
+          <div class="r2"><div class="dim"><i class="base"></i><i class="fill" style="width:35%"></i><i class="tick" style="left:0"></i><i class="tick" style="left:35%"></i><i class="tick" style="right:0"></i></div><span class="pct">35%</span><span class="now"><b>NOW</b> 音素缓存预热</span></div>
+          <div class="r3"><span>3 待办 · 1 已完成</span><span>最近：昨天</span></div>
+        </button>
+        <button class="proj" style="display:block;width:100%;text-align:left">
+          <div class="r1"><span class="id">RC · 个人</span><span class="nm">Rust CLI 工具箱</span><span class="st">尚未规划</span><span class="arr">▸</span></div>
+          <div class="r2"><div class="dim"><i class="base"></i><i class="tick" style="left:0"></i><i class="tick" style="right:0"></i></div><span class="pct">0%</span><span class="now" style="color:var(--ink3)">还没有任务</span></div>
+        </button>
+
+        <div style="margin-top:6px" id="np-zone">
+          <button class="newline" id="np-open"><span class="plus">＋</span>新的工程</button>
+        </div>
+      </section>
+
+      <!-- ═══════════ 工程台 ═══════════ -->
+      <section id="s-bench" hidden>
+        <div class="bh1"><span class="h-serif">Mini Plane</span><span class="id">MP · 16 任务</span>
+          <span class="quiet"><button>日志</button><button>设置</button></span></div>
+        <div class="stateline">
+          <span class="stg">阶段 <b>05 · 收束与发布</b></span>
+          <span class="dim"><i class="base"></i><i class="fill" style="width:60%"></i><i class="tick" style="left:0"></i><i class="tick" style="left:60%"></i><i class="tick" style="right:0"></i></span>
+          <span class="pct mono" style="font:500 11px 'JetBrains Mono'">60%</span>
+          <span class="kv"><b>NEXT</b>—</span>
+          <span class="ag"><i></i>AGENT·RUNNING</span>
+        </div>
+
+        <div class="fchips" role="group" aria-label="状态过滤">
+          <button data-f="all" aria-pressed="true">全部<b>16</b></button>
+          <button data-f="todo" aria-pressed="false">待办<b>5</b></button>
+          <button data-f="doing" aria-pressed="false">进行中<b>1</b></button>
+          <button data-f="done" aria-pressed="false">完成<b>7</b></button>
+          <span class="search"><i data-lucide="search" aria-hidden="true"></i><input placeholder="搜索任务" aria-label="搜索任务"></span>
+        </div>
+        <div id="task-list">
+          <div class="task now" data-g="todo"><span class="st" style="background:var(--paper3);border:1px solid var(--rule)"></span><span class="id">MP-16</span><span class="t">Lighthouse 90</span><span class="nowtag">NOW</span><span class="pri">low</span><span class="age">3 天</span></div>
+          <div class="task" data-g="todo"><span class="st" style="background:var(--paper3);border:1px solid var(--rule)"></span><span class="id">MP-15</span><span class="t">组件测试（Vitest）</span><span class="pri">medium</span><span class="age">3 天</span></div>
+          <div class="task" data-g="todo"><span class="st" style="background:var(--paper3);border:1px solid var(--rule)"></span><span class="id">MP-14</span><span class="t">Markdown → Worklog 自动导入</span><span class="pri">medium</span><span class="age">3 天</span></div>
+          <div class="task" data-g="todo"><span class="st" style="background:#E8912D"></span><span class="id">MP-13</span><span class="t">桌面版关窗后进程残留（待决策）</span><span class="pri">urgent</span><span class="age">3 天</span></div>
+          <div class="task" data-g="doing"><span class="st" style="background:var(--blue)"></span><span class="id">MP-10</span><span class="t">登录页「直接进入」</span><span class="pri">medium</span><span class="age">18 天</span></div>
+          <div class="task done" data-g="done"><span class="st" style="background:var(--green)"></span><span class="id">MP-12</span><span class="t">v1.0.0 隐私扫描与发布</span><span class="pri">high</span><span class="age">18 天</span></div>
+          <div class="task done" data-g="done"><span class="st" style="background:var(--green)"></span><span class="id">MP-11</span><span class="t">README 对外展示重写</span><span class="pri">medium</span><span class="age">18 天</span></div>
+        </div>
+        <div id="nt-zone" style="margin-top:4px">
+          <button class="newline" id="nt-open"><span class="plus">＋</span>新任务</button>
+        </div>
+
+        <div class="sec"><span class="t">路线</span><button class="ia" id="plan-edit" style="margin-left:auto"><span class="mk">▸</span>调整</button></div>
+        <div class="route" id="route-ro">
+          <div class="rst"><span class="node" style="background:var(--green);border-color:var(--green)"></span><span class="no">01</span><span class="nm">产品定位重构</span><div class="dim"><i class="base"></i><i class="fill" style="width:100%"></i><i class="tick" style="left:0"></i><i class="tick" style="right:0"></i></div><span class="pc">100%</span></div>
+          <div class="rst"><span class="node" style="background:var(--green);border-color:var(--green)"></span><span class="no">02</span><span class="nm">领域模型扩展</span><div class="dim"><i class="base"></i><i class="fill" style="width:100%"></i><i class="tick" style="left:0"></i><i class="tick" style="right:0"></i></div><span class="pc">100%</span></div>
+          <div class="rst cur"><span class="node"></span><span class="no">05</span><span class="nm">收束与发布</span><div class="dim"><i class="base"></i><i class="fill" style="width:60%"></i><i class="tick" style="left:0"></i><i class="tick" style="left:60%"></i><i class="tick" style="right:0"></i></div><span class="pc">60%</span><span class="goal">发布 v1.0.1</span></div>
+        </div>
+        <div class="route" id="route-edit" hidden>
+          <div class="rst"><span class="node"></span><span class="no">01</span><span class="nm">产品定位重构</span><input value="100" aria-label="进度"><span class="goal">权重 1</span></div>
+          <div class="rst cur"><span class="node"></span><span class="no">05</span><span class="nm">收束与发布</span><input value="60" aria-label="进度"><span class="goal">权重 3 · 当前</span></div>
+          <div class="rst"><span class="node" style="border-style:dashed"></span><span class="no">＋</span><span class="nm" style="color:var(--ink3)">添加阶段…</span></div>
+          <div style="padding:8px 0 2px 24px;display:flex;gap:10px"><button class="ia"><span class="mk">▸</span>完成调整</button></div>
+        </div>
+
+        <div class="sec"><span class="t">日志</span><span class="n">2</span></div>
+        <div class="wlog"><span class="d">10-23</span><div class="b"><b>v1.0.0 收束：Agent 闭环跑通 + 双处 CI 红灯</b><p>功能全部收束，E2E 33 条全绿。下一步：待决策主窗口退出样式。</p></div><span class="src a">AGENT</span></div>
+        <div class="wlog"><span class="d">10-22</span><div class="b"><b>Island 落地，以及桌面版产物停滞 10 天的根因</b><p>打包脚本改成本地零依赖；Launcher 收紧。</p></div><span class="src">MANUAL</span></div>
+      </section>
+
+      <!-- ═══════════ 记一笔 ═══════════ -->
+      <section id="s-log" hidden>
+        <div class="dimbg"></div>
+        <div class="note log">
+          <div class="nh"><span class="serif">记一笔</span><span class="meta">MP · MINI PLANE · 2026-10-24 · 阶段 05</span></div>
+          <div class="nb">
+            <div class="wline"><label for="q-t">标题</label><input id="q-t" placeholder="Lighthouse 90 首跑达标"></div>
+            <div class="wline"><label for="q-s">完成了什么</label><textarea id="q-s" rows="3" placeholder="今天实际做了什么——一句话也行"></textarea></div>
+            <button class="more-toggle" id="q-more"><span class="mk">▸</span>补全 · 结论 / 下一步 / 阻塞</button>
+            <div id="q-extra" hidden>
+              <div class="wline"><label for="q-c">结论</label><input id="q-c"></div>
+              <div class="wline"><label for="q-n">下一步</label><input id="q-n"></div>
+              <div class="wline"><label for="q-b">阻塞</label><input id="q-b"></div>
+            </div>
+          </div>
+          <div class="nf"><span class="esc">⌘⏎ 记录 · ESC 取消 · 未提交内容不丢失</span><button class="ia"><span class="mk">▸</span>记录</button></div>
+        </div>
+      </section>
+
+      <!-- ═══════════ 任务详情 ═══════════ -->
+      <section id="s-task" hidden>
+        <div class="dimbg"></div>
+        <div class="drawer">
+          <div class="dh">
+            <div class="id-row">MP-16 · 任务 · 3 天<button aria-label="关闭">✕</button></div>
+            <div class="t-serif">Lighthouse 90</div>
+          </div>
+          <div class="db">
+            <div class="dfield"><span class="k">状态</span><span class="v"><span class="st" style="width:8px;height:8px;border-radius:50%;background:var(--paper3);border:1px solid var(--rule)"></span>Todo</span><span class="car">▾</span></div>
+            <div class="dfield"><span class="k">优先级</span><span class="v">Low</span><span class="car">▾</span></div>
+            <div class="dfield"><span class="k">阶段</span><span class="v">05 收束与发布</span><span class="car">▾</span></div>
+            <div class="dfield"><span class="k">指派</span><span class="v" style="color:var(--ink3)">未指派</span><span class="car">▾</span></div>
+            <div class="dfield"><span class="k">标签</span><span class="v"><span class="lb">性能</span></span><span class="car">▾</span></div>
+            <p class="ddesc">现为 89（perf），LCP 3.36s 需服务端预取。</p>
+            <details open>
+              <summary>评论<span class="cnt">1</span><span class="car">▸</span></summary>
+              <div class="sec-body">
+                <div class="cmt"><span class="who">北</span><div class="b"><div class="l1"><b>北归</b> · 10-20</div><p>先跑基线，预取方案等 MP-13 决策后再动。</p></div></div>
+                <div class="cwrite"><input placeholder="写条评论… ⏎" aria-label="写评论"></div>
+              </div>
+            </details>
+            <details>
+              <summary>动态<span class="cnt">3</span><span class="car">▸</span></summary>
+              <div class="sec-body">
+                <div class="cmt"><span class="who"></span><div class="b"><div class="l1"><b>北归</b> · 创建了任务 · 10-03</div></div></div>
+                <div class="cmt"><span class="who"></span><div class="b"><div class="l1"><b>北归</b> · 优先级 none → low · 10-12</div></div></div>
+                <div class="cmt"><span class="who"></span><div class="b"><div class="l1"><b>北归</b> · 添加了标签「性能」· 10-14</div></div></div>
+              </div>
+            </details>
+            <details>
+              <summary>详情<span class="car">▸</span></summary>
+              <div class="sec-body">
+                <div class="mrow"><b>创建</b><span>2026-10-03 19:07 · 北归</span></div>
+                <div class="mrow"><b>更新</b><span>19 天前</span></div>
+                <div class="mrow"><b>ID</b><span class="mono" style="font-size:10px">1ee92521-d9b8-4c0f-963b…</span></div>
+                <div class="dz"><button>删除任务</button></div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+  const root=document.getElementById('mpv2');
+  const state=Object.assign({screen:'home'},(()=>{try{return JSON.parse(window.zcode.widgetState?.modelContent||'{}')}catch(e){return{}}})());
+  function render(){
+    document.querySelectorAll('.pv button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===state.screen)));
+    ['onboard','home','bench','log','task'].forEach(s=>{const el=document.getElementById('s-'+s); if(el) el.hidden=s!==state.screen;});
+    try{window.zcode.setWidgetState({modelContent:JSON.stringify(state)}).catch(()=>{})}catch(e){}
+  }
+  document.querySelector('.pv').addEventListener('click',e=>{const b=e.target.closest('button[data-s]'); if(b){state.screen=b.dataset.s; render();}});
+  root.addEventListener('click',e=>{const g=e.target.closest('[data-goto]'); if(g){state.screen=g.dataset.goto; render();}});
+
+  // 状态过滤
+  const chips=document.querySelectorAll('.fchips button[data-f]');
+  chips.forEach(c=>c.addEventListener('click',()=>{
+    chips.forEach(x=>x.setAttribute('aria-pressed',String(x===c)));
+    const f=c.dataset.f;
+    document.querySelectorAll('#task-list .task').forEach(t=>{t.hidden = !(f==='all'||t.dataset.g===f);});
+  }));
+
+  // 内联新建：工程 / 任务
+  function wireNew(zoneId,openId,ph,onOk){
+    const zone=document.getElementById(zoneId); if(!zone) return;
+    const open=document.getElementById(openId);
+    open.addEventListener('click',()=>{
+      const form=document.createElement('div'); form.className='inline-form';
+      form.innerHTML='<span class="plus mono" style="font-size:12px;color:var(--ink3)">＋</span><input placeholder="'+ph+'" aria-label="'+ph+'"><span class="hint">⏎ 创建</span>';
+      open.hidden=true; zone.appendChild(form); const inp=form.querySelector('input'); inp.focus();
+      function done(){ if(inp.value.trim()){ onOk(inp.value.trim()); } form.remove(); open.hidden=false; }
+      inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter') done(); if(ev.key==='Escape'){inp.value='';done();} });
+      form.addEventListener('focusout',()=>setTimeout(()=>{ if(!zone.contains(document.activeElement)) done(); },120));
+    });
+  }
+  wireNew('np-zone','np-open','工程名称，如：毕业设计',name=>{
+    const d=document.createElement('button'); d.className='proj'; d.style.cssText='display:block;width:100%;text-align:left';
+    d.innerHTML='<div class="r1"><span class="id">'+name.slice(0,2).toUpperCase()+' · 个人</span><span class="nm">'+name+'</span><span class="st">尚未规划</span><span class="arr">▸</span></div>'
+      +'<div class="r2"><div class="dim"><i class="base"></i><i class="tick" style="left:0"></i><i class="tick" style="right:0"></i></div><span class="pct">0%</span><span class="now" style="color:var(--ink3)">还没有任务</span></div>';
+    document.getElementById('np-zone').before(d);
+  });
+  wireNew('nt-zone','nt-open','任务标题，⏎ 完成',name=>{
+    const d=document.createElement('div'); d.className='task'; d.dataset.g='todo';
+    d.innerHTML='<span class="st" style="background:var(--paper3);border:1px solid var(--rule)"></span><span class="id">MP-17</span><span class="t">'+name+'</span><span class="pri">none</span><span class="age">刚刚</span>';
+    document.getElementById('task-list').appendChild(d);
+  });
+
+  // 路线 只读 ↔ 调整
+  const pe=document.getElementById('plan-edit');
+  if(pe){ let editing=false; pe.addEventListener('click',()=>{ editing=!editing;
+    document.getElementById('route-ro').hidden=editing; document.getElementById('route-edit').hidden=!editing;
+    pe.innerHTML=editing?'<span class="mk">▸</span>完成调整':'<span class="mk">▸</span>调整'; });}
+
+  // 记一笔 补全
+  const qm=document.getElementById('q-more');
+  if(qm){ qm.addEventListener('click',()=>{ const x=document.getElementById('q-extra'); const open=x.hidden; x.hidden=!open;
+    qm.innerHTML='<span class="mk">'+(open?'▾':'▸')+'</span>补全 · 结论 / 下一步 / 阻塞'; });}
+
+  try{document.addEventListener('zcode:set_globals',ev=>{const g=ev.detail?.globals?.widgetState; if(g){try{Object.assign(state,JSON.parse(g.modelContent||'{}'));render()}catch(e){}}});}catch(e){}
+  render();
+  try{lucide.createIcons({attrs:{width:14,height:14}})}catch(e){}
+})();
+</script>

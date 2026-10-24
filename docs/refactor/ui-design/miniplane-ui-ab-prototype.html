@@ -1,0 +1,497 @@
+<div id="mp-ui-proto"></div>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;0,500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+#mp-ui-proto{--mp-paper:light-dark(#F4F1EA,#171614);--mp-paper2:light-dark(#EBE7DD,#1f1e1b);--mp-paper3:light-dark(#D9D4C2,#2c2a26);
+--mp-ink:light-dark(#1B1A17,#ECE9E1);--mp-ink2:light-dark(#5A5851,#ABA79C);--mp-ink3:light-dark(#8C887E,#6E6A61);
+--mp-rule:light-dark(#C8C3B4,#3a3833);--mp-blue:light-dark(#1F3FA8,#8ba0ec);--mp-blue-soft:light-dark(#E2E7F5,#232c47);
+--mp-red:light-dark(#dc2626,#e37373);--mp-green:light-dark(#10b981,#4cc7a5);--mp-grid:light-dark(rgba(31,63,168,.07),rgba(139,160,236,.06));
+font-family:'Inter',system-ui,sans-serif;color:var(--mp-ink);font-size:13px;}
+#mp-ui-proto *{box-sizing:border-box;margin:0;padding:0}
+#mp-ui-proto .serif{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+#mp-ui-proto .mono{font-family:'JetBrains Mono',monospace}
+
+/* ── 预览控制条（原型铬，非产品） ── */
+#mp-ui-proto .proto-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 10px}
+#mp-ui-proto .seg{display:inline-flex;border:1px solid var(--mp-rule);background:var(--mp-paper2)}
+#mp-ui-proto .seg button{border:0;background:transparent;color:var(--mp-ink2);font:500 12px 'Inter';padding:5px 12px;cursor:pointer}
+#mp-ui-proto .seg button+button{border-left:1px solid var(--mp-rule)}
+#mp-ui-proto .seg button[aria-pressed="true"]{background:var(--mp-blue);color:#fff}
+#mp-ui-proto .proto-note{font:400 11px 'Inter';color:var(--mp-ink3);margin-left:auto}
+
+/* ── 产品窗口 ── */
+#mp-ui-proto .mp-window{border:1px solid var(--mp-rule);background:var(--mp-paper);height:700px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#mp-ui-proto .mp-top{display:flex;align-items:center;gap:14px;height:46px;padding:0 16px;border-bottom:1px solid var(--mp-rule);flex:none}
+#mp-ui-proto .mp-logo{font:italic 500 19px 'Cormorant Garamond',Georgia,serif}
+#mp-ui-proto .mp-logo small{font:500 9px 'JetBrains Mono';letter-spacing:.18em;color:var(--mp-ink3);margin-left:6px;font-style:normal}
+#mp-ui-proto .mp-search{border:1px solid var(--mp-rule);color:var(--mp-ink3);font-size:11px;padding:4px 10px;display:flex;gap:14px;align-items:center;background:var(--mp-paper)}
+#mp-ui-proto .mp-top .spacer{flex:1}
+#mp-ui-proto .mp-kbd{font:500 9px 'JetBrains Mono';letter-spacing:.14em;color:var(--mp-ink3)}
+#mp-ui-proto .mp-avatar{width:22px;height:22px;border:1px solid var(--mp-blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';color:var(--mp-blue)}
+#mp-ui-proto .mp-body{flex:1;display:flex;min-height:0}
+
+/* 左栏 */
+#mp-ui-proto .mp-rail{width:150px;flex:none;border-right:1px solid var(--mp-rule);padding:12px 0;font-size:12px;display:flex;flex-direction:column}
+#mp-ui-proto .rail-h{font:500 9px 'Inter';letter-spacing:.16em;color:var(--mp-ink3);padding:2px 14px 6px}
+#mp-ui-proto .rail-i{display:flex;flex-direction:column;padding:5px 14px;color:var(--mp-ink2);border-left:2px solid transparent}
+#mp-ui-proto .rail-i b{font-weight:500;color:inherit}
+#mp-ui-proto .rail-i small{font-size:10px;color:var(--mp-ink3)}
+#mp-ui-proto .rail-i.on{border-left-color:var(--mp-blue);background:var(--mp-blue-soft);color:var(--mp-ink)}
+#mp-ui-proto .rail-gap{flex:1}
+#mp-ui-proto .rail-team{border-top:1px dashed var(--mp-rule);margin-top:8px;padding-top:8px}
+
+/* 主区 */
+#mp-ui-proto .mp-main{flex:1;min-width:0;position:relative;background-image:linear-gradient(var(--mp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--mp-grid) 1px,transparent 1px);background-size:32px 32px;padding:18px 22px;overflow:hidden}
+#mp-ui-proto .h1{font:italic 500 27px 'Cormorant Garamond',Georgia,serif}
+#mp-ui-proto .sub{color:var(--mp-ink3);font-size:12px;margin:1px 0 4px}
+#mp-ui-proto .fig{font:500 9px 'JetBrains Mono';letter-spacing:.2em;color:var(--mp-ink3);display:flex;align-items:center;gap:8px;margin:10px 0 8px}
+#mp-ui-proto .fig::after{content:"";flex:1;height:1px;background:var(--mp-rule)}
+#mp-ui-proto .dia{color:var(--mp-blue);font-style:normal}
+#mp-ui-proto .btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink);font:500 11.5px 'Inter';padding:5px 11px;cursor:pointer}
+#mp-ui-proto .btn:hover{border-color:var(--mp-blue);color:var(--mp-blue)}
+#mp-ui-proto .btn.pri{background:var(--mp-ink);color:var(--mp-paper);border-color:var(--mp-ink)}
+#mp-ui-proto .btn.ghost{border-color:transparent;color:var(--mp-blue);padding:5px 7px}
+#mp-ui-proto .btn.ghost:hover{background:var(--mp-blue-soft)}
+#mp-ui-proto .btn.danger{color:var(--mp-red);border-color:var(--mp-red)}
+#mp-ui-proto .chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--mp-rule);padding:3px 9px;font:500 10px 'Inter';letter-spacing:.08em;color:var(--mp-ink2);background:var(--mp-paper)}
+#mp-ui-proto .chip.on{border-color:var(--mp-blue);color:var(--mp-blue);background:var(--mp-blue-soft)}
+#mp-ui-proto .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+#mp-ui-proto .pbar{height:5px;border:1px solid var(--mp-rule);position:relative;background:var(--mp-paper2)}
+#mp-ui-proto .pbar i{position:absolute;inset:0;right:auto;background:var(--mp-blue)}
+#mp-ui-proto .meta{font:500 9.5px 'Inter';letter-spacing:.14em;color:var(--mp-ink3);text-transform:uppercase}
+#mp-ui-proto .callout{position:absolute;font:400 10.5px 'JetBrains Mono';color:var(--mp-blue);border:1px dashed var(--mp-blue);padding:3px 8px;background:var(--mp-paper);z-index:5}
+#mp-ui-proto .fold{position:absolute;left:0;right:0;border-top:1px dashed var(--mp-red);z-index:4}
+#mp-ui-proto .fold span{position:absolute;right:14px;top:-9px;font:500 10px 'JetBrains Mono';color:var(--mp-red);background:var(--mp-paper);padding:0 6px}
+
+/* 首页 B */
+#mp-ui-proto .stats{display:flex;gap:26px;margin:14px 0 20px}
+#mp-ui-proto .stats b{font:500 21px 'Cormorant Garamond',Georgia,serif;display:block}
+#mp-ui-proto .stats span{font-size:10.5px;color:var(--mp-ink3);letter-spacing:.1em}
+#mp-ui-proto .card{border:1px solid var(--mp-rule);background:var(--mp-paper);padding:14px 16px;width:400px}
+#mp-ui-proto .nowrow{display:flex;gap:8px;margin:7px 0;font-size:12.5px}
+#mp-ui-proto .nowrow .k{font:500 9.5px 'Inter';letter-spacing:.14em;color:var(--mp-blue);width:38px;padding-top:2px}
+
+/* 首页 A */
+#mp-ui-proto .cont-row{display:flex;align-items:center;gap:12px;border:1px solid var(--mp-rule);border-left:2px solid var(--mp-blue);background:var(--mp-paper);padding:9px 12px;margin-bottom:8px}
+#mp-ui-proto .cont-row:hover{border-color:var(--mp-blue)}
+#mp-ui-proto .cont-row .t{font-weight:500}
+#mp-ui-proto .cont-row .p{color:var(--mp-ink3);font-size:11px}
+#mp-ui-proto .cont-row .act{margin-left:auto;display:flex;gap:6px}
+#mp-ui-proto .prow{border:1px solid var(--mp-rule);background:var(--mp-paper);padding:11px 14px;margin-bottom:9px}
+#mp-ui-proto .prow .r1{display:flex;align-items:baseline;gap:10px}
+#mp-ui-proto .prow .nm{font:italic 500 17px 'Cormorant Garamond',Georgia,serif}
+#mp-ui-proto .prow .st{font-size:11px;color:var(--mp-ink2)}
+#mp-ui-proto .prow .r2{display:flex;align-items:center;gap:10px;margin:7px 0 5px}
+#mp-ui-proto .prow .pbar{flex:1}
+#mp-ui-proto .prow .r3{display:flex;align-items:center;gap:14px;color:var(--mp-ink2);font-size:11.5px}
+#mp-ui-proto .prow .r3 .nowk{color:var(--mp-blue);font:500 9.5px 'Inter';letter-spacing:.12em}
+#mp-ui-proto .prow .act{margin-left:auto;display:flex;gap:6px}
+#mp-ui-proto .agent-run{color:var(--mp-blue);font:500 9.5px 'JetBrains Mono';letter-spacing:.1em}
+#mp-ui-proto .agent-run i{width:6px;height:6px;border-radius:50%;background:var(--mp-green);display:inline-block;margin-right:4px;animation:none}
+
+/* 工程台 B */
+#mp-ui-proto .stage-row{display:flex;align-items:center;gap:12px;padding:7px 4px;border-bottom:1px dashed var(--mp-rule);font-size:12.5px}
+#mp-ui-proto .stage-row .no{font:500 10px 'JetBrains Mono';color:var(--mp-ink3);width:20px}
+#mp-ui-proto .stage-row .nm{width:150px}
+#mp-ui-proto .stage-row.cur{background:var(--mp-blue-soft);padding:7px 8px}
+#mp-ui-proto .stage-row input{width:44px;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink);font:400 11px 'JetBrains Mono';padding:2px 4px}
+#mp-ui-proto .stage-row .setcur{font-size:10px;color:var(--mp-ink3);border:1px solid var(--mp-rule);padding:2px 7px;background:var(--mp-paper)}
+#mp-ui-proto .wlog-form{border:1px solid var(--mp-rule);background:var(--mp-paper);padding:12px}
+#mp-ui-proto .wlog-form textarea{width:100%;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink3);font:400 12px 'Inter';padding:7px 9px;resize:none}
+#mp-ui-proto .wlog-form textarea+textarea{margin-top:7px}
+
+/* 工程台 A */
+#mp-ui-proto .bench-head{display:flex;align-items:flex-start;gap:16px}
+#mp-ui-proto .state-cards{display:flex;gap:22px;margin:12px 0 4px}
+#mp-ui-proto .state-cards .k{font:500 9.5px 'Inter';letter-spacing:.14em;color:var(--mp-ink3);display:block;margin-bottom:3px}
+#mp-ui-proto .state-cards .v{font:500 15px 'JetBrains Mono'}
+#mp-ui-proto .tabs{display:flex;gap:2px;border-bottom:1px solid var(--mp-rule);margin:14px 0 0}
+#mp-ui-proto .tabs button{border:1px solid transparent;border-bottom:0;background:transparent;color:var(--mp-ink2);font:500 12px 'Inter';padding:6px 14px;cursor:pointer;position:relative;top:1px}
+#mp-ui-proto .tabs button[aria-selected="true"]{background:var(--mp-paper);border-color:var(--mp-rule);color:var(--mp-ink)}
+#mp-ui-proto .tabpanel{border:1px solid var(--mp-rule);border-top:0;background:var(--mp-paper);padding:13px 15px}
+#mp-ui-proto .task-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px dashed var(--mp-rule);font-size:12.5px}
+#mp-ui-proto .task-row .tid{font:500 10.5px 'JetBrains Mono';color:var(--mp-ink3);width:52px}
+#mp-ui-proto .task-row .tt{flex:1}
+#mp-ui-proto .task-row .stt{font:500 9.5px 'Inter';letter-spacing:.1em;color:var(--mp-ink2)}
+#mp-ui-proto .task-row.now{background:var(--mp-blue-soft);border-left:2px solid var(--mp-blue);padding-left:8px}
+#mp-ui-proto .route-stage{display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1px dashed var(--mp-rule)}
+#mp-ui-proto .route-stage .pbar{width:180px}
+#mp-ui-proto .route-stage.cur .nm{color:var(--mp-blue);font-weight:500}
+
+/* 弹层（记一笔） */
+#mp-ui-proto .overlay{position:absolute;inset:0;background:light-dark(rgba(27,26,23,.38),rgba(0,0,0,.5));z-index:20;display:flex;align-items:flex-start;justify-content:center;padding-top:74px}
+#mp-ui-proto .modal{width:470px;background:var(--mp-paper);border:1px solid var(--mp-rule);box-shadow:0 1px 0 var(--mp-rule)}
+#mp-ui-proto .modal .mh{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;border-bottom:1px solid var(--mp-rule)}
+#mp-ui-proto .modal .mb{padding:13px 15px}
+#mp-ui-proto .fld{margin-bottom:11px}
+#mp-ui-proto .fld label{display:block;font:500 9.5px 'Inter';letter-spacing:.14em;color:var(--mp-ink3);margin-bottom:4px;text-transform:uppercase}
+#mp-ui-proto .fld input,#mp-ui-proto .fld textarea{width:100%;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink);font:400 13px 'Inter';padding:7px 9px}
+#mp-ui-proto .fld textarea{color:var(--mp-ink);resize:none;height:56px}
+#mp-ui-proto .more{border:1px dashed var(--mp-rule);padding:7px 10px;font-size:11.5px;color:var(--mp-ink3);cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:var(--mp-paper)}
+#mp-ui-proto .mf{display:flex;justify-content:space-between;align-items:center;padding:10px 15px;border-top:1px solid var(--mp-rule);color:var(--mp-ink3);font-size:10.5px}
+
+/* 抽屉 */
+#mp-ui-proto .drawer{position:absolute;top:0;right:0;bottom:0;width:420px;background:var(--mp-paper);border-left:1px solid var(--mp-rule);z-index:15;display:flex;flex-direction:column}
+#mp-ui-proto .drawer .dh{padding:12px 16px;border-bottom:1px solid var(--mp-rule)}
+#mp-ui-proto .drawer .db{flex:1;overflow:hidden;padding:0 16px}
+#mp-ui-proto .dfields{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+#mp-ui-proto .dfield{border:1px solid var(--mp-rule);background:var(--mp-paper2);padding:5px 10px;font-size:11.5px;display:flex;gap:6px;align-items:center;cursor:pointer}
+#mp-ui-proto .dmeta{border:1px dashed var(--mp-rule);margin:10px 0;padding:0 10px}
+#mp-ui-proto .dmeta summary{list-style:none;cursor:pointer;font:500 10px 'Inter';letter-spacing:.12em;color:var(--mp-ink3);padding:7px 0;display:flex;justify-content:space-between}
+#mp-ui-proto .dmeta .mrow{display:flex;gap:10px;font-size:11px;color:var(--mp-ink2);padding:3px 0}
+#mp-ui-proto .dmeta .mrow b{font-weight:400;color:var(--mp-ink3);width:70px;flex:none;font-size:9.5px;letter-spacing:.12em;padding-top:1px}
+#mp-ui-proto .danger-zone{padding:9px 10px;border-top:1px dashed var(--mp-rule);display:flex;justify-content:flex-end}
+#mp-ui-proto .act-line{font:400 11px 'Inter';color:var(--mp-ink2);padding:6px 0;border-bottom:1px dashed var(--mp-rule);display:flex;gap:8px}
+#mp-ui-proto .act-line .who{color:var(--mp-blue);font-weight:500}
+#mp-ui-proto .composer{border:1px solid var(--mp-rule);margin:10px 0 12px}
+#mp-ui-proto .composer textarea{width:100%;border:0;background:transparent;color:var(--mp-ink3);font:400 12px 'Inter';padding:8px 10px;height:52px;resize:none;outline:none}
+#mp-ui-proto .composer .cf{display:flex;justify-content:flex-end;gap:8px;padding:6px 8px;border-top:1px solid var(--mp-rule)}
+#mp-ui-proto [hidden]{display:none!important}
+</style>
+
+<div class="proto-bar" role="toolbar" aria-label="原型控制">
+  <div class="seg" id="seg-variant" role="group" aria-label="方案切换">
+    <button type="button" data-v="b" aria-pressed="false">B · 现状</button>
+    <button type="button" data-v="a" aria-pressed="true">A · 建议</button>
+  </div>
+  <div class="seg" id="seg-screen" role="group" aria-label="屏幕切换">
+    <button type="button" data-s="home" aria-pressed="true">首页</button>
+    <button type="button" data-s="bench" aria-pressed="false">工程台</button>
+    <button type="button" data-s="worklog" aria-pressed="false">记一笔</button>
+    <button type="button" data-s="drawer" aria-pressed="false">任务抽屉</button>
+  </div>
+  <div class="seg" id="seg-density" role="group" aria-label="工程数量（首页）">
+    <button type="button" data-d="0" aria-pressed="false">空</button>
+    <button type="button" data-d="1" aria-pressed="false">1 工程</button>
+    <button type="button" data-d="3" aria-pressed="true">3 工程</button>
+  </div>
+  <span class="proto-note">低保真线框 · 仅结构与信息层级，不代表最终视觉</span>
+</div>
+
+<div class="mp-window">
+  <div class="mp-top">
+    <span class="mp-logo">Plane<small>MINI · 2026.10.24</small></span>
+    <span class="mp-search">搜索 <span class="mp-kbd">CTRL K</span></span>
+    <span class="spacer"></span>
+    <span class="mp-kbd" style="letter-spacing:.2em">● LIVE</span>
+    <span class="mp-avatar">北</span>
+  </div>
+  <div class="mp-body">
+    <aside class="mp-rail" id="rail-b">
+      <div class="rail-h">个人</div>
+      <div class="rail-i on"><b>我的工程</b><small>总览</small></div>
+      <div class="rail-i"><b>我的工作</b><small>跨项目任务</small></div>
+      <div class="rail-i"><b>Island</b><small>实时投影</small></div>
+      <div class="rail-i"><b>我的设置</b><small>账户与外观</small></div>
+      <div class="rail-gap"></div>
+      <div class="rail-h">工作区</div>
+      <div class="rail-i"><b>MINI PLANE</b><small>管理员</small></div>
+    </aside>
+    <aside class="mp-rail" id="rail-a" hidden>
+      <div class="rail-h">个人</div>
+      <div class="rail-i on"><b>我的工程</b><small>总览</small></div>
+      <div class="rail-i"><b>我的工作</b><small>跨工程任务</small></div>
+      <div class="rail-i"><b>Island</b><small>实时投影</small></div>
+      <div class="rail-i"><b>我的设置</b><small>账户与外观</small></div>
+      <div class="rail-gap"></div>
+      <div class="rail-team">
+        <div class="rail-h">团队协作</div>
+        <div class="rail-i"><b>MINI PLANE 开发</b><small>1 个团队工程</small></div>
+        <div class="rail-i"><small style="color:var(--mp-ink3)">按需展开 · 无团队数据时隐藏</small></div>
+      </div>
+    </aside>
+
+    <main class="mp-main" id="mp-main">
+      <!-- ══ 首页 B ══ -->
+      <section id="scr-home-b" hidden>
+        <div class="h1">My Engineering</div>
+        <div class="sub">我的工程总览 · 阶段 / 进度 / 现在与下一步</div>
+        <div class="fig">FIG · 00 <span class="dia">◆</span> <span style="margin-left:auto">01 PROJECTS · 04 OPEN</span></div>
+        <div class="stats">
+          <div><b>1</b><span>活跃工程</span></div><div><b>4</b><span>待办任务</span></div>
+          <div><b>0</b><span>进行中</span></div><div><b>0</b><span>今日日志</span></div>
+        </div>
+        <div class="card">
+          <div class="mono" style="font-size:10px;color:var(--mp-ink3)">MP · /mini-plane · <span style="float:right">收束与发布</span></div>
+          <div class="serif" style="font-size:19px;margin:2px 0 8px">Mini Plane</div>
+          <div class="meta">progress</div>
+          <div class="pbar" style="margin:4px 0 10px"><i style="width:60%"></i></div>
+          <div class="nowrow"><span class="k">NOW</span><span>Lighthouse 90</span></div>
+          <div class="nowrow"><span class="k">NEXT</span><span style="color:var(--mp-ink2)">桌面版关窗后进程残留（待决策）</span></div>
+          <div style="border-top:1px dashed var(--mp-rule);margin-top:9px;padding-top:8px;font-size:11px;color:var(--mp-ink2)">
+            4 OPEN · 12 DONE · <span class="agent-run"><i></i>AGENT · RUNNING</span></div>
+        </div>
+        <div class="callout" style="right:26px;top:120px">B：无行动按钮 · 二次导航才能开始工作</div>
+        <div class="callout" style="right:26px;bottom:90px">1 个工程时 ~90% 画布为空网格</div>
+      </section>
+
+      <!-- ══ 首页 A ══ -->
+      <section id="scr-home-a">
+        <div style="display:flex;align-items:flex-start">
+          <div><div class="h1">My Engineering</div><div class="sub">选择接下来要继续的工程</div></div>
+          <span style="margin-left:auto"><button class="btn pri"><i data-lucide="plus" aria-hidden="true"></i>新建工程</button></span>
+        </div>
+        <div id="home-empty" hidden>
+          <div class="fig">FIG · 00 <span class="dia">◆</span></div>
+          <div class="card" style="width:auto;text-align:center;padding:34px">
+            <div class="serif" style="font-size:20px">还没有工程</div>
+            <p style="color:var(--mp-ink2);font-size:12px;margin:6px 0 14px">创建第一个工程：只填名称即可，不需要工作区。</p>
+            <button class="btn pri"><i data-lucide="plus" aria-hidden="true"></i>新建工程</button>
+          </div>
+        </div>
+        <div id="home-list">
+          <div class="fig">继续 <span class="dia">◆</span> <span style="font-family:'Inter';letter-spacing:.06em;text-transform:none;font-size:10.5px">各工程正在做的事 · 点击直接开始</span></div>
+          <div id="cont-rows">
+            <div class="cont-row"><span class="mono" style="font-size:10.5px;color:var(--mp-ink3)">MP-16</span><span class="t">Lighthouse 90</span><span class="p">· Mini Plane · Todo</span>
+              <span class="act"><button class="btn">开始</button><button class="btn ghost"><i data-lucide="pen-line" aria-hidden="true"></i>记一笔</button></span></div>
+          </div>
+          <div class="fig">工程 <span class="dia">◆</span></div>
+          <div id="proj-rows">
+            <div class="prow">
+              <div class="r1"><span class="mono" style="font-size:10px;color:var(--mp-ink3)">MP · 个人</span><span class="nm">Mini Plane</span><span class="st">收束与发布 · 当前阶段</span></div>
+              <div class="r2"><div class="pbar"><i style="width:60%"></i></div><span class="mono" style="font-size:11px">60%</span><span class="mono" style="font-size:10px;color:var(--mp-ink3)">source: plan</span></div>
+              <div class="r3"><span><span class="nowk">NOW</span> Lighthouse 90</span><span><span class="nowk" style="color:var(--mp-ink3)">NEXT</span> 桌面版进程残留</span><span>4 open · 12 done</span><span class="agent-run"><i></i>AGENT · RUNNING</span>
+                <span class="act"><button class="btn">进入</button><button class="btn ghost"><i data-lucide="pen-line" aria-hidden="true"></i>记一笔</button></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="callout" style="right:26px;top:64px">A：NOW 行可点击 = 1 次点击开始工作（B 需 2 次）</div>
+        <div class="callout" style="right:26px;bottom:64px">行式布局：1→8 个工程线性扩展 · 行内直挂「记一笔」</div>
+      </section>
+
+      <!-- ══ 工程台 B ══ -->
+      <section id="scr-bench-b" hidden>
+        <div class="h1">Mini Plane</div>
+        <div class="sub">Mini Plane · 16 issues · 5 states</div>
+        <div class="fig">FIG · PLAN <span class="dia">◆</span> <span style="margin-left:auto">GLOBAL PLAN · 05 STAGES</span></div>
+        <div class="stage-row"><span class="no">01</span><span class="nm">产品定位重构</span><div class="pbar" style="flex:1"><i style="width:100%"></i></div><span class="mono" style="font-size:11px">100%</span><input value="100" aria-label="阶段进度"><button class="setcur">设为当前</button></div>
+        <div class="stage-row"><span class="no">02</span><span class="nm">领域模型扩展</span><div class="pbar" style="flex:1"><i style="width:100%"></i></div><span class="mono" style="font-size:11px">100%</span><input value="100" aria-label="阶段进度"><button class="setcur">设为当前</button></div>
+        <div class="stage-row"><span class="no">05</span><span class="nm">收束与发布</span><div class="pbar" style="flex:1"><i style="width:60%"></i></div><span class="mono" style="font-size:11px">60%</span><input value="60" aria-label="阶段进度"><button class="setcur">设为当前</button></div>
+        <div style="display:flex;gap:8px;margin:9px 0"><input style="flex:1;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink3);font-size:11.5px;padding:5px 9px" placeholder="新阶段名称（如：TTS 稳定性）" aria-label="新阶段名称"><button class="btn">添加阶段</button></div>
+        <div class="fig">FIG · LOG <span class="dia">◆</span> ENGINEERING LOG · 02</div>
+        <div class="wlog-form">
+          <input style="width:100%;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink3);font-size:12px;padding:6px 9px" placeholder="日志标题（如：TTS 长文本实验）" aria-label="日志标题">
+          <textarea placeholder="完成内容（今天实际做了什么）" aria-label="完成内容"></textarea>
+          <textarea placeholder="结论（可选）" aria-label="结论"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn">记一条日志</button></div>
+        </div>
+        <div class="fold" style="top:596px"><span>折叠线 · TASKS 列表在此之下（16 条任务需滚动才能看到）</span></div>
+        <div class="callout" style="left:26px;top:118px">B：阶段编辑/加阶段控件常驻 · 低频操作占据首屏</div>
+        <div class="callout" style="right:26px;top:392px">B：6 字段日志表单常驻页尾</div>
+      </section>
+
+      <!-- ══ 工程台 A ══ -->
+      <section id="scr-bench-a">
+        <div class="bench-head">
+          <div><div class="h1">Mini Plane</div><div class="sub">MP · 个人工程 · 收束与发布</div></div>
+          <span style="margin-left:auto;display:flex;gap:8px"><button class="btn"><i data-lucide="pen-line" aria-hidden="true"></i>记一笔</button><button class="btn ghost"><i data-lucide="settings-2" aria-hidden="true"></i>设置</button></span>
+        </div>
+        <div class="state-cards">
+          <div><span class="k">阶段</span><span class="v">05 收束与发布</span></div>
+          <div><span class="k">进度</span><span class="v">60%</span></div>
+          <div><span class="k">NEXT</span><span class="v" style="color:var(--mp-ink2)">—</span></div>
+          <div><span class="k">AGENT</span><span class="v agent-run"><i></i>RUNNING</span></div>
+        </div>
+        <div class="fig" style="margin-top:14px">TASKS <span class="dia">◆</span> <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <span class="mp-search" style="padding:3px 9px">搜索任务</span>
+          <button class="btn"><i data-lucide="filter" aria-hidden="true"></i>筛选 · 1</button>
+          <button class="btn pri"><i data-lucide="plus" aria-hidden="true"></i>新建任务</button></span></div>
+        <div style="display:flex;gap:7px;margin:9px 0 4px">
+          <span class="chip on">ALL · 16</span><span class="chip">BACKLOG 3</span><span class="chip">TODO 5</span><span class="chip">IN PROGRESS 1</span><span class="chip">DONE 7</span><span class="chip">CANCELLED 0</span>
+        </div>
+        <div class="task-row now"><span class="tid">MP-16</span><span class="tt">Lighthouse 90</span><span class="stt">● TODO · LOW</span><span style="color:var(--mp-blue);font-size:10px" class="mono">NOW</span></div>
+        <div class="task-row"><span class="tid">MP-15</span><span class="tt">组件测试（Vitest）</span><span class="stt">TODO · MEDIUM</span></div>
+        <div class="task-row"><span class="tid">MP-14</span><span class="tt">Markdown → Worklog 自动导入</span><span class="stt">TODO · MEDIUM</span></div>
+        <div class="task-row"><span class="tid">MP-12</span><span class="tt">v1.0.0 隐私扫描与发布</span><span class="stt" style="color:var(--mp-green)">DONE · HIGH</span></div>
+        <div class="tabs" role="tablist" aria-label="工程次级视图">
+          <button type="button" role="tab" id="t-plan" aria-controls="p-plan" aria-selected="false">计划</button>
+          <button type="button" role="tab" id="t-log" aria-controls="p-log" aria-selected="false">日志 · 2</button>
+          <button type="button" role="tab" id="t-set" aria-controls="p-set" aria-selected="false">设置</button>
+        </div>
+        <div class="tabpanel" id="p-plan" role="tabpanel" aria-labelledby="t-plan" hidden>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="meta">Global Plan · 只读路线</span><button class="btn">编辑计划</button></div>
+          <div class="route-stage"><span class="mono" style="font-size:10px;color:var(--mp-ink3)">01</span><span class="nm">产品定位重构</span><div class="pbar"><i style="width:100%"></i></div><span class="mono" style="font-size:11px">100%</span></div>
+          <div class="route-stage"><span class="mono" style="font-size:10px;color:var(--mp-ink3)">02</span><span class="nm">领域模型扩展</span><div class="pbar"><i style="width:100%"></i></div><span class="mono" style="font-size:11px">100%</span></div>
+          <div class="route-stage cur"><span class="mono" style="font-size:10px;color:var(--mp-blue)">05</span><span class="nm">收束与发布 · 当前</span><div class="pbar"><i style="width:60%"></i></div><span class="mono" style="font-size:11px">60%</span></div>
+          <div style="font-size:11px;color:var(--mp-ink3);margin-top:7px">总进度 = Σ(权重×进度)/Σ权重 = 60%（source: plan）· 编辑时才出现输入控件</div>
+        </div>
+        <div class="tabpanel" id="p-log" role="tabpanel" aria-labelledby="t-log" hidden>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="meta">Engineering Log · 证据</span><button class="btn">完整记录…</button></div>
+          <div class="act-line"><span class="mono" style="font-size:10px;color:var(--mp-ink3)">10-23</span><span><b style="font-weight:500">v1.0.0 收束：Agent 闭环跑通 + 双处 CI 红灯</b> · 功能全部收束…E2E 33 条全绿。下一步：待决策主窗口退出。</span><span class="mono" style="font-size:9px;color:var(--mp-blue)">AGENT</span></div>
+          <div class="act-line"><span class="mono" style="font-size:10px;color:var(--mp-ink3)">10-22</span><span><b style="font-weight:500">Island 落地，以及桌面版产物停滞 10 天的根因</b> · 打包脚本改成本地零依赖…</span><span class="mono" style="font-size:9px;color:var(--mp-ink3)">MANUAL</span></div>
+        </div>
+        <div class="tabpanel" id="p-set" role="tabpanel" aria-labelledby="t-set" hidden>
+          <div style="display:flex;gap:9px;align-items:center;margin-bottom:10px"><span class="meta" style="width:60px">名称</span><input style="flex:1;max-width:300px;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink);font-size:12.5px;padding:5px 9px" value="Mini Plane" aria-label="工程名称"></div>
+          <div style="display:flex;gap:9px;align-items:center"><span class="meta" style="width:60px">标识符</span><input style="width:90px;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink);font:400 12px 'JetBrains Mono';padding:5px 9px" value="MP" aria-label="标识符"></div>
+          <div style="border-top:1px dashed var(--mp-rule);margin-top:13px;padding-top:9px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:var(--mp-ink3)">删除工程将同时删除其任务、日志与计划（二次确认）。</span>
+            <button class="btn danger"><i data-lucide="trash-2" aria-hidden="true"></i>删除工程</button></div>
+        </div>
+        <div class="callout" style="right:26px;top:64px">A：进入即见 NOW 与任务列表 · 0 滚动</div>
+        <div class="callout" style="right:26px;bottom:60px">计划只读化 · 编辑收进「编辑计划」态</div>
+      </section>
+
+      <!-- ══ 记一笔 B（现状：项目页尾大表单，此处以弹层位置展示差异说明） ══ -->
+      <section id="scr-worklog-b" hidden>
+        <div class="h1">Worklog · 现状</div>
+        <div class="sub">无全局入口；唯一入口 = 项目页底部常驻表单（6 字段）</div>
+        <div class="fig">入口路径 <span class="dia">◆</span></div>
+        <div class="card" style="width:520px">
+          <div class="mono" style="font-size:11px;line-height:2">
+            首页 → 进入工程 → 滚过 Plan 编辑区 → 滚过日志列表 →<br>页尾表单：标题 → 完成内容 → 结论 → 下一步 → 阻塞 → 关联阶段 → 提交
+          </div>
+          <div style="border-top:1px dashed var(--mp-rule);margin-top:10px;padding-top:9px;font-size:12px;color:var(--mp-ink2)">
+            成本：<b style="color:var(--mp-red)">≥2 次滚动 + 6 字段</b> → 高频动作被低频字段阻挡，「今日日志 0」成为常态。
+          </div>
+        </div>
+        <div class="wlog-form" style="width:520px;margin-top:14px">
+          <div class="meta" style="margin-bottom:8px">常驻表单（每次进入工程都可见）</div>
+          <input style="width:100%;border:1px solid var(--mp-rule);background:var(--mp-paper);color:var(--mp-ink3);font-size:12px;padding:6px 9px" placeholder="日志标题" aria-label="日志标题">
+          <textarea placeholder="完成内容（今天实际做了什么）" aria-label="完成内容"></textarea>
+          <textarea placeholder="结论（可选）" aria-label="结论"></textarea>
+          <textarea placeholder="下一步（可选）" aria-label="下一步"></textarea>
+        </div>
+      </section>
+
+      <!-- ══ 记一笔 A（全局轻量弹层） ══ -->
+      <section id="scr-worklog-a">
+        <div class="overlay" style="position:absolute;inset:0">
+          <div class="modal" style="margin-top:0">
+            <div class="mh"><span class="serif" style="font-size:16px">记一笔</span>
+              <span class="mono" style="font-size:10px;color:var(--mp-ink3)">MP · Mini Plane · <span id="ql-date">今天</span> · 阶段 05</span></div>
+            <div class="mb">
+              <div class="fld"><label for="ql-title">标题</label><input id="ql-title" placeholder="如：Lighthouse 90 首跑达标" /></div>
+              <div class="fld"><label for="ql-sum">完成了什么</label><textarea id="ql-sum" placeholder="今天实际做了什么（一句话也行）"></textarea></div>
+              <div class="more" id="ql-more" role="button" tabindex="0" aria-expanded="false"><span>补全：结论 / 下一步 / 阻塞 / 改日期 / 改阶段</span><i data-lucide="chevron-down" aria-hidden="true"></i></div>
+              <div id="ql-extra" hidden style="margin-top:9px">
+                <div class="fld"><label for="ql-conc">结论</label><input id="ql-conc" /></div>
+                <div class="fld"><label for="ql-next">下一步</label><input id="ql-next" /></div>
+              </div>
+            </div>
+            <div class="mf"><span>⌘/Ctrl + Enter 提交 · Esc 取消 · 未提交内容不丢失</span><button class="btn pri">记录</button></div>
+          </div>
+        </div>
+        <div style="position:absolute;left:26px;bottom:22px;z-index:21" class="callout">A：任意页面 ⌘L / 行内「记一笔」→ 2 字段即提交 · 同一 Worklog 实体同一端点</div>
+      </section>
+
+      <!-- ══ 抽屉 B ══ -->
+      <section id="scr-drawer-b" hidden>
+        <div class="h1">Task Drawer · 现状</div>
+        <div class="sub">高频编辑与低频元信息/危险操作同屏展开</div>
+        <div class="drawer" style="border-left:1px solid var(--mp-rule)">
+          <div class="dh">
+            <div class="mono" style="font-size:9.5px;color:var(--mp-ink3);letter-spacing:.14em">MP / WORK ITEM · MP-16 · <span style="float:right">✕</span></div>
+            <div class="serif" style="font-size:20px;margin-top:2px">Lighthouse 90</div>
+            <div class="dfields">
+              <span class="dfield"><span class="dot" style="background:var(--mp-paper3)"></span>Todo ▾</span>
+              <span class="dfield">low ▾</span><span class="dfield">unassigned ▾</span><span class="dfield">+ 标签 ▾</span>
+            </div>
+          </div>
+          <div class="db">
+            <div class="fig" style="margin-top:12px">DESCRIPTION <span class="dia">◆</span></div>
+            <p style="font-size:12.5px">现为 89（perf），LCP 3.36s 需服务端预取。</p>
+            <div class="fig">FIG · META <span class="dia">◆</span> <span style="margin-left:auto">READ-ONLY</span></div>
+            <div class="dmeta" open><div class="mrow"><b>CREATED BY</b><span>北归</span></div><div class="mrow"><b>CREATED</b><span>2026-10-03 19:07</span></div><div class="mrow"><b>ISSUE ID</b><span class="mono" style="font-size:10px">1ee92521-d9b8-4c0f…</span></div></div>
+            <div class="fig">FIG · THREAD <span class="dia">◆</span></div>
+            <div class="act-line"><span class="who">北归</span><span>创建了任务</span><span class="mono" style="font-size:9px;color:var(--mp-ink3);margin-left:auto">03 日</span></div>
+            <div class="composer"><textarea placeholder="写条评论…" aria-label="评论"></textarea><div class="cf"><button class="btn pri" style="padding:3px 10px">发布</button></div></div>
+            <div class="danger-zone" style="border:0"><button class="btn danger">删除任务</button></div>
+          </div>
+        </div>
+        <div class="callout" style="left:26px;top:120px">B：UUID/创建时间常驻 · 红色删除按钮常驻</div>
+      </section>
+
+      <!-- ══ 抽屉 A ══ -->
+      <section id="scr-drawer-a">
+        <div class="h1">Task Drawer · 建议</div>
+        <div class="sub">状态行置顶 · 元信息与危险操作收进「详情」折叠</div>
+        <div class="drawer">
+          <div class="dh">
+            <div class="mono" style="font-size:9.5px;color:var(--mp-ink3);letter-spacing:.14em">MP-16 · 任务 · <span style="float:right">✕</span></div>
+            <div class="serif" style="font-size:20px;margin-top:2px">Lighthouse 90</div>
+            <div class="dfields">
+              <span class="dfield"><span class="dot" style="background:var(--mp-paper3)"></span>Todo ▾</span>
+              <span class="dfield"><span class="dot" style="background:var(--mp-blue)"></span>low ▾</span>
+              <span class="dfield">阶段：05 收束 ▾</span><span class="dfield">指派 ▾</span><span class="dfield">+ 标签 ▾</span>
+            </div>
+          </div>
+          <div class="db">
+            <div class="fig" style="margin-top:12px">DESCRIPTION <span class="dia">◆</span></div>
+            <p style="font-size:12.5px">现为 89（perf），LCP 3.36s 需服务端预取。</p>
+            <div class="fig">THREAD <span class="dia">◆</span> <span style="margin-left:auto">动态倒序 · 评论正序</span></div>
+            <div class="act-line"><span class="who">北归</span><span>把状态改成了 <b style="font-weight:500">Todo</b></span><span class="mono" style="font-size:9px;color:var(--mp-ink3);margin-left:auto">03 日</span></div>
+            <div class="act-line"><span class="who">北归</span><span>创建了任务</span><span class="mono" style="font-size:9px;color:var(--mp-ink3);margin-left:auto">03 日</span></div>
+            <div class="composer"><textarea placeholder="写条评论…" aria-label="评论"></textarea><div class="cf"><button class="btn pri" style="padding:3px 10px">发布</button></div></div>
+          </div>
+          <details class="dmeta" style="margin:0 16px 10px">
+            <summary>详情（创建时间 · ID）<span class="mono" style="font-size:9px">▸</span></summary>
+            <div class="mrow"><b>CREATED</b><span>2026-10-03 19:07 · 北归</span></div>
+            <div class="mrow"><b>UPDATED</b><span>19 天前</span></div>
+            <div class="mrow"><b>ID</b><span class="mono" style="font-size:10px">1ee92521-d9b8-4c0f-963b…</span></div>
+            <div class="danger-zone" style="border:0;padding:4px 0 8px"><button class="btn danger">删除任务</button></div>
+          </details>
+        </div>
+        <div class="callout" style="left:26px;top:120px">A：新增「阶段」字段（Task↔Stage 落地）· 删除收进详情折叠</div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+  const root = document.getElementById('mp-ui-proto');
+  const state = Object.assign({variant:'a', screen:'home', density:3},
+    (()=>{ try{ return JSON.parse(window.zcode.widgetState?.modelContent||'{}'); }catch(e){ return {}; } })());
+
+  const screens=['home','bench','worklog','drawer'];
+  function render(){
+    document.querySelectorAll('#seg-variant button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===state.variant)));
+    document.querySelectorAll('#seg-screen button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.s===state.screen)));
+    document.querySelectorAll('#seg-density button').forEach(b=>b.setAttribute('aria-pressed', String(+b.dataset.d===state.density)));
+    document.getElementById('rail-b').hidden = state.variant!=='b';
+    document.getElementById('rail-a').hidden = state.variant!=='a';
+    screens.forEach(s=>{ ['a','b'].forEach(v=>{
+      const el=document.getElementById('scr-'+s+'-'+v);
+      if(el) el.hidden = !(state.screen===s && state.variant===v);
+    });});
+    // 首页 A 的密度
+    const list=document.getElementById('home-list'), empty=document.getElementById('home-empty');
+    const cont=document.getElementById('cont-rows'), rows=document.getElementById('proj-rows');
+    if(list){ list.hidden = state.density===0; empty.hidden = state.density!==0; }
+    if(cont){ cont.innerHTML=''; if(state.density>0){
+      const mk=(tid,t,proj,st)=>{const d=document.createElement('div');d.className='cont-row';
+        d.innerHTML='<span class="mono" style="font-size:10.5px;color:var(--mp-ink3)">'+tid+'</span><span class="t">'+t+'</span><span class="p">· '+proj+' · '+st+'</span><span class="act"><button class="btn">开始</button><button class="btn ghost"><i data-lucide="pen-line" aria-hidden="true"></i>记一笔</button></span>';return d;};
+      cont.appendChild(mk('MP-16','Lighthouse 90','Mini Plane','Todo'));
+      if(state.density>1) cont.appendChild(mk('TT-04','音素缓存预热','TTS 语音板','Todo'));
+      if(state.density>2) cont.appendChild(mk('RC-01','仓库索引重建','Rust CLI','Backlog'));
+    }}
+    if(rows){ rows.innerHTML='';
+      const mk=(id,nm,tag,stg,pw,now,next,open,done,agent,pers)=>{const d=document.createElement('div');d.className='prow';
+        d.innerHTML='<div class="r1"><span class="mono" style="font-size:10px;color:var(--mp-ink3)">'+id+' · '+(pers?'个人':'团队')+'</span><span class="nm">'+nm+'</span><span class="st">'+stg+'</span></div>'
+        +'<div class="r2"><div class="pbar"><i style="width:'+pw+'%"></i></div><span class="mono" style="font-size:11px">'+pw+'%</span></div>'
+        +'<div class="r3"><span><span class="nowk">NOW</span> '+now+'</span><span><span class="nowk" style="color:var(--mp-ink3)">NEXT</span> '+next+'</span><span>'+open+' open · '+done+' done</span>'+(agent?'<span class="agent-run"><i></i>AGENT · RUNNING</span>':'')+'<span class="act"><button class="btn">进入</button><button class="btn ghost"><i data-lucide="pen-line" aria-hidden="true"></i>记一笔</button></span></div>';
+        return d;};
+      if(state.density>0) rows.appendChild(mk('MP','Mini Plane','收束与发布 · 当前阶段','05',60,'Lighthouse 90','桌面版进程残留','4','12',true,true));
+      if(state.density>1) rows.appendChild(mk('TTS','TTS 语音板','联调 · 当前阶段','02',35,'音素缓存预热','延迟压测','3','1',false,true));
+      if(state.density>2) rows.appendChild(mk('RC','Rust CLI','Backlog','—',0,'—','—','0','0',false,true));
+    }
+    try{ lucide.createIcons({attrs:{width:14,height:14}}); }catch(e){}
+    try{ window.zcode.setWidgetState({modelContent:JSON.stringify(state)}).catch(()=>{}); }catch(e){}
+  }
+  document.getElementById('seg-variant').addEventListener('click',e=>{const b=e.target.closest('button'); if(b){state.variant=b.dataset.v; render();}});
+  document.getElementById('seg-screen').addEventListener('click',e=>{const b=e.target.closest('button'); if(b){state.screen=b.dataset.s; render();}});
+  document.getElementById('seg-density').addEventListener('click',e=>{const b=e.target.closest('button'); if(b){state.density=+b.dataset.d; render();}});
+  // 工程台 A 次级 Tabs
+  const tabs=[['t-plan','p-plan'],['t-log','p-log'],['t-set','p-set']];
+  tabs.forEach(([t,p])=>{ const tb=document.getElementById(t); if(!tb) return;
+    tb.addEventListener('click',()=>{ tabs.forEach(([t2,p2])=>{
+      document.getElementById(t2).setAttribute('aria-selected', String(t2===t));
+      document.getElementById(p2).hidden = t2!==t; });});});
+  // 快速记录补全展开
+  const more=document.getElementById('ql-more');
+  if(more){ const tg=()=>{const x=document.getElementById('ql-extra'); const open=x.hidden; x.hidden=!open; more.setAttribute('aria-expanded',String(open));};
+    more.addEventListener('click',tg); more.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tg();}});}
+  try{ document.addEventListener('zcode:set_globals',ev=>{ const g=ev.detail?.globals?.widgetState; if(g){ try{Object.assign(state, JSON.parse(g.modelContent||'{}')); render();}catch(e){} } }); }catch(e){}
+  render();
+})();
+</script>

@@ -14,6 +14,7 @@ from django.db.models import (
     OuterRef,
     Q,
     Subquery,
+    UUIDField,
 )
 from django.db.models.functions import Coalesce
 from django.http import Http404
@@ -403,6 +404,12 @@ def my_projects_summary(request):
                 _issue_field("title", started, order=("-updated_at",)),
                 _issue_field("title", opened, order=("-updated_at",)),
                 output_field=CharField(),
+            ),
+            # NOW 任务 id（Phase 5：首页「继续」行点击直达任务抽屉）；语义与 now_task 同源
+            now_task_id=Coalesce(
+                _issue_field("id", started, order=("-updated_at",)),
+                _issue_field("id", opened, order=("-updated_at",)),
+                output_field=UUIDField(),
             ),
             current_stage=Coalesce(
                 _issue_field("state__name", started, order=("-updated_at",)),
