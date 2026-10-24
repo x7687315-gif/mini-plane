@@ -100,10 +100,14 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
         from core.permissions import get_effective_project_role_by_ids
 
         project = (
-            Project.objects.filter(id=project_id)
-            if workspace_slug is None
-            else Project.objects.filter(id=project_id, workspace__slug=workspace_slug)
-        ).only("id", "workspace_id", "owner_id").first()
+            (
+                Project.objects.filter(id=project_id)
+                if workspace_slug is None
+                else Project.objects.filter(id=project_id, workspace__slug=workspace_slug)
+            )
+            .only("id", "workspace_id", "owner_id")
+            .first()
+        )
         if project is None:
             return None
         return get_effective_project_role_by_ids(
