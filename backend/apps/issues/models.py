@@ -145,6 +145,16 @@ class Issue(BaseModel):
         blank=True,
         related_name="issues",
     )
+    # DOMAIN_MODEL §2：Task 可选归属一个 Stage（多 Task 可同属一个 Stage）。
+    # SET_NULL：删 Stage 不删 Task；同 Project 校验在 serializer（跨项目 → 400 字段错误）。
+    stage = models.ForeignKey(
+        "projects.ProjectStage",
+        verbose_name="所属阶段",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks",
+    )
 
     class Meta:
         constraints = [

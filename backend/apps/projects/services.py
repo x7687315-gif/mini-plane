@@ -19,32 +19,49 @@ from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
 
 @transaction.atomic
 def create_project(
-    workspace: Workspace, creator: User, *, name, identifier, description=""
+    owner: User,
+    *,
+    name,
+    identifier,
+    description="",
+    workspace: Workspace | None = None,
 ) -> Project:
-    """创建项目 + 创建者 ADMIN 成员 + 预置默认五态（三者必须同事务，决策 D8）。
+    """创建工程 + 预置默认五态 + 建空 Plan（同事务，决策 D8 / DOMAIN_MODEL §8）。
 
-    identifier 工作区内唯一：写入前显式校验，数据库 UniqueConstraint 兜底。
+    所有权（ADR-001 方案 B）：
+    - `owner` 必填（默认即创建者）；私人工程 `workspace=None`，仅 owner 可见；
+    - 团队工程传 `workspace`：创建者额外获得 ProjectMember.ADMIN（协作显式加入）；
+    - identifier 唯一性按形态分流：私人按 (owner) 唯一、团队按 (workspace) 唯一，
+      写入前显式校验，数据库条件唯一约束兜底。
     """
-    if Project.objects.filter(workspace=workspace, identifier=identifier).exists():
+    if workspace is None:
+        dup = Project.objects.filter(workspace__isnull=True, owner=owner, identifier=identifier)
+    else:
+        dup = Project.objects.filter(workspace=workspace, identifier=identifier)
+    if dup.exists():
         raise ValidationError({"identifier": ["此字段必须唯一。"]})
     try:
         # SAVEPOINT：并发创建（双击）撞唯一约束只回滚这条 INSERT，事务内后续步骤照常
         with transaction.atomic():
             project = Project.objects.create(
                 workspace=workspace,
+                owner=owner,
                 name=name.strip(),
                 identifier=identifier,
                 description=description or "",
-                created_by=creator,
+                created_by=owner,
             )
     except IntegrityError:
         raise ValidationError({"identifier": ["此字段必须唯一。"]}) from None
-    ProjectMember.objects.create(project=project, user=creator, role=ProjectRoles.ADMIN)
+    if workspace is not None:
+        ProjectMember.objects.create(project=project, user=owner, role=ProjectRoles.ADMIN)
     create_default_states(project)
+    # DOMAIN_MODEL §8：Plan 在创建时显式建立（取消读时惰性创建的写路径分散）
+    ProjectPlan.objects.create(project=project)
 
     activity_services.record_project_event(
         project,
-        actor=creator,
+        actor=owner,
         action=ActivityActions.CREATED,
         new_value={"name": project.name},
     )
@@ -55,7 +72,7 @@ def create_project(
 def update_project(
     project: Project, *, actor, name=None, identifier=None, description=None
 ) -> Project:
-    """PATCH：改 name / identifier / description；identifier 工作区内唯一。
+    """PATCH：改 name / identifier / description；identifier 唯一性与创建同规则。
 
     留痕只记 name / identifier（描述与 Issue 的处理一致：不把长文本塞进时间线）。
     """
@@ -69,7 +86,13 @@ def update_project(
             old_value["name"], new_value["name"] = project.name, new_name
             project.name = new_name
     if identifier is not None and identifier != project.identifier:
-        if Project.objects.filter(workspace=project.workspace, identifier=identifier).exists():
+        if project.workspace_id:
+            dup = Project.objects.filter(workspace_id=project.workspace_id, identifier=identifier)
+        else:
+            dup = Project.objects.filter(
+                workspace__isnull=True, owner_id=project.owner_id, identifier=identifier
+            ).exclude(pk=project.pk)
+        if dup.exists():
             raise ValidationError({"identifier": ["此字段必须唯一。"]})
         old_value["identifier"], new_value["identifier"] = project.identifier, identifier
         project.identifier = identifier
@@ -90,8 +113,15 @@ def update_project(
             new_value=new_value,
         )
     # 失效放在最后且**无条件**执行：宁多失效一次（只是版本号 +1），也不要漏掉描述变更等分支
-    project_cache.invalidate(project.id, workspace_slug=project.workspace.slug)
+    _invalidate_cache(project)
     return project
+
+
+def _invalidate_cache(project: Project) -> None:
+    """作废该项目的**全部**缓存键（规范哨兵键 + 兼容 ws 键，Phase 3 双路由）。"""
+    project_cache.invalidate_all_scopes(
+        project.id, workspace_slug=project.workspace.slug if project.workspace_id else None
+    )
 
 
 def add_member(workspace: Workspace, project: Project, user_id, role: int) -> ProjectMember:
@@ -141,7 +171,7 @@ def _invalidate_project_cache(project: Project) -> None:
     但一旦详情体加入成员数/成员列表（二期很可能），这里就必须失效。
     计划 §Sprint 6 把 member_change_invalidates 列为验收项，故按防御性失效实现并标注。
     """
-    project_cache.invalidate(project.id, workspace_slug=project.workspace.slug)
+    _invalidate_cache(project)
 
 
 def require_workspace_write_role(workspace: Workspace, role: int) -> None:
@@ -154,7 +184,8 @@ def require_workspace_write_role(workspace: Workspace, role: int) -> None:
 
 
 def get_or_create_plan(project: Project) -> ProjectPlan:
-    """一个项目一份 Global Plan；读时惰性创建，避免给老项目补数据迁移。"""
+    """一个项目一份 Global Plan。新项目在 create_project 时已显式建立；
+    此处 get_or_create 仅为**存量数据**（迁移前的老项目）兜底，读路径不再承担创建职责。"""
     plan, _ = ProjectPlan.objects.get_or_create(project=project)
     return plan
 

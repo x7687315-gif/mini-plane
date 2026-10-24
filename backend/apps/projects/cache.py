@@ -20,13 +20,20 @@ from core import cache as cache_primitives
 
 ENTITY = "project"
 
+#: 私人工程的哨兵 slug（ADR-001：workspace 可空）。slug 校验规则要求 ≥2 字符，
+#: 单字符 "-" 不可能是真实 slug，故作用域不会与任何团队工程冲突。
+PERSONAL_SCOPE = "-"
+
 #: 请求级字段：每次从生效角色注入，不写进缓存
 PER_USER_FIELDS = ("current_user_role",)
 
 
-def detail_scope(workspace_slug: str, project_id) -> str:
-    """缓存作用域：工作区 slug + 项目 id（见模块 docstring 第 1 点）。"""
-    return f"{workspace_slug}:{project_id}"
+def detail_scope(workspace_slug: str | None, project_id) -> str:
+    """缓存作用域：工作区 slug + 项目 id（见模块 docstring 第 1 点）。
+
+    私人工程 workspace_slug 传 None → 用哨兵 "-"（与任何真实 slug 不冲突）。
+    """
+    return f"{workspace_slug or PERSONAL_SCOPE}:{project_id}"
 
 
 def build_payload(project) -> dict:
@@ -69,16 +76,25 @@ def invalidate(
     调用方给 `workspace_slug` 或 `workspace` 任一即可：
     - 写路径（`resolve_project` 出来的对象）已经 `select_related("workspace")`，
       用 `project.workspace.slug` 不会再产生查询；
-    - 成员管理路径手上只有 Workspace 对象，直接传 `workspace=`。
+    - 成员管理路径手上只有 Workspace 对象，直接传 `workspace=`；
+    - 私人工程两者都不传 → 哨兵作用域（detail_scope 会归一到 "-"）。
     """
-    if workspace_slug is None:
-        if workspace is not None:
-            workspace_slug = workspace.slug
-        else:
-            raise ValueError("invalidate() 需要 workspace_slug 或 workspace 之一")
+    if workspace_slug is None and workspace is not None:
+        workspace_slug = workspace.slug  # None 保持 None（私人工程哨兵）
     cache_primitives.invalidate(
         ENTITY, scope=detail_scope(workspace_slug, project_id), strategy=strategy
     )
+
+
+def invalidate_all_scopes(project_id, *, workspace_slug: str | None = None) -> None:
+    """作废该项目的**全部**缓存键（规范路由的哨兵键 + 兼容路由的 ws 键）。
+
+    Phase 3 双路由后同一项目可能存在两份缓存（两种作用域键），任何写路径都必须
+    同时作废两种，否则会出现「旧路径改了、新路径仍读旧缓存」的 staleness。
+    """
+    invalidate(project_id, workspace_slug=None)  # 哨兵键（私人工程 / 规范路由）
+    if workspace_slug:
+        invalidate(project_id, workspace_slug=workspace_slug)
 
 
 def cached_get_or_load(workspace_slug: str, project_id, loader):

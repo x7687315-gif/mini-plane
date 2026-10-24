@@ -104,8 +104,8 @@ class Command(BaseCommand):
         project = workspace.projects.filter(identifier=BENCH_IDENTIFIER).first()
         if project is None:
             project = create_project(
-                workspace,
                 workspace.owner,
+                workspace=workspace,
                 name="Benchmark Project",
                 identifier=BENCH_IDENTIFIER,
                 description="用于索引与性能验证的基准项目，可随时删除",

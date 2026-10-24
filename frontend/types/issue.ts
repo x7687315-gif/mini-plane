@@ -1,5 +1,6 @@
 /**
- * Issue / Label domain types — mirrors docs/api/04-issues.md.
+ * Task（历史名 Issue）/ Label domain types — mirrors docs/api/10-canonical-projects.md。
+ * 对外语义统一为 Task；`Issue` 类型名保留为存储层兼容（Phase 5 UI 批次逐步更名）。
  */
 
 import type { IssueState } from "./project";
@@ -30,6 +31,13 @@ export interface Label {
   created_at: string;
 }
 
+/** Task 可选归属的 Stage 摘要（DOMAIN_MODEL §2；未归属为 null）。 */
+export interface TaskStageRef {
+  id: string;
+  name: string;
+  order: number;
+}
+
 export interface Issue {
   id: string;
   sequence_id: number;
@@ -41,14 +49,20 @@ export interface Issue {
   assignee: MemberSummary | null;
   created_by: MemberSummary;
   labels: Label[];
+  /** 可选归属的 Stage（Phase 2 起后端返回）；null = 未归属。 */
+  stage: TaskStageRef | null;
   created_at: string;
   updated_at: string;
 }
 
-/** 「我的工作」聚合项：Issue + 归属项目名/工作区 slug（便于跨项目展示与深链）。 */
+/** 对外语义统一 Task 的别名（新代码用 Task；Issue 为历史名，Phase 5 逐步退役）。 */
+export type Task = Issue;
+
+/** 「我的工作」聚合项：Task + 归属工程名/工作区 slug（便于跨项目展示与深链）。 */
 export interface MyIssue extends Issue {
   project_name: string;
-  workspace_slug: string;
+  /** 团队工程的归属 slug；私人工程为 null（ADR-001）。 */
+  workspace_slug: string | null;
 }
 
 /** GET /api/v1/issues/mine/ 的 scope。 */
@@ -67,6 +81,8 @@ export interface CreateIssuePayload {
   assignee_id?: string | null;
   /** Omit → no labels. Max 50. */
   label_ids?: string[];
+  /** 可选归属的 Stage（同项目）；null = 不归属（DOMAIN_MODEL §2）。 */
+  stage_id?: string | null;
 }
 
 export interface UpdateIssuePayload {
@@ -78,6 +94,8 @@ export interface UpdateIssuePayload {
   assignee_id?: string | null;
   /** `[]` clears all labels. */
   label_ids?: string[];
+  /** `null` 脱离 Stage。 */
+  stage_id?: string | null;
 }
 
 export interface CreateLabelPayload {

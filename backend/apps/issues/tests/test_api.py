@@ -168,9 +168,10 @@ class IssueListAPITests(IssueAPITestCase):
         self.assertEqual(body["count"], 5)
 
     def test_list_query_count_has_no_n_plus_one(self):
-        """resolve_project 2 次 + 分页 count 1 次 + 取页 1 次 + prefetch labels 1 次 = 5。"""
+        """owner 短路（ADR-001）：resolve 1 次 + count 1 次 + 取页 1 次 + labels 1 次 = 4。
+        （原为 5：resolve 需查 ProjectMember；owner 命中短路省去该查询。）"""
         self.auth(self.owner)
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(4):
             self.client.get(self.issues_url)
 
 

@@ -1,7 +1,12 @@
-"""Issue / Label / Comment 接口（docs/api/04-issues.md、05-comments.md）。
+"""Task（历史名 Issue）/ Label / Comment 接口。
 
-权限：先 resolve_project 拿「生效角色」（非 WS 成员 → 404 防枚举），
-再按契约的门槛判断——读 ≥ Viewer，写 ≥ Member，评论改删仅作者或 Admin。
+路由形态（Phase 3 契约统一）：
+- **规范路由**：`/api/v1/projects/{pid}/tasks/…`（个人优先，无需 workspace）；
+- **兼容路由**：`/workspaces/{ws}/projects/{pid}/issues/…`（旧 URL，deprecated）。
+
+两种路由只差「作用域解析」（resolve_project_by_id vs resolve_project），
+业务体全部在 `_impl` 函数里，同一份实现（计划 §3.4：兼容层薄、可测、可退役）。
+权限：读 ≥ Viewer，写 ≥ Member，评论改删仅作者或 Admin；非可见一律 404 防枚举。
 """
 
 from django.db.models import Q
@@ -30,7 +35,7 @@ from apps.jobs import services as job_services
 from apps.jobs.serializers import TaskRunSerializer
 from apps.projects.models import ProjectRoles
 from core.pagination import StandardPagination
-from core.permissions import accessible_project_ids, resolve_project
+from core.permissions import accessible_project_ids, resolve_project, resolve_project_by_id
 
 
 def _require_role(role: int, threshold: int) -> None:
@@ -39,23 +44,16 @@ def _require_role(role: int, threshold: int) -> None:
 
 
 def _issue_queryset(project):
-    """列表/详情共用的查询集：一次把 state/assignee/created_by 与 labels 取全，防 N+1。"""
-    return project.issues.select_related("state", "assignee", "created_by").prefetch_related(
-        "labels"
-    )
+    """列表/详情共用的查询集：一次把 state/assignee/created_by/stage 与 labels 取全，防 N+1。"""
+    return project.issues.select_related(
+        "state", "assignee", "created_by", "stage"
+    ).prefetch_related("labels")
 
 
-@extend_schema(
-    summary="Issue 列表 / 创建",
-    request=IssueWriteSerializer,
-    responses={200: IssueSerializer(many=True), 201: IssueSerializer},
-)
-@api_view(["GET", "POST"])
-@permission_classes([IsAuthenticated])
-def issue_list_create(request, workspace_slug: str, project_id):
-    """GET：项目成员可读（过滤 / 搜索 / 排序 / 分页，见 04 契约）；POST：生效角色 ≥ Member。"""
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+# ── 列表 / 创建 ─────────────────────────────────────────────────
 
+
+def _task_list_create_impl(request, project, role):
     if request.method == "GET":
         queryset = apply_issue_filters(
             _issue_queryset(project), request.query_params, user=request.user
@@ -73,22 +71,52 @@ def issue_list_create(request, workspace_slug: str, project_id):
 
 
 @extend_schema(
+    summary="Task 列表 / 创建（规范路由）",
+    description="对外统一 Task 命名；对应历史模型 Issue（DOMAIN_MODEL §1）。",
+    request=IssueWriteSerializer,
+    responses={200: IssueSerializer(many=True), 201: IssueSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def task_list_create(request, project_id):
+    project, role = resolve_project_by_id(request.user, project_id)
+    return _task_list_create_impl(request, project, role)
+
+
+@extend_schema(
+    summary="Issue 列表 / 创建（兼容路由，deprecated）",
+    deprecated=True,
+    request=IssueWriteSerializer,
+    responses={200: IssueSerializer(many=True), 201: IssueSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def issue_list_create(request, workspace_slug: str, project_id):
+    """兼容路由：与规范路由 `/api/v1/projects/{pid}/tasks/` 委托同一实现。"""
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _task_list_create_impl(request, project, role)
+
+
+# ── 我的工作（跨项目聚合）───────────────────────────────────────
+
+
+@extend_schema(
     summary="我的工作（跨项目聚合）",
     responses={200: MyIssueSerializer(many=True)},
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_issues(request):
-    """跨用户可访问的项目，聚合「指派给我 / 我创建的」Issue（特色功能 B）。
+    """跨用户可访问的工程，聚合「指派给我 / 我创建的」Task。
 
     `scope`：`assigned`（指派给我）| `created`（我创建）| `all`（默认，二者并集）。
-    可见性沿用 `accessible_project_ids`（ProjectMember 或 WS 成员），与单项目读取同一套规则；
+    可见性沿用 `accessible_project_ids`（owner / ProjectMember / WS 成员），与单项目读取同一套规则；
     排序按创建时间倒序，分页沿用 StandardPagination。
     """
     scope = request.query_params.get("scope", "all")
     qs = (
         Issue.objects.filter(project_id__in=accessible_project_ids(request.user))
-        .select_related("project__workspace", "state", "assignee", "created_by")
+        .select_related("project__workspace", "state", "assignee", "created_by", "stage")
         .prefetch_related("labels")
     )
     if scope == "assigned":
@@ -104,18 +132,10 @@ def my_issues(request):
     return paginator.get_paginated_response(MyIssueSerializer(page, many=True).data)
 
 
-@extend_schema_view(
-    get=extend_schema(summary="Issue 详情", responses={200: IssueSerializer}),
-    patch=extend_schema(
-        summary="修改 Issue", request=IssueWriteSerializer, responses={200: IssueSerializer}
-    ),
-    delete=extend_schema(summary="删除 Issue", responses={204: None}),
-)
-@api_view(["GET", "PATCH", "DELETE"])
-@permission_classes([IsAuthenticated])
-def issue_detail(request, workspace_slug: str, project_id, issue_id):
-    """GET：项目成员；PATCH / DELETE：生效角色 ≥ Member。"""
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+# ── 详情 / 修改 / 删除 ──────────────────────────────────────────
+
+
+def _task_detail_impl(request, project, role, issue_id):
     issue = get_object_or_404(_issue_queryset(project), id=issue_id)
 
     if request.method == "GET":
@@ -135,17 +155,49 @@ def issue_detail(request, workspace_slug: str, project_id, issue_id):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@extend_schema(
-    summary="Label 列表 / 创建",
-    request=LabelWriteSerializer,
-    responses={200: LabelSerializer(many=True), 201: LabelSerializer},
+@extend_schema_view(
+    get=extend_schema(summary="Task 详情（规范路由）", responses={200: IssueSerializer}),
+    patch=extend_schema(
+        summary="修改 Task（规范路由）",
+        request=IssueWriteSerializer,
+        responses={200: IssueSerializer},
+    ),
+    delete=extend_schema(summary="删除 Task（规范路由）", responses={204: None}),
 )
-@api_view(["GET", "POST"])
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
-def label_list_create(request, workspace_slug: str, project_id):
-    """GET：项目成员可读；POST：生效角色 ≥ Member。"""
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+def task_detail(request, project_id, task_id):
+    return _task_detail_impl(request, *resolve_project_by_id(request.user, project_id), task_id)
 
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Issue 详情（兼容路由，deprecated）",
+        responses={200: IssueSerializer},
+        deprecated=True,
+    ),
+    patch=extend_schema(
+        summary="修改 Issue（兼容路由，deprecated）",
+        request=IssueWriteSerializer,
+        responses={200: IssueSerializer},
+        deprecated=True,
+    ),
+    delete=extend_schema(
+        summary="删除 Issue（兼容路由，deprecated）", responses={204: None}, deprecated=True
+    ),
+)
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def issue_detail(request, workspace_slug: str, project_id, issue_id):
+    """兼容路由：与规范路由 `/api/v1/projects/{pid}/tasks/{tid}/` 委托同一实现。"""
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _task_detail_impl(request, project, role, issue_id)
+
+
+# ── Label ───────────────────────────────────────────────────────
+
+
+def _label_list_create_impl(request, project, role):
     if request.method == "GET":
         paginator = StandardPagination()
         page = paginator.paginate_queryset(project.labels.all(), request)
@@ -158,17 +210,32 @@ def label_list_create(request, workspace_slug: str, project_id):
     return Response(LabelSerializer(label).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema_view(
-    patch=extend_schema(
-        summary="修改标签", request=LabelWriteSerializer, responses={200: LabelSerializer}
-    ),
-    delete=extend_schema(summary="删除标签", responses={204: None}),
+@extend_schema(
+    summary="Label 列表 / 创建（规范路由）",
+    request=LabelWriteSerializer,
+    responses={200: LabelSerializer(many=True), 201: LabelSerializer},
 )
-@api_view(["PATCH", "DELETE"])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-def label_detail(request, workspace_slug: str, project_id, label_id):
-    """改 name / color 或删除；生效角色 ≥ Member。删除标签不影响已引用它的 Issue。"""
+def label_list_create_canonical(request, project_id):
+    project, role = resolve_project_by_id(request.user, project_id)
+    return _label_list_create_impl(request, project, role)
+
+
+@extend_schema(
+    summary="Label 列表 / 创建（兼容路由，deprecated）",
+    deprecated=True,
+    request=LabelWriteSerializer,
+    responses={200: LabelSerializer(many=True), 201: LabelSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def label_list_create(request, workspace_slug: str, project_id):
     project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _label_list_create_impl(request, project, role)
+
+
+def _label_detail_impl(request, project, role, label_id):
     _require_role(role, ProjectRoles.MEMBER)
     label = get_object_or_404(project.labels.all(), id=label_id)
 
@@ -182,16 +249,44 @@ def label_detail(request, workspace_slug: str, project_id, label_id):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@extend_schema(
-    summary="评论列表 / 创建",
-    request=CommentWriteSerializer,
-    responses={200: CommentSerializer(many=True), 201: CommentSerializer},
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改标签（规范路由）",
+        request=LabelWriteSerializer,
+        responses={200: LabelSerializer},
+    ),
+    delete=extend_schema(summary="删除标签（规范路由）", responses={204: None}),
 )
-@api_view(["GET", "POST"])
+@api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
-def comment_list_create(request, workspace_slug: str, project_id, issue_id):
-    """GET：项目成员可读（**时间正序**，评论区是对话）；POST：生效角色 ≥ Member。"""
+def label_detail_canonical(request, project_id, label_id):
+    project, role = resolve_project_by_id(request.user, project_id)
+    return _label_detail_impl(request, project, role, label_id)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改标签（兼容路由，deprecated）",
+        request=LabelWriteSerializer,
+        responses={200: LabelSerializer},
+        deprecated=True,
+    ),
+    delete=extend_schema(
+        summary="删除标签（兼容路由，deprecated）", responses={204: None}, deprecated=True
+    ),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def label_detail(request, workspace_slug: str, project_id, label_id):
+    """兼容路由：改 name / color 或删除；删除标签不影响已引用它的 Task。"""
     project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _label_detail_impl(request, project, role, label_id)
+
+
+# ── Comment ─────────────────────────────────────────────────────
+
+
+def _comment_list_create_impl(request, project, role, issue_id):
     issue = get_object_or_404(project.issues.all(), id=issue_id)
 
     if request.method == "GET":
@@ -207,17 +302,33 @@ def comment_list_create(request, workspace_slug: str, project_id, issue_id):
     return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema_view(
-    patch=extend_schema(
-        summary="修改评论", request=CommentWriteSerializer, responses={200: CommentSerializer}
-    ),
-    delete=extend_schema(summary="删除评论", responses={204: None}),
+@extend_schema(
+    summary="Task 评论列表 / 创建（规范路由，时间正序）",
+    request=CommentWriteSerializer,
+    responses={200: CommentSerializer(many=True), 201: CommentSerializer},
 )
-@api_view(["PATCH", "DELETE"])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-def comment_detail(request, workspace_slug: str, project_id, issue_id, comment_id):
-    """作者本人，或生效角色 = Admin（可管理他人评论）；其余 403（05 契约）。"""
+def comment_list_create_canonical(request, project_id, task_id):
+    project, role = resolve_project_by_id(request.user, project_id)
+    return _comment_list_create_impl(request, project, role, task_id)
+
+
+@extend_schema(
+    summary="评论列表 / 创建（兼容路由，deprecated）",
+    deprecated=True,
+    request=CommentWriteSerializer,
+    responses={200: CommentSerializer(many=True), 201: CommentSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def comment_list_create(request, workspace_slug: str, project_id, issue_id):
+    """兼容路由：评论区**时间正序**（对话语义）。"""
     project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _comment_list_create_impl(request, project, role, issue_id)
+
+
+def _comment_detail_impl(request, project, role, issue_id, comment_id):
     issue = get_object_or_404(project.issues.all(), id=issue_id)
     comment = get_object_or_404(issue.comments.select_related("author"), id=comment_id)
 
@@ -235,21 +346,73 @@ def comment_detail(request, workspace_slug: str, project_id, issue_id, comment_i
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改评论（规范路由）",
+        request=CommentWriteSerializer,
+        responses={200: CommentSerializer},
+    ),
+    delete=extend_schema(summary="删除评论（规范路由）", responses={204: None}),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def comment_detail_canonical(request, project_id, task_id, comment_id):
+    """作者本人，或生效角色 = Admin（可管理他人评论）；其余 403。"""
+    project, role = resolve_project_by_id(request.user, project_id)
+    return _comment_detail_impl(request, project, role, task_id, comment_id)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改评论（兼容路由，deprecated）",
+        request=CommentWriteSerializer,
+        responses={200: CommentSerializer},
+        deprecated=True,
+    ),
+    delete=extend_schema(
+        summary="删除评论（兼容路由，deprecated）", responses={204: None}, deprecated=True
+    ),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def comment_detail(request, workspace_slug: str, project_id, issue_id, comment_id):
+    """兼容路由：作者本人，或生效角色 = Admin；其余 403（05 契约）。"""
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _comment_detail_impl(request, project, role, issue_id, comment_id)
+
+
+# ── 批量标签（异步 JobRun）──────────────────────────────────────
+
+
+def _task_bulk_labels_impl(request, project, role):
+    _require_role(role, ProjectRoles.MEMBER)
+    serializer = IssueBulkLabelsSerializer(data=request.data, context={"project": project})
+    serializer.is_valid(raise_exception=True)
+    run = job_services.start_bulk_assign_labels(project, request.user, **serializer.validated_data)
+    return Response(TaskRunSerializer(run).data, status=status.HTTP_202_ACCEPTED)
+
+
 @extend_schema(
-    summary="批量修改 Issue 标签（异步）",
+    summary="批量修改 Task 标签（异步，规范路由）",
+    description="立即返回 202 + jobrun id；进度查 `GET /api/v1/projects/{pid}/jobruns/{id}/`。",
+    request=IssueBulkLabelsSerializer,
+    responses={202: TaskRunSerializer},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def task_bulk_labels(request, project_id):
+    return _task_bulk_labels_impl(request, *resolve_project_by_id(request.user, project_id))
+
+
+@extend_schema(
+    summary="批量修改 Issue 标签（异步，兼容路由，deprecated）",
+    deprecated=True,
     request=IssueBulkLabelsSerializer,
     responses={202: TaskRunSerializer},
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def issue_bulk_labels(request, workspace_slug: str, project_id):
-    """生效角色 ≥ Member。立即返回 **202 + task_id**，进度查 `GET …/tasks/{task_id}/`。
-
-    请求体 `{"issue_ids": [...], "label_ids": [...]}`（覆盖式：label_ids 为空数组表示清空）。
-    """
+    """兼容路由：立即返回 **202 + task_id**，进度查 `GET …/tasks/{task_id}/`。"""
     project, role = resolve_project(request.user, workspace_slug, project_id)
-    _require_role(role, ProjectRoles.MEMBER)
-    serializer = IssueBulkLabelsSerializer(data=request.data, context={"project": project})
-    serializer.is_valid(raise_exception=True)
-    run = job_services.start_bulk_assign_labels(project, request.user, **serializer.validated_data)
-    return Response(TaskRunSerializer(run).data, status=status.HTTP_202_ACCEPTED)
+    return _task_bulk_labels_impl(request, project, role)

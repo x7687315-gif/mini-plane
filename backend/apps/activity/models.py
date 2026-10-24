@@ -48,11 +48,16 @@ class ActivityLog(BaseModel):
       翻译逻辑集中在调用方（避免前端二次回查）。
     """
 
+    # SET_NULL + 可空（ADR-001）：工程脱离协作/工作区兜底删除时审计留痕必须保留，
+    # 正常路径下工作区删除被 service 守卫拦截（仍有项目 → 400），此处仅防御性兜底。
     workspace = models.ForeignKey(
         Workspace,
         verbose_name="工作区",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="activities",
+        help_text="事件发生时所属工作区；工程脱离协作后置空（审计保留）",
     )
     project = models.ForeignKey(
         Project,

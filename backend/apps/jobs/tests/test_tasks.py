@@ -222,7 +222,9 @@ class BulkAssignLabelsTaskTests(JobScenarioMixin, TestCase):
         """跨项目的 Issue 不允许被本项目的任务路径改到 → 标失败且不重试。"""
         from apps.projects.services import create_project
 
-        other_project = create_project(self.workspace, self.owner, name="别处", identifier="OTH")
+        other_project = create_project(
+            self.owner, workspace=self.workspace, name="别处", identifier="OTH"
+        )
         foreign = issue_services.create_issue(other_project, self.owner, title="foreign")
 
         run = self._start(issue_ids=[str(foreign.id)])

@@ -108,68 +108,79 @@ export default function MyEngineeringPage() {
 
 /** 单张"工程图纸"卡片：阶段 / 进度条 / NOW / NEXT。 */
 function EngineeringCard({ project: p }: { project: ProjectEngineering }) {
-  const pct = Math.round((p.progress ?? 0) * 100);
-  return (
-    <Link href={`/w/${p.workspace_slug}/projects/${p.id}`} className="block group">
-      <div className="relative border border-[color:var(--color-rule)] bg-[color:var(--color-paper)] p-5 h-full transition-colors duration-[var(--duration-fast)] group-hover:border-[color:var(--color-ink-2)]">
-        <span
-          className="absolute left-0 top-0 bottom-0 w-[2px] bg-transparent group-hover:bg-[color:var(--color-accent)] transition-colors"
-          aria-hidden
+  // DOMAIN_MODEL §3：progress 已统一 0-100 整数（progress_source 标注来源），不再换算
+  const pct = Math.min(100, Math.max(0, Math.round(p.progress ?? 0)));
+  // 私人工程（workspace 为空，ADR-001）暂无独立路由（Phase 5 提供 /projects/{pid} 页），
+  // 先渲染为不可跳转卡片，避免拼出 /w/null/… 的死链。
+  const href = p.workspace_slug ? `/w/${p.workspace_slug}/projects/${p.id}` : null;
+  const inner = (
+    <div className="relative border border-[color:var(--color-rule)] bg-[color:var(--color-paper)] p-5 h-full transition-colors duration-[var(--duration-fast)] group-hover:border-[color:var(--color-ink-2)]">
+      <span
+        className="absolute left-0 top-0 bottom-0 w-[2px] bg-transparent group-hover:bg-[color:var(--color-accent)] transition-colors"
+        aria-hidden
+      />
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <div className="font-mono text-[10px] text-[color:var(--color-ink-3)]">
+            {p.workspace_slug ? `${p.identifier} · /${p.workspace_slug}` : `${p.identifier} · 个人`}
+          </div>
+          <div className="font-serif italic text-[22px] leading-tight text-[color:var(--color-ink)] truncate">
+            {p.name}
+          </div>
+        </div>
+        <span className="text-[10px] uppercase tracking-[0.16em] font-sans font-medium text-[color:var(--color-ink-2)] flex-shrink-0">
+          {p.current_stage ?? "—"}
+        </span>
+      </div>
+
+      {/* 进度：细蓝图条，百分比只是辅助信息 */}
+      <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-ink-3)]">
+        <span>progress</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="h-[6px] border border-[color:var(--color-rule)] mb-4" aria-hidden>
+        <div
+          className="h-full bg-[color:var(--color-accent)]"
+          style={{ width: `${pct}%` }}
         />
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="min-w-0">
-            <div className="font-mono text-[10px] text-[color:var(--color-ink-3)]">
-              {p.identifier} · /{p.workspace_slug}
-            </div>
-            <div className="font-serif italic text-[22px] leading-tight text-[color:var(--color-ink)] truncate">
-              {p.name}
-            </div>
-          </div>
-          <span className="text-[10px] uppercase tracking-[0.16em] font-sans font-medium text-[color:var(--color-ink-2)] flex-shrink-0">
-            {p.current_stage ?? "—"}
-          </span>
-        </div>
+      </div>
 
-        {/* 进度：细蓝图条，百分比只是辅助信息 */}
-        <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-ink-3)]">
-          <span>progress</span>
-          <span>{pct}%</span>
+      <dl className="space-y-2 text-[12px]">
+        <div className="flex gap-2">
+          <dt className="w-12 flex-shrink-0 text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-accent)] pt-0.5">
+            now
+          </dt>
+          <dd className="text-[color:var(--color-ink)] truncate">{p.now_task ?? "—"}</dd>
         </div>
-        <div className="h-[6px] border border-[color:var(--color-rule)] mb-4" aria-hidden>
-          <div
-            className="h-full bg-[color:var(--color-accent)]"
-            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-          />
+        <div className="flex gap-2">
+          <dt className="w-12 flex-shrink-0 text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-ink-3)] pt-0.5">
+            next
+          </dt>
+          <dd className="text-[color:var(--color-ink-2)] truncate">{p.next_task ?? "—"}</dd>
         </div>
+      </dl>
 
-        <dl className="space-y-2 text-[12px]">
-          <div className="flex gap-2">
-            <dt className="w-12 flex-shrink-0 text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-accent)] pt-0.5">
-              now
-            </dt>
-            <dd className="text-[color:var(--color-ink)] truncate">{p.now_task ?? "—"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="w-12 flex-shrink-0 text-[9px] uppercase tracking-[0.18em] font-sans font-medium text-[color:var(--color-ink-3)] pt-0.5">
-              next
-            </dt>
-            <dd className="text-[color:var(--color-ink-2)] truncate">{p.next_task ?? "—"}</dd>
-          </div>
-        </dl>
-
-        <div className="mt-4 pt-3 border-t border-dashed border-[color:var(--color-rule)] flex items-center justify-between text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-3)]">
-          <span>
-            {p.open_tasks} open · {p.done_tasks} done
-            {p.agent_running && (
-              <span className="ml-2 text-[color:var(--color-accent)]">· Agent · Running</span>
-            )}
-          </span>
+      <div className="mt-4 pt-3 border-t border-dashed border-[color:var(--color-rule)] flex items-center justify-between text-[9px] uppercase tracking-[0.2em] font-sans font-medium text-[color:var(--color-ink-3)]">
+        <span>
+          {p.open_tasks} open · {p.done_tasks} done
+          {p.agent_running && (
+            <span className="ml-2 text-[color:var(--color-accent)]">· Agent · Running</span>
+          )}
+        </span>
+        {href && (
           <span className="text-[color:var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
             <ArrowRightIcon size={14} />
           </span>
-        </div>
+        )}
       </div>
+    </div>
+  );
+  return href ? (
+    <Link href={href} className="block group">
+      {inner}
     </Link>
+  ) : (
+    <div className="block group">{inner}</div>
   );
 }
 

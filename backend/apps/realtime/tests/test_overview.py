@@ -76,7 +76,7 @@ class OverviewConsumerTests(RealtimeTestCase):
         from apps.workspaces.services import create_workspace
 
         ws = create_workspace(self.stranger, "Stranger WS", "rt-stranger-ws")
-        return create_project(ws, self.stranger, name="Secret", identifier="SEC")
+        return create_project(self.stranger, workspace=ws, name="Secret", identifier="SEC")
 
     async def test_events_forwarded_with_project_id(self):
         """订阅者能收到项目组事件，且 payload 被注入 project_id。"""

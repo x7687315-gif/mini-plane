@@ -24,7 +24,9 @@ class WorklogTests(APITestCase):
         WorkspaceMember.objects.create(
             workspace=self.ws, user=self.viewer, role=WorkspaceRoles.VIEWER
         )
-        self.proj = project_services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.proj = project_services.create_project(
+            self.user, workspace=self.ws, name="P", identifier="PP"
+        )
         self.url = f"/api/v1/workspaces/{self.ws.slug}/projects/{self.proj.id}/worklogs/"
         self.client.force_authenticate(self.user)
 
@@ -63,7 +65,9 @@ class WorklogTests(APITestCase):
         self.assertEqual(self.client.get(self.url).status_code, status.HTTP_200_OK)
 
     def test_stage_of_other_project_is_404(self):
-        other = project_services.create_project(self.ws, self.user, name="O", identifier="OO")
+        other = project_services.create_project(
+            self.user, workspace=self.ws, name="O", identifier="OO"
+        )
         plan = project_services.get_or_create_plan(other)
         stage = project_services.add_stage(plan, name="OS")
         r = self._create(stage_id=str(stage.id))

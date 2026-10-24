@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { projectKeys } from "@/lib/queryKeys";
 import type {
   AddProjectMemberPayload,
   CreateProjectPayload,
@@ -29,15 +30,7 @@ import {
   updateStage,
 } from "./api";
 
-export const projectKeys = {
-  all: ["projects"] as const,
-  list: (slug: string) => [...projectKeys.all, "list", slug] as const,
-  detail: (slug: string, pid: string) => [...projectKeys.all, "detail", slug, pid] as const,
-  members: (slug: string, pid: string) =>
-    [...projectKeys.all, "members", slug, pid] as const,
-  states: (slug: string, pid: string) => [...projectKeys.all, "states", slug, pid] as const,
-  mine: () => [...projectKeys.all, "mine"] as const,
-};
+/** 查询键统一来自 lib/queryKeys 工厂（Phase 4 收敛；slug 退出缓存轴）。 */
 
 /** 「我的工程」首页聚合摘要（Sprint 09）。 */
 export function useMyProjects() {
@@ -50,7 +43,7 @@ export function useMyProjects() {
 /** Global Plan / Stage（Sprint 10）。 */
 export function usePlan(slug: string | undefined, projectId: string | undefined) {
   return useQuery({
-    queryKey: [...projectKeys.all, "plan", slug ?? "", projectId ?? ""] as const,
+    queryKey: projectKeys.plan(projectId ?? ""),
     queryFn: () => getPlan(slug!, projectId!),
     enabled: Boolean(slug && projectId),
   });
@@ -61,7 +54,7 @@ export function useAddStage(slug: string, projectId: string) {
   return useMutation({
     mutationFn: (payload: StagePayload) => addStage(slug, projectId, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...projectKeys.all, "plan", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.plan(projectId) });
       qc.invalidateQueries({ queryKey: projectKeys.mine() });
     },
   });
@@ -73,7 +66,7 @@ export function useUpdateStage(slug: string, projectId: string) {
     mutationFn: ({ stageId, payload }: { stageId: string; payload: Partial<StagePayload> }) =>
       updateStage(slug, projectId, stageId, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...projectKeys.all, "plan", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.plan(projectId) });
       qc.invalidateQueries({ queryKey: projectKeys.mine() });
     },
   });
@@ -87,7 +80,7 @@ export function useWorklogs(
   date?: string,
 ) {
   return useQuery({
-    queryKey: [...projectKeys.all, "worklogs", slug ?? "", projectId ?? "", date ?? ""] as const,
+    queryKey: projectKeys.worklogs(projectId ?? "", date),
     queryFn: () => listWorklogs(slug!, projectId!, date ? { date } : {}),
     enabled: Boolean(slug && projectId),
   });
@@ -98,7 +91,7 @@ export function useAddWorklog(slug: string, projectId: string) {
   return useMutation({
     mutationFn: (payload: WorklogPayload) => createWorklog(slug, projectId, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...projectKeys.all, "worklogs", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.worklogs(projectId) });
       qc.invalidateQueries({ queryKey: projectKeys.mine() });
     },
   });
@@ -109,7 +102,7 @@ export function useDeleteWorklog(slug: string, projectId: string) {
   return useMutation({
     mutationFn: (worklogId: string) => deleteWorklog(slug, projectId, worklogId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...projectKeys.all, "worklogs", slug, projectId] });
+      qc.invalidateQueries({ queryKey: projectKeys.worklogs(projectId) });
       qc.invalidateQueries({ queryKey: projectKeys.mine() });
     },
   });
@@ -117,7 +110,7 @@ export function useDeleteWorklog(slug: string, projectId: string) {
 
 export function useProjects(slug: string | undefined) {
   return useQuery({
-    queryKey: projectKeys.list(slug ?? ""),
+    queryKey: projectKeys.wsList(slug ?? ""),
     queryFn: () => listProjects(slug!),
     enabled: Boolean(slug),
   });
@@ -125,7 +118,7 @@ export function useProjects(slug: string | undefined) {
 
 export function useProject(slug: string | undefined, projectId: string | undefined) {
   return useQuery({
-    queryKey: projectKeys.detail(slug ?? "", projectId ?? ""),
+    queryKey: projectKeys.detail(projectId ?? ""),
     queryFn: () => getProject(slug!, projectId!),
     enabled: Boolean(slug && projectId),
   });
@@ -133,7 +126,7 @@ export function useProject(slug: string | undefined, projectId: string | undefin
 
 export function useProjectMembers(slug: string | undefined, projectId: string | undefined) {
   return useQuery({
-    queryKey: projectKeys.members(slug ?? "", projectId ?? ""),
+    queryKey: projectKeys.members(projectId ?? ""),
     queryFn: () => listProjectMembers(slug!, projectId!),
     enabled: Boolean(slug && projectId),
   });
@@ -141,7 +134,7 @@ export function useProjectMembers(slug: string | undefined, projectId: string | 
 
 export function useProjectStates(slug: string | undefined, projectId: string | undefined) {
   return useQuery({
-    queryKey: projectKeys.states(slug ?? "", projectId ?? ""),
+    queryKey: projectKeys.states(projectId ?? ""),
     queryFn: () => listStates(slug!, projectId!),
     enabled: Boolean(slug && projectId),
     // States are created once with the project and never change in MVP.
@@ -153,7 +146,10 @@ export function useCreateProject(slug: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateProjectPayload) => createProject(slug, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.list(slug) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.wsList(slug) });
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+    },
   });
 }
 
@@ -162,8 +158,8 @@ export function useUpdateProject(slug: string, projectId: string) {
   return useMutation({
     mutationFn: (payload: UpdateProjectPayload) => updateProject(slug, projectId, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: projectKeys.detail(slug, projectId) });
-      qc.invalidateQueries({ queryKey: projectKeys.list(slug) });
+      qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      qc.invalidateQueries({ queryKey: projectKeys.wsList(slug) });
     },
   });
 }
@@ -172,7 +168,7 @@ export function useDeleteProject(slug: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (projectId: string) => deleteProject(slug, projectId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.list(slug) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.wsList(slug) }),
   });
 }
 
@@ -182,7 +178,7 @@ export function useAddProjectMember(slug: string, projectId: string) {
     mutationFn: (payload: AddProjectMemberPayload) =>
       addProjectMember(slug, projectId, payload),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: projectKeys.members(slug, projectId) }),
+      qc.invalidateQueries({ queryKey: projectKeys.members(projectId) }),
   });
 }
 
@@ -197,7 +193,7 @@ export function useUpdateProjectMemberRole(slug: string, projectId: string) {
       payload: UpdateMemberRolePayload;
     }) => updateProjectMemberRole(slug, projectId, memberId, payload),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: projectKeys.members(slug, projectId) }),
+      qc.invalidateQueries({ queryKey: projectKeys.members(projectId) }),
   });
 }
 
@@ -206,6 +202,6 @@ export function useRemoveProjectMember(slug: string, projectId: string) {
   return useMutation({
     mutationFn: (memberId: string) => removeProjectMember(slug, projectId, memberId),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: projectKeys.members(slug, projectId) }),
+      qc.invalidateQueries({ queryKey: projectKeys.members(projectId) }),
   });
 }

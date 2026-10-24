@@ -4,11 +4,91 @@ info:
   version: 0.1.0
   description: 仿 Plane 的迷你项目管理软件（学习项目）REST API。
 paths:
+  /api/v1/agent/projects/{project_id}/:
+    get:
+      operationId: agent_project_get_canonical
+      description: 规范路由：只凭 Project ID；私人工程对 owner 的 Token 可见（ADR-001）。
+      summary: project.get：工程 + Global Plan 快照（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentProjectSnapshot'
+          description: ''
+  /api/v1/agent/projects/{project_id}/progress/:
+    post:
+      operationId: agent_progress_update_canonical
+      summary: progress.update：改阶段进度 / 切当前阶段（规范路由，幂等）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentProgress'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentProgress'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentProgress'
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPlan'
+          description: ''
+  /api/v1/agent/projects/{project_id}/sessions/:
+    get:
+      operationId: agent_session_list_canonical
+      summary: agent.sessions：工程会话列表（规范路由，?active=1 只看运行中）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentSession'
+          description: ''
   /api/v1/agent/projects/{workspace_slug}/{project_id}/:
     get:
       operationId: v1_agent_projects_retrieve
-      description: project.get：项目 + Global Plan 快照。
-      summary: project.get：项目 + Global Plan 快照
+      description: 兼容路由：含 workspace slug 的旧路径，委托同一实现。
+      summary: project.get：项目 + Global Plan 快照（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -25,6 +105,7 @@ paths:
       - v1
       security:
       - agentTokenAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -35,8 +116,8 @@ paths:
   /api/v1/agent/projects/{workspace_slug}/{project_id}/progress/:
     post:
       operationId: v1_agent_projects_progress_create
-      description: progress.update / stage.update：改某阶段进度或切换当前阶段。
-      summary: progress.update：改阶段进度 / 切当前阶段（幂等）
+      description: 兼容路由：含 workspace slug 的旧路径，委托同一实现。
+      summary: progress.update：改阶段进度 / 切当前阶段（兼容路由，deprecated，幂等）
       parameters:
       - in: path
         name: project_id
@@ -64,6 +145,7 @@ paths:
               $ref: '#/components/schemas/AgentProgress'
       security:
       - agentTokenAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -74,7 +156,8 @@ paths:
   /api/v1/agent/projects/{workspace_slug}/{project_id}/sessions/:
     get:
       operationId: v1_agent_projects_sessions_list
-      summary: agent.sessions：项目会话列表（?active=1 只看运行中）
+      description: 兼容路由：含 workspace slug 的旧路径，委托同一实现。
+      summary: agent.sessions：项目会话列表（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -91,6 +174,7 @@ paths:
       - v1
       security:
       - agentTokenAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -130,7 +214,10 @@ paths:
   /api/v1/agent/sessions/{session_id}/end/:
     post:
       operationId: v1_agent_sessions_end_create
-      summary: session.end：结束会话（done/failed/stopped，广播 agent.session）
+      description: |-
+        Phase 3 补齐幂等（Phase 0 风险 R-06）：与其余 7 个写动作一致，
+        带 Idempotency-Key 的重复 end 直接回放首次响应。
+      summary: session.end：结束会话（done/failed/stopped，广播 agent.session，幂等）
       parameters:
       - in: path
         name: session_id
@@ -576,10 +663,10 @@ paths:
     get:
       operationId: v1_issues_mine_list
       description: |-
-        跨用户可访问的项目，聚合「指派给我 / 我创建的」Issue（特色功能 B）。
+        跨用户可访问的工程，聚合「指派给我 / 我创建的」Task。
 
         `scope`：`assigned`（指派给我）| `created`（我创建）| `all`（默认，二者并集）。
-        可见性沿用 `accessible_project_ids`（ProjectMember 或 WS 成员），与单项目读取同一套规则；
+        可见性沿用 `accessible_project_ids`（owner / ProjectMember / WS 成员），与单项目读取同一套规则；
         排序按创建时间倒序，分页沿用 StandardPagination。
       summary: 我的工作（跨项目聚合）
       tags:
@@ -595,6 +682,1019 @@ paths:
                 items:
                   $ref: '#/components/schemas/MyIssue'
           description: ''
+  /api/v1/projects/:
+    get:
+      operationId: v1_projects_list
+      description: 个人优先（ADR-001）：GET 默认返回我拥有的工程（scope=owned，含已共享到团队的）；scope=accessible
+        返回我可访问的全部（含他人拥有的团队工程）。POST 默认创建私人工程（不需要 workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。
+      summary: 工程列表 / 创建（规范路由）
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    post:
+      operationId: v1_projects_create
+      description: 个人优先（ADR-001）：GET 默认返回我拥有的工程（scope=owned，含已共享到团队的）；scope=accessible
+        返回我可访问的全部（含他人拥有的团队工程）。POST 默认创建私人工程（不需要 workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。
+      summary: 工程列表 / 创建（规范路由）
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+  /api/v1/projects/{project_id}/:
+    get:
+      operationId: v1_projects_retrieve
+      description: |-
+        规范路由：私人/团队工程统一只凭 Project ID；owner 恒可访问（ADR-001）。
+
+        缓存键取舍：团队工程在旧路径下以 ws slug 为键，规范路径不查 slug、统一用
+        哨兵键——首次访问冷写入、后续命中；与旧路径缓存互不干扰（同一 payload，双份
+        存储，任一路径的写失效会同时作废两种键，见 update/delete 的失效实现）。
+      summary: 工程详情（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    patch:
+      operationId: v1_projects_partial_update
+      description: |-
+        规范路由：私人/团队工程统一只凭 Project ID；owner 恒可访问（ADR-001）。
+
+        缓存键取舍：团队工程在旧路径下以 ws slug 为键，规范路径不查 slug、统一用
+        哨兵键——首次访问冷写入、后续命中；与旧路径缓存互不干扰（同一 payload，双份
+        存储，任一路径的写失效会同时作废两种键，见 update/delete 的失效实现）。
+      summary: 修改工程（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    delete:
+      operationId: v1_projects_destroy
+      description: |-
+        规范路由：私人/团队工程统一只凭 Project ID；owner 恒可访问（ADR-001）。
+
+        缓存键取舍：团队工程在旧路径下以 ws slug 为键，规范路径不查 slug、统一用
+        哨兵键——首次访问冷写入、后续命中；与旧路径缓存互不干扰（同一 payload，双份
+        存储，任一路径的写失效会同时作废两种键，见 update/delete 的失效实现）。
+      summary: 删除工程（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/projects/{project_id}/activities/:
+    get:
+      operationId: v1_projects_activities_list
+      summary: 工程活动流（规范路由，倒序）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityLog'
+          description: ''
+  /api/v1/projects/{project_id}/jobruns/{jobrun_id}/:
+    get:
+      operationId: v1_projects_jobruns_retrieve
+      description: 查询一个后台异步操作的状态（pending / running / success / failure）。
+      summary: JobRun 状态（规范路由）
+      parameters:
+      - in: path
+        name: jobrun_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskRun'
+          description: ''
+  /api/v1/projects/{project_id}/labels/:
+    get:
+      operationId: v1_projects_labels_list
+      summary: Label 列表 / 创建（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Label'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+          description: ''
+    post:
+      operationId: v1_projects_labels_create
+      summary: Label 列表 / 创建（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabelWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LabelWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LabelWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Label'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+          description: ''
+  /api/v1/projects/{project_id}/labels/{label_id}/:
+    patch:
+      operationId: v1_projects_labels_partial_update
+      summary: 修改标签（规范路由）
+      parameters:
+      - in: path
+        name: label_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLabelWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLabelWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLabelWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Label'
+          description: ''
+    delete:
+      operationId: v1_projects_labels_destroy
+      summary: 删除标签（规范路由）
+      parameters:
+      - in: path
+        name: label_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/projects/{project_id}/plan/:
+    get:
+      operationId: v1_projects_plan_retrieve
+      summary: Global Plan（读）/ 新增 Stage（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPlan'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStage'
+          description: ''
+    post:
+      operationId: v1_projects_plan_create
+      summary: Global Plan（读）/ 新增 Stage（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectStageWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectStageWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectStageWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPlan'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStage'
+          description: ''
+  /api/v1/projects/{project_id}/plan/stages/{stage_id}/:
+    patch:
+      operationId: v1_projects_plan_stages_partial_update
+      summary: 修改 Stage（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: stage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectStageWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectStageWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectStageWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStage'
+          description: ''
+    delete:
+      operationId: v1_projects_plan_stages_destroy
+      summary: 删除 Stage（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: stage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/projects/{project_id}/states/:
+    get:
+      operationId: v1_projects_states_list
+      summary: 状态列表（规范路由，预置五态只读）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/State'
+          description: ''
+  /api/v1/projects/{project_id}/tasks/:
+    get:
+      operationId: v1_projects_tasks_list
+      description: 对外统一 Task 命名；对应历史模型 Issue（DOMAIN_MODEL §1）。
+      summary: Task 列表 / 创建（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Issue'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+    post:
+      operationId: v1_projects_tasks_create
+      description: 对外统一 Task 命名；对应历史模型 Issue（DOMAIN_MODEL §1）。
+      summary: Task 列表 / 创建（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IssueWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IssueWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Issue'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+  /api/v1/projects/{project_id}/tasks/{task_id}/:
+    get:
+      operationId: v1_projects_tasks_retrieve
+      summary: Task 详情（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+    patch:
+      operationId: v1_projects_tasks_partial_update
+      summary: 修改 Task（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedIssueWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedIssueWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedIssueWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+          description: ''
+    delete:
+      operationId: v1_projects_tasks_destroy
+      summary: 删除 Task（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/projects/{project_id}/tasks/{task_id}/activities/:
+    get:
+      operationId: v1_projects_tasks_activities_list
+      description: 该 Task 自身的变更 + 挂在其下的评论事件，倒序分页。
+      summary: Task 时间线（规范路由，倒序）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityLog'
+          description: ''
+  /api/v1/projects/{project_id}/tasks/{task_id}/comments/:
+    get:
+      operationId: v1_projects_tasks_comments_list
+      summary: Task 评论列表 / 创建（规范路由，时间正序）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+    post:
+      operationId: v1_projects_tasks_comments_create
+      summary: Task 评论列表 / 创建（规范路由，时间正序）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CommentWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommentWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+  /api/v1/projects/{project_id}/tasks/{task_id}/comments/{comment_id}/:
+    patch:
+      operationId: v1_projects_tasks_comments_partial_update
+      description: 作者本人，或生效角色 = Admin（可管理他人评论）；其余 403。
+      summary: 修改评论（规范路由）
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+    delete:
+      operationId: v1_projects_tasks_comments_destroy
+      description: 作者本人，或生效角色 = Admin（可管理他人评论）；其余 403。
+      summary: 删除评论（规范路由）
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/projects/{project_id}/tasks/bulk/labels/:
+    post:
+      operationId: v1_projects_tasks_bulk_labels_create
+      description: 立即返回 202 + jobrun id；进度查 `GET /api/v1/projects/{pid}/jobruns/{id}/`。
+      summary: 批量修改 Task 标签（异步，规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueBulkLabels'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IssueBulkLabels'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IssueBulkLabels'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskRun'
+          description: ''
+  /api/v1/projects/{project_id}/worklogs/:
+    get:
+      operationId: v1_projects_worklogs_list
+      description: GET：工程日志（倒序 date → created_at），?date=today 或 YYYY-MM-DD；POST ≥
+        Member。
+      summary: 工程日志列表 / 创建（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Worklog'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worklog'
+          description: ''
+    post:
+      operationId: v1_projects_worklogs_create
+      description: GET：工程日志（倒序 date → created_at），?date=today 或 YYYY-MM-DD；POST ≥
+        Member。
+      summary: 工程日志列表 / 创建（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorklogWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WorklogWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WorklogWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Worklog'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worklog'
+          description: ''
+  /api/v1/projects/{project_id}/worklogs/{worklog_id}/:
+    patch:
+      operationId: v1_projects_worklogs_partial_update
+      summary: 修改工程日志（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: worklog_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorklogWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorklogWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorklogWrite'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worklog'
+          description: ''
+    delete:
+      operationId: v1_projects_worklogs_destroy
+      summary: 删除工程日志（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: worklog_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/projects/mine/:
     get:
       operationId: v1_projects_mine_list
@@ -884,8 +1984,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/:
     get:
       operationId: v1_workspaces_projects_list
-      description: GET：WS 成员可见全部项目（批量算生效角色防 N+1）；POST：WS Member+ 可创建。
-      summary: 项目列表 / 创建
+      description: 兼容路由：WS 作用域内的项目列表 / 创建；与规范路由委托同一 service。
+      summary: 项目列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: workspace_slug
@@ -896,6 +1996,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -913,8 +2014,8 @@ paths:
           description: ''
     post:
       operationId: v1_workspaces_projects_create
-      description: GET：WS 成员可见全部项目（批量算生效角色防 N+1）；POST：WS Member+ 可创建。
-      summary: 项目列表 / 创建
+      description: 兼容路由：WS 作用域内的项目列表 / 创建；与规范路由委托同一 service。
+      summary: 项目列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: workspace_slug
@@ -937,6 +2038,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -955,8 +2057,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/:
     get:
       operationId: v1_workspaces_projects_retrieve
-      description: GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。
-      summary: 项目详情
+      description: 兼容路由：与规范路由委托同一实现；缓存键沿用 ws slug。
+      summary: 项目详情（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -973,6 +2075,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -982,8 +2085,8 @@ paths:
           description: ''
     patch:
       operationId: v1_workspaces_projects_partial_update
-      description: GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。
-      summary: 修改项目
+      description: 兼容路由：与规范路由委托同一实现；缓存键沿用 ws slug。
+      summary: 修改项目（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1011,6 +2114,7 @@ paths:
               $ref: '#/components/schemas/PatchedProjectWrite'
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1020,8 +2124,8 @@ paths:
           description: ''
     delete:
       operationId: v1_workspaces_projects_destroy
-      description: GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。
-      summary: 删除项目
+      description: 兼容路由：与规范路由委托同一实现；缓存键沿用 ws slug。
+      summary: 删除项目（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1038,14 +2142,14 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '204':
           description: No response body
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/activities/:
     get:
       operationId: v1_workspaces_projects_activities_list
-      description: 跨 Issue 的项目级活动流，倒序分页。
-      summary: 项目活动流（倒序）
+      summary: 项目活动流（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1062,6 +2166,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1074,8 +2179,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/:
     get:
       operationId: v1_workspaces_projects_issues_list
-      description: GET：项目成员可读（过滤 / 搜索 / 排序 / 分页，见 04 契约）；POST：生效角色 ≥ Member。
-      summary: Issue 列表 / 创建
+      description: 兼容路由：与规范路由 `/api/v1/projects/{pid}/tasks/` 委托同一实现。
+      summary: Issue 列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1092,6 +2197,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1109,8 +2215,8 @@ paths:
           description: ''
     post:
       operationId: v1_workspaces_projects_issues_create
-      description: GET：项目成员可读（过滤 / 搜索 / 排序 / 分页，见 04 契约）；POST：生效角色 ≥ Member。
-      summary: Issue 列表 / 创建
+      description: 兼容路由：与规范路由 `/api/v1/projects/{pid}/tasks/` 委托同一实现。
+      summary: Issue 列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1139,6 +2245,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1157,8 +2264,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/:
     get:
       operationId: v1_workspaces_projects_issues_retrieve
-      description: GET：项目成员；PATCH / DELETE：生效角色 ≥ Member。
-      summary: Issue 详情
+      description: 兼容路由：与规范路由 `/api/v1/projects/{pid}/tasks/{tid}/` 委托同一实现。
+      summary: Issue 详情（兼容路由，deprecated）
       parameters:
       - in: path
         name: issue_id
@@ -1181,6 +2288,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1190,8 +2298,8 @@ paths:
           description: ''
     patch:
       operationId: v1_workspaces_projects_issues_partial_update
-      description: GET：项目成员；PATCH / DELETE：生效角色 ≥ Member。
-      summary: 修改 Issue
+      description: 兼容路由：与规范路由 `/api/v1/projects/{pid}/tasks/{tid}/` 委托同一实现。
+      summary: 修改 Issue（兼容路由，deprecated）
       parameters:
       - in: path
         name: issue_id
@@ -1225,6 +2333,7 @@ paths:
               $ref: '#/components/schemas/PatchedIssueWrite'
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1234,8 +2343,8 @@ paths:
           description: ''
     delete:
       operationId: v1_workspaces_projects_issues_destroy
-      description: GET：项目成员；PATCH / DELETE：生效角色 ≥ Member。
-      summary: 删除 Issue
+      description: 兼容路由：与规范路由 `/api/v1/projects/{pid}/tasks/{tid}/` 委托同一实现。
+      summary: 删除 Issue（兼容路由，deprecated）
       parameters:
       - in: path
         name: issue_id
@@ -1258,14 +2367,14 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '204':
           description: No response body
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/activities/:
     get:
       operationId: v1_workspaces_projects_issues_activities_list
-      description: 该 Issue 自身的变更 + 挂在其下的评论事件，倒序分页。
-      summary: Issue 时间线（倒序）
+      summary: Issue 时间线（兼容路由，deprecated）
       parameters:
       - in: path
         name: issue_id
@@ -1288,6 +2397,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1300,8 +2410,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/comments/:
     get:
       operationId: v1_workspaces_projects_issues_comments_list
-      description: GET：项目成员可读（**时间正序**，评论区是对话）；POST：生效角色 ≥ Member。
-      summary: 评论列表 / 创建
+      description: 兼容路由：评论区**时间正序**（对话语义）。
+      summary: 评论列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: issue_id
@@ -1324,6 +2434,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1341,8 +2452,8 @@ paths:
           description: ''
     post:
       operationId: v1_workspaces_projects_issues_comments_create
-      description: GET：项目成员可读（**时间正序**，评论区是对话）；POST：生效角色 ≥ Member。
-      summary: 评论列表 / 创建
+      description: 兼容路由：评论区**时间正序**（对话语义）。
+      summary: 评论列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: issue_id
@@ -1377,6 +2488,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1395,8 +2507,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/{issue_id}/comments/{comment_id}/:
     patch:
       operationId: v1_workspaces_projects_issues_comments_partial_update
-      description: 作者本人，或生效角色 = Admin（可管理他人评论）；其余 403（05 契约）。
-      summary: 修改评论
+      description: 兼容路由：作者本人，或生效角色 = Admin；其余 403（05 契约）。
+      summary: 修改评论（兼容路由，deprecated）
       parameters:
       - in: path
         name: comment_id
@@ -1436,6 +2548,7 @@ paths:
               $ref: '#/components/schemas/PatchedCommentWrite'
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1445,8 +2558,8 @@ paths:
           description: ''
     delete:
       operationId: v1_workspaces_projects_issues_comments_destroy
-      description: 作者本人，或生效角色 = Admin（可管理他人评论）；其余 403（05 契约）。
-      summary: 删除评论
+      description: 兼容路由：作者本人，或生效角色 = Admin；其余 403（05 契约）。
+      summary: 删除评论（兼容路由，deprecated）
       parameters:
       - in: path
         name: comment_id
@@ -1475,17 +2588,15 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '204':
           description: No response body
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/issues/bulk/labels/:
     post:
       operationId: v1_workspaces_projects_issues_bulk_labels_create
-      description: |-
-        生效角色 ≥ Member。立即返回 **202 + task_id**，进度查 `GET …/tasks/{task_id}/`。
-
-        请求体 `{"issue_ids": [...], "label_ids": [...]}`（覆盖式：label_ids 为空数组表示清空）。
-      summary: 批量修改 Issue 标签（异步）
+      description: 兼容路由：立即返回 **202 + task_id**，进度查 `GET …/tasks/{task_id}/`。
+      summary: 批量修改 Issue 标签（异步，兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1514,6 +2625,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '202':
           content:
@@ -1524,8 +2636,7 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/labels/:
     get:
       operationId: v1_workspaces_projects_labels_list
-      description: GET：项目成员可读；POST：生效角色 ≥ Member。
-      summary: Label 列表 / 创建
+      summary: Label 列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1542,6 +2653,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1559,8 +2671,7 @@ paths:
           description: ''
     post:
       operationId: v1_workspaces_projects_labels_create
-      description: GET：项目成员可读；POST：生效角色 ≥ Member。
-      summary: Label 列表 / 创建
+      summary: Label 列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1589,6 +2700,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1607,8 +2719,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/labels/{label_id}/:
     patch:
       operationId: v1_workspaces_projects_labels_partial_update
-      description: 改 name / color 或删除；生效角色 ≥ Member。删除标签不影响已引用它的 Issue。
-      summary: 修改标签
+      description: 兼容路由：改 name / color 或删除；删除标签不影响已引用它的 Task。
+      summary: 修改标签（兼容路由，deprecated）
       parameters:
       - in: path
         name: label_id
@@ -1642,6 +2754,7 @@ paths:
               $ref: '#/components/schemas/PatchedLabelWrite'
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1651,8 +2764,8 @@ paths:
           description: ''
     delete:
       operationId: v1_workspaces_projects_labels_destroy
-      description: 改 name / color 或删除；生效角色 ≥ Member。删除标签不影响已引用它的 Issue。
-      summary: 删除标签
+      description: 兼容路由：改 name / color 或删除；删除标签不影响已引用它的 Task。
+      summary: 删除标签（兼容路由，deprecated）
       parameters:
       - in: path
         name: label_id
@@ -1675,6 +2788,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '204':
           description: No response body
@@ -1838,10 +2952,7 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/plan/:
     get:
       operationId: v1_workspaces_projects_plan_retrieve
-      description: |-
-        GET：项目 Global Plan（stages 有序 + 总进度 + 当前/下一阶段）；读 ≥ Viewer。
-        POST：追加一个 Stage；写 ≥ Member（§15：Global Plan 结构由人维护）。
-      summary: Global Plan（读）/ 新增 Stage（写）
+      summary: Global Plan（读）/ 新增 Stage（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1858,6 +2969,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1873,10 +2985,7 @@ paths:
           description: ''
     post:
       operationId: v1_workspaces_projects_plan_create
-      description: |-
-        GET：项目 Global Plan（stages 有序 + 总进度 + 当前/下一阶段）；读 ≥ Viewer。
-        POST：追加一个 Stage；写 ≥ Member（§15：Global Plan 结构由人维护）。
-      summary: Global Plan（读）/ 新增 Stage（写）
+      summary: Global Plan（读）/ 新增 Stage（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1905,6 +3014,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1921,8 +3031,7 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/plan/stages/{stage_id}/:
     patch:
       operationId: v1_workspaces_projects_plan_stages_partial_update
-      description: 改 / 删某个 Stage；写 ≥ Member。stage 必须属于该项目（否则 404 防枚举）。
-      summary: 修改 Stage
+      summary: 修改 Stage（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1956,6 +3065,7 @@ paths:
               $ref: '#/components/schemas/PatchedProjectStageWrite'
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -1965,8 +3075,7 @@ paths:
           description: ''
     delete:
       operationId: v1_workspaces_projects_plan_stages_destroy
-      description: 改 / 删某个 Stage；写 ≥ Member。stage 必须属于该项目（否则 404 防枚举）。
-      summary: 删除 Stage
+      summary: 删除 Stage（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -1989,13 +3098,14 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '204':
           description: No response body
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/states/:
     get:
       operationId: v1_workspaces_projects_states_list
-      summary: 状态列表（预置五态，只读）
+      summary: 状态列表（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2012,6 +3122,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2024,8 +3135,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/tasks/{task_id}/:
     get:
       operationId: v1_workspaces_projects_tasks_retrieve
-      description: 查询一个 TaskRun 的当前状态（pending / running / success / failure）。
-      summary: 异步任务状态
+      description: 兼容路由：与规范路由 `/api/v1/projects/{pid}/jobruns/{id}/` 委托同一实现。
+      summary: 异步任务状态（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2048,6 +3159,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2058,10 +3170,7 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/worklogs/:
     get:
       operationId: v1_workspaces_projects_worklogs_list
-      description: |-
-        GET：项目日志（倒序：date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD。
-        POST：写一条日志（≥ Member）。
-      summary: 工程日志列表 / 创建
+      summary: 工程日志列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2078,6 +3187,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2095,10 +3205,7 @@ paths:
           description: ''
     post:
       operationId: v1_workspaces_projects_worklogs_create
-      description: |-
-        GET：项目日志（倒序：date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD。
-        POST：写一条日志（≥ Member）。
-      summary: 工程日志列表 / 创建
+      summary: 工程日志列表 / 创建（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2127,6 +3234,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2145,7 +3253,7 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/worklogs/{worklog_id}/:
     patch:
       operationId: v1_workspaces_projects_worklogs_partial_update
-      summary: 修改工程日志
+      summary: 修改工程日志（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2179,6 +3287,7 @@ paths:
               $ref: '#/components/schemas/PatchedWorklogWrite'
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2188,7 +3297,7 @@ paths:
           description: ''
     delete:
       operationId: v1_workspaces_projects_worklogs_destroy
-      summary: 删除工程日志
+      summary: 删除工程日志（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2211,6 +3320,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '204':
           description: No response body
@@ -2441,10 +3551,14 @@ components:
           maxLength: 300
     AgentSessionStart:
       type: object
+      description: session.start；workspace_slug 可选（Phase 3 规范化，私人工程无 slug）。
       properties:
         workspace_slug:
-          type: string
-          pattern: ^[-a-zA-Z0-9_]+$
+          oneOf:
+          - type: string
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: string
+            maxLength: 0
         project_id:
           type: string
           format: uuid
@@ -2458,7 +3572,6 @@ components:
       required:
       - project_id
       - title
-      - workspace_slug
     AgentSessionStatusEnum:
       enum:
       - running
@@ -2473,11 +3586,18 @@ components:
         * `stopped` - 人工停止
     AgentTaskCreate:
       type: object
-      description: Agent 建任务：以"工程动作"为中心，只暴露必要字段。
+      description: |-
+        Agent 建任务：以"工程动作"为中心，只暴露必要字段。
+
+        project_id 必填；workspace_slug **可选**（Phase 3 规范化：私人工程无 slug；
+        传了则按旧双重作用域校验，兼容既有 Agent 调用方）。
       properties:
         workspace_slug:
-          type: string
-          pattern: ^[-a-zA-Z0-9_]+$
+          oneOf:
+          - type: string
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: string
+            maxLength: 0
         project_id:
           type: string
           format: uuid
@@ -2491,7 +3611,6 @@ components:
       required:
       - project_id
       - title
-      - workspace_slug
     AgentToken:
       type: object
       description: Token 只读视图：绝不回传哈希/明文。
@@ -2562,10 +3681,14 @@ components:
       - token
     AgentWorklogCreate:
       type: object
+      description: Agent 写工程日志；workspace_slug 可选（同上，Phase 3 规范化）。
       properties:
         workspace_slug:
-          type: string
-          pattern: ^[-a-zA-Z0-9_]+$
+          oneOf:
+          - type: string
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: string
+            maxLength: 0
         project_id:
           type: string
           format: uuid
@@ -2591,7 +3714,6 @@ components:
       - project_id
       - summary
       - title
-      - workspace_slug
     Bind:
       type: object
       description: 设置页自助绑定：加/改密码、绑定/换邮箱、或移除密码（回到免密直入）。
@@ -2689,7 +3811,9 @@ components:
         * `cancelled` - 已取消
     Issue:
       type: object
-      description: Issue 只读响应体。调用方需 select_related(state/assignee/created_by) + prefetch(labels)。
+      description: |-
+        Issue 只读响应体。调用方需 select_related(state/assignee/created_by/stage)
+        + prefetch(labels)。
       properties:
         id:
           type: string
@@ -2734,6 +3858,12 @@ components:
           items:
             $ref: '#/components/schemas/Label'
           readOnly: true
+        stage:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+          description: 所属 Stage {id, name, order}；未归属为 null
         created_at:
           type: string
           format: date-time
@@ -2752,6 +3882,7 @@ components:
       - priority
       - project
       - sequence_id
+      - stage
       - state
       - title
       - updated_at
@@ -2826,6 +3957,11 @@ components:
             format: uuid
           description: 标签 id 列表（最多 50 个）；空数组表示清空标签
           maxItems: 50
+        stage_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: 所属 Stage id（可选归属，DOMAIN_MODEL §2）；必须属于同一项目，null 表示脱离阶段
       required:
       - title
     KindEnum:
@@ -2894,8 +4030,9 @@ components:
     MyIssue:
       type: object
       description: |-
-        「我的工作」专用：在 IssueSerializer 基础上补项目名与工作区 slug，
-        让跨项目聚合列表能显示归属并深链到对应项目（IssueSerializer 本身只有 project id）。
+        「我的工作」专用：在 IssueSerializer 基础上补项目名与归属信息，
+        让跨项目聚合列表能显示归属并深链（IssueSerializer 本身只有 project id）。
+        私人工程（workspace 为空，ADR-001）workspace_slug 为 null。
       properties:
         id:
           type: string
@@ -2940,6 +4077,12 @@ components:
           items:
             $ref: '#/components/schemas/Label'
           readOnly: true
+        stage:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+          description: 所属 Stage {id, name, order}；未归属为 null
         created_at:
           type: string
           format: date-time
@@ -2953,7 +4096,9 @@ components:
           readOnly: true
         workspace_slug:
           type: string
+          nullable: true
           readOnly: true
+          description: 团队工程的归属 slug；私人工程为 null
       required:
       - assignee
       - created_at
@@ -2965,6 +4110,7 @@ components:
       - project
       - project_name
       - sequence_id
+      - stage
       - state
       - title
       - updated_at
@@ -3023,6 +4169,11 @@ components:
             format: uuid
           description: 标签 id 列表（最多 50 个）；空数组表示清空标签
           maxItems: 50
+        stage_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: 所属 Stage id（可选归属，DOMAIN_MODEL §2）；必须属于同一项目，null 表示脱离阶段
     PatchedLabelWrite:
       type: object
       description: 标签创建 / 更新请求体；项目内 name 唯一由 service 显式校验。
@@ -3042,14 +4193,15 @@ components:
           $ref: '#/components/schemas/RoleEnum'
     PatchedProjectStageWrite:
       type: object
-      description: 新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+      description: |-
+        新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+
+        `order` **不可写**（Phase 0 风险 R-05 收紧）：追加由 service 按"现有最大 +1"发号，
+        重排（swap/shift）服务尚未提供；开放 order 会撞 `uniq_stage_order_per_plan` 唯一约束。
       properties:
         name:
           type: string
           maxLength: 120
-        order:
-          type: integer
-          minimum: 0
         weight:
           type: integer
           minimum: 1
@@ -3063,7 +4215,9 @@ components:
           type: boolean
     PatchedProjectWrite:
       type: object
-      description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。
+      description: |-
+        创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
+        由 service 显式校验。
       properties:
         name:
           type: string
@@ -3147,7 +4301,13 @@ components:
           type: string
           format: uuid
           readOnly: true
+          nullable: true
           title: 工作区
+          description: 团队协作范围；私人工程为空
+        owner:
+          type: string
+          format: uuid
+          readOnly: true
         name:
           type: string
           readOnly: true
@@ -3156,7 +4316,7 @@ components:
           type: string
           readOnly: true
           title: 标识符
-          description: 2-5 位大写字母数字，用于 Issue 前缀（如 AMI-1），工作区内唯一
+          description: 2-5 位大写字母数字，用于 Task 前缀（如 AMI-1）；私人工程在 owner 内唯一，团队工程在工作区内唯一
         description:
           type: string
           readOnly: true
@@ -3186,6 +4346,7 @@ components:
       - id
       - identifier
       - name
+      - owner
       - updated_at
       - workspace
     ProjectEngineering:
@@ -3205,8 +4366,12 @@ components:
           type: string
         workspace_slug:
           type: string
+          nullable: true
+          description: 团队工程归属 slug；私人工程为 null
         workspace_name:
           type: string
+          nullable: true
+          description: 团队工程名；私人工程为 null
         total_tasks:
           type: integer
         open_tasks:
@@ -3216,10 +4381,13 @@ components:
         started_tasks:
           type: integer
         progress:
-          type: number
-          format: double
+          type: integer
+          description: 0~100 整数（DOMAIN_MODEL §3 统一量纲）；有 Global Plan 时=Σ(weight×progress)/Σweight，否则=已完成/总数×100
           readOnly: true
-          description: 0~1；有 Global Plan 时=Σ(weight×progress)/Σweight，否则=已完成/总数
+        progress_source:
+          type: string
+          readOnly: true
+          description: '"plan"（Stage 加权）或 "tasks"（任务完成率回退）——进度唯一计算来源的显式标注'
         current_stage:
           type: string
           nullable: true
@@ -3291,6 +4459,7 @@ components:
       - now_task
       - open_tasks
       - progress
+      - progress_source
       - recent_done
       - started_tasks
       - today_logs
@@ -3421,14 +4590,15 @@ components:
       - weight
     ProjectStageWrite:
       type: object
-      description: 新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+      description: |-
+        新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+
+        `order` **不可写**（Phase 0 风险 R-05 收紧）：追加由 service 按"现有最大 +1"发号，
+        重排（swap/shift）服务尚未提供；开放 order 会撞 `uniq_stage_order_per_plan` 唯一约束。
       properties:
         name:
           type: string
           maxLength: 120
-        order:
-          type: integer
-          minimum: 0
         weight:
           type: integer
           minimum: 1
@@ -3444,7 +4614,9 @@ components:
       - name
     ProjectWrite:
       type: object
-      description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。
+      description: |-
+        创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
+        由 service 显式校验。
       properties:
         name:
           type: string

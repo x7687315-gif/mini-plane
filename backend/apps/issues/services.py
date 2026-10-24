@@ -53,12 +53,14 @@ def create_issue(
     state: State | None = None,
     assignee=None,
     labels=None,
+    stage=None,
 ) -> Issue:
     """创建 Issue 并发放项目内序号（决策 D9），写一条 `issue.created` 留痕。
 
     `select_for_update()` 锁住 Project 行 → 同一项目的并发创建被串行化 →
     `issue_sequence` 自增与 Issue 落库在同一事务里，不会出现重号。
     发号用的是重新读取的 `locked` 实例，避免使用调用方手上可能过期的对象。
+    `stage` 可选归属（DOMAIN_MODEL §2）；同项目校验在 serializer（跨项目 → 400）。
     """
     locked = Project.objects.select_for_update().get(pk=project.pk)
     locked.issue_sequence += 1
@@ -73,6 +75,7 @@ def create_issue(
         state=state or get_default_state(locked),
         assignee=assignee,
         created_by=actor,
+        stage=stage,
     )
     if labels:
         issue.labels.set(labels)
@@ -92,7 +95,7 @@ def create_issue(
 def update_issue(issue: Issue, *, actor, **fields) -> Issue:
     """部分更新：只处理调用方提交的字段（serializer 已做跨作用域校验）。
 
-    可改字段白名单 = title / description / priority / state / assignee / labels；
+    可改字段白名单 = title / description / priority / state / assignee / labels / stage；
     `sequence_id`、`created_by`、`project` 不在白名单内，天然不可改（04 契约）。
 
     留痕规则（06 契约）：取更新前后的快照做 diff，**只记录真正变化的字段**；
@@ -107,7 +110,7 @@ def update_issue(issue: Issue, *, actor, **fields) -> Issue:
             raise ValidationError({"title": ["该字段是必填项。"]})
         issue.title = title.strip()
 
-    for key in ("description", "priority", "state", "assignee"):
+    for key in ("description", "priority", "state", "assignee", "stage"):
         if key in fields:
             setattr(issue, key, fields[key])
 

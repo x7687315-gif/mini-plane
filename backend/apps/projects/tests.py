@@ -71,7 +71,7 @@ class ProjectCRUDTests(ProjectTestBase):
         super().setUpTestData()
         cls._build_workspace()
         cls.project = services.create_project(
-            cls.workspace, cls.b, name="成员的项目", identifier=IDENTIFIER
+            cls.b, workspace=cls.workspace, name="成员的项目", identifier=IDENTIFIER
         )
 
     def test_create_project_creator_admin_and_five_states(self):
@@ -190,7 +190,9 @@ class ProjectPermissionMatrixTests(ProjectTestBase):
     def setUpTestData(cls):
         super().setUpTestData()
         cls._build_workspace()
-        cls.project = services.create_project(cls.workspace, cls.a, name="矩阵", identifier="MTX")
+        cls.project = services.create_project(
+            cls.a, workspace=cls.workspace, name="矩阵", identifier="MTX"
+        )
         cls.member_b = ProjectMember.objects.create(
             project=cls.project, user=cls.b, role=ProjectRoles.MEMBER
         )
@@ -233,7 +235,7 @@ class ProjectMemberTests(ProjectTestBase):
         super().setUpTestData()
         cls._build_workspace()
         cls.project = services.create_project(
-            cls.workspace, cls.a, name="成员测试", identifier="MBR"
+            cls.a, workspace=cls.workspace, name="成员测试", identifier="MBR"
         )
         cls.member_b = ProjectMember.objects.create(
             project=cls.project, user=cls.b, role=ProjectRoles.MEMBER
@@ -297,7 +299,9 @@ class ProjectMemberTests(ProjectTestBase):
     def test_project_list_query_count_no_n_plus_one(self):
         """项目列表：5 个项目时查询数与 1 个项目时一致（角色映射批量计算）。"""
         for i in range(4):
-            services.create_project(self.workspace, self.a, name=f"P{i}", identifier=f"P{i}X")
+            services.create_project(
+                self.a, workspace=self.workspace, name=f"P{i}", identifier=f"P{i}X"
+            )
         url = self.projects_url()
         client = self.client_as(self.c)
 
@@ -317,9 +321,11 @@ class UnknownMemberIdTests(ProjectTestBase):
         super().setUpTestData()
         cls._build_workspace()
         cls.project = services.create_project(
-            cls.workspace, cls.a, name="404 测试", identifier="N404"
+            cls.a, workspace=cls.workspace, name="404 测试", identifier="N404"
         )
-        cls.other = services.create_project(cls.workspace, cls.a, name="别的项目", identifier="OTH")
+        cls.other = services.create_project(
+            cls.a, workspace=cls.workspace, name="别的项目", identifier="OTH"
+        )
 
     def test_patch_unknown_member_404(self):
         url = f"{self.members_url()}00000000-0000-0000-0000-000000000000/"
@@ -350,7 +356,9 @@ class UniquenessRaceGuardTests(ProjectTestBase):
 
         with mock.patch.object(Project.objects, "create", side_effect=IntegrityError):
             with self.assertRaises(ValidationError):
-                services.create_project(self.workspace, self.a, name="竞态", identifier="RACE")
+                services.create_project(
+                    self.a, workspace=self.workspace, name="竞态", identifier="RACE"
+                )
 
     def test_add_member_race_becomes_400(self):
         from unittest import mock
@@ -358,7 +366,9 @@ class UniquenessRaceGuardTests(ProjectTestBase):
         from django.db import IntegrityError
         from rest_framework.exceptions import ValidationError
 
-        project = services.create_project(self.workspace, self.a, name="竞态2", identifier="RAC2")
+        project = services.create_project(
+            self.a, workspace=self.workspace, name="竞态2", identifier="RAC2"
+        )
         with mock.patch.object(ProjectMember.objects, "create", side_effect=IntegrityError):
             with self.assertRaises(ValidationError):
                 services.add_member(self.workspace, project, str(self.b.id), ProjectRoles.MEMBER)
@@ -378,7 +388,9 @@ class MyProjectsSummaryTests(APITestCase):
             username="stranger", email="stranger@test.cn", password=PASSWORD
         )
         self.ws = ws_services.create_workspace(self.user, "工程工作区", "eng-ws")
-        self.proj = services.create_project(self.ws, self.user, name="Amiya", identifier="AMI")
+        self.proj = services.create_project(
+            self.user, workspace=self.ws, name="Amiya", identifier="AMI"
+        )
         states = {s.group: s for s in self.proj.states.all()}
         issue_services.create_issue(self.proj, self.user, title="now-task", state=states["started"])
         issue_services.create_issue(
@@ -389,7 +401,7 @@ class MyProjectsSummaryTests(APITestCase):
 
         # 陌生人的项目：不应出现在"我的工程"里（可见性隔离）
         other_ws = ws_services.create_workspace(self.other, "他人", "other-ws")
-        services.create_project(other_ws, self.other, name="Secret", identifier="SEC")
+        services.create_project(self.other, workspace=other_ws, name="Secret", identifier="SEC")
 
     def test_summary_fields(self):
         self.client.force_authenticate(self.user)
@@ -406,7 +418,9 @@ class MyProjectsSummaryTests(APITestCase):
         self.assertEqual(p["done_tasks"], 2)
         self.assertEqual(p["open_tasks"], 2)
         self.assertEqual(p["started_tasks"], 1)
-        self.assertEqual(p["progress"], 0.5)
+        # DOMAIN_MODEL §3：progress 统一 0-100 整数 + progress_source 显式标注
+        self.assertEqual(p["progress"], 50)
+        self.assertEqual(p["progress_source"], "tasks")
         self.assertEqual(p["now_task"], "now-task")
         self.assertEqual(p["current_stage"], "In Progress")
         self.assertEqual(p["next_task"], "next-task")
@@ -434,7 +448,7 @@ class PlanStageTests(APITestCase):
         WorkspaceMember.objects.create(
             workspace=self.ws, user=self.viewer, role=WorkspaceRoles.VIEWER
         )
-        self.proj = services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.proj = services.create_project(self.user, workspace=self.ws, name="P", identifier="PP")
         self.plan_url = f"/api/v1/workspaces/{self.ws.slug}/projects/{self.proj.id}/plan/"
         self.client.force_authenticate(self.user)
 
@@ -470,7 +484,7 @@ class PlanStageTests(APITestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_stage_of_other_project_is_404(self):
-        other = services.create_project(self.ws, self.user, name="O", identifier="OO")
+        other = services.create_project(self.user, workspace=self.ws, name="O", identifier="OO")
         sid = self.client.post(
             f"/api/v1/workspaces/{self.ws.slug}/projects/{other.id}/plan/",
             {"name": "OS"},

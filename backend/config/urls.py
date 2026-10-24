@@ -16,9 +16,12 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/health/", core_views.health, name="health"),
     path("api/v1/auth/", include("apps.users.urls")),
+    # 「我的工作」聚合（历史挂载位；对外命名统一 Task 属 Phase 4 前端切换，路径暂不动）
     path("api/v1/issues/", include("apps.issues.urls")),
-    path("api/v1/projects/", include("apps.projects.urls_global")),
+    # 工程规范路由（Phase 3：/projects/ 列表/创建 + /projects/{pid}/… 全部子资源 + mine/）
+    path("api/v1/projects/", include("apps.projects.urls_canonical")),
     path("api/v1/agent/", include("apps.agents.urls")),
+    # 兼容路由：/workspaces/{slug}/projects/{pid}/…（deprecated，委托同一视图实现）
     path("api/v1/", include("apps.workspaces.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

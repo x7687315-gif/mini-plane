@@ -91,7 +91,9 @@ resolve_project(user, project_id):
 
 ## 7. 校验语义（跨项目注入防护）
 
-- Task/Worklog 提交的 `stage_id` 若不属于本项目 → **404**（防枚举，与既有 Worklog.stage 行为一致；冻结进契约）。
+- 请求体中的引用字段（Task 的 `stage_id`/`state_id`/`label_ids`）若不属于本项目 → **400 字段错误**（既有 state/labels 同语义，Phase 2 已按此实现）。
+- URL 路径中的 ID 越界（如 Stage 详情/删除路径）→ **404**（防枚举语义）。
+- Worklog 的 `stage_id` 历史实现为 404（`_resolve_stage`），Phase 3 契约统一时对齐为 400 字段错误。
 - Agent 写入的 workspace_slug/project_id 组合不存在或不属于该 token 可见集 → 404。
 
 ## 8. 现状 → 目标的差异清单（Phase 2 实施项）

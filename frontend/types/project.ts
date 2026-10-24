@@ -6,7 +6,10 @@ import type { MemberSummary } from "./workspace";
 
 export interface Project {
   id: string;
-  workspace: string;
+  /** 团队工程的工作区 id；私人工程为 null（ADR-001）。 */
+  workspace: string | null;
+  /** 工程所有者（ADR-001：owner 恒可访问）。 */
+  owner: string;
   name: string;
   identifier: string;
   description: string;
@@ -21,14 +24,17 @@ export interface ProjectEngineering {
   id: string;
   name: string;
   identifier: string;
-  workspace_slug: string;
-  workspace_name: string;
+  /** 团队工程归属 slug；私人工程为 null（ADR-001）。 */
+  workspace_slug: string | null;
+  workspace_name: string | null;
   total_tasks: number;
   open_tasks: number;
   done_tasks: number;
   started_tasks: number;
-  /** 0~1，已完成/总数。 */
+  /** 0~100 整数（DOMAIN_MODEL §3 统一量纲）。 */
   progress: number;
+  /** 进度唯一计算来源的显式标注："plan"（Stage 加权）| "tasks"（完成率回退）。 */
+  progress_source: "plan" | "tasks";
   current_stage: string | null;
   now_task: string | null;
   next_task: string | null;

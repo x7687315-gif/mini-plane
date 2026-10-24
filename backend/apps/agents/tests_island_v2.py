@@ -28,7 +28,9 @@ class AgentProgressTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", email="o@t.cn", password=PASSWORD)
         self.ws = ws_services.create_workspace(self.user, "W", "ww")
-        self.proj = project_services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.proj = project_services.create_project(
+            self.user, workspace=self.ws, name="P", identifier="PP"
+        )
         self.token, self.raw = AgentToken.mint(self.user, name="ci-agent")
         self.agent = APITestCase.client_class()
         self.agent.credentials(HTTP_AUTHORIZATION=f"Bearer {self.raw}")
@@ -122,7 +124,9 @@ class MineSummaryIslandV2Tests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", email="o@t.cn", password=PASSWORD)
         self.ws = ws_services.create_workspace(self.user, "W", "ww")
-        self.proj = project_services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.proj = project_services.create_project(
+            self.user, workspace=self.ws, name="P", identifier="PP"
+        )
         self.token, self.raw = AgentToken.mint(self.user, name="ci-agent")
         self.agent = APITestCase.client_class()
         self.agent.credentials(HTTP_AUTHORIZATION=f"Bearer {self.raw}")
@@ -192,7 +196,9 @@ class MineSummaryIslandV2Tests(APITestCase):
     def test_no_n_plus_one_across_projects(self):
         """10 个项目也只发固定条数的查询（规格：查询数不随项目数线性增长）。"""
         for i in range(9):  # 加 setUp 里那个共 10 个
-            project_services.create_project(self.ws, self.user, name=f"P{i}", identifier=f"PI{i}")
+            project_services.create_project(
+                self.user, workspace=self.ws, name=f"P{i}", identifier=f"PI{i}"
+            )
         # 实测 5 条且为常量：①可见性子查询 ②DONE 批量 ③日志批量 ④主注解查询 ⑤Plan prefetch
         # （查询里 10 个项目全部走 IN 子查询，没有一条随项目数增长 —— 这就是"无 N+1"）
         with self.assertNumQueries(5):
@@ -200,7 +206,9 @@ class MineSummaryIslandV2Tests(APITestCase):
 
     def test_projects_do_not_cross_contaminate(self):
         """A 项目的已完成任务不能出现在 B 项目的 recent_done 里。"""
-        other = project_services.create_project(self.ws, self.user, name="O", identifier="OO")
+        other = project_services.create_project(
+            self.user, workspace=self.ws, name="O", identifier="OO"
+        )
         states = {s.group: s for s in self.proj.states.all()}
         issue_services.create_issue(
             self.proj, self.user, title="只属于 P", state=states["completed"]

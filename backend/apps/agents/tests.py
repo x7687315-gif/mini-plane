@@ -19,7 +19,9 @@ class AgentApiTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", email="o@t.cn", password=PASSWORD)
         self.ws = ws_services.create_workspace(self.user, "W", "ww")
-        self.proj = project_services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.proj = project_services.create_project(
+            self.user, workspace=self.ws, name="P", identifier="PP"
+        )
         self.token, self.raw = AgentToken.mint(self.user, name="ci-agent")
         self.agent = APITestCase.client_class()
         self.agent.credentials(HTTP_AUTHORIZATION=f"Bearer {self.raw}")
@@ -121,7 +123,9 @@ class AgentSessionTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", email="o@t.cn", password=PASSWORD)
         self.ws = ws_services.create_workspace(self.user, "W", "ww")
-        self.proj = project_services.create_project(self.ws, self.user, name="P", identifier="PP")
+        self.proj = project_services.create_project(
+            self.user, workspace=self.ws, name="P", identifier="PP"
+        )
         self.token, self.raw = AgentToken.mint(self.user, name="ci-agent")
         self.agent = APITestCase.client_class()
         self.agent.credentials(HTTP_AUTHORIZATION=f"Bearer {self.raw}")
@@ -161,7 +165,9 @@ class AgentSessionTests(APITestCase):
         )
 
     def test_end_session_of_other_project_404(self):
-        other = project_services.create_project(self.ws, self.user, name="O", identifier="OO")
+        other = project_services.create_project(
+            self.user, workspace=self.ws, name="O", identifier="OO"
+        )
         # 在 other 项目起一个会话，再用 P 的 accessible 集合去 end（同用户其实都可见）→
         # 改用一个完全无关用户验证 404
         stranger = User.objects.create_user(username="s", email="s@t.cn", password=PASSWORD)

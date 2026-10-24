@@ -47,7 +47,7 @@ class RealtimeScenarioMixin:
             WorkspaceMember.objects.create(workspace=self.workspace, user=user, role=role)
 
         self.project = create_project(
-            self.workspace, self.owner, name="Realtime Project", identifier=identifier
+            self.owner, workspace=self.workspace, name="Realtime Project", identifier=identifier
         )
         for user, role in (
             (self.member, ProjectRoles.MEMBER),

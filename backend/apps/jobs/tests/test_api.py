@@ -96,7 +96,9 @@ class BulkLabelsEndpointTests(JobAPITestCase):
     def test_bulk_with_foreign_issue_400(self):
         from apps.projects.services import create_project
 
-        other_project = create_project(self.workspace, self.owner, name="别处", identifier="BLK2")
+        other_project = create_project(
+            self.owner, workspace=self.workspace, name="别处", identifier="BLK2"
+        )
         foreign = issue_services.create_issue(other_project, self.owner, title="foreign")
 
         self.client.force_authenticate(user=self.owner)

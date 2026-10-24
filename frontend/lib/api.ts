@@ -136,3 +136,14 @@ export function isForbidden(e: unknown): boolean {
 export function isNotFound(e: unknown): boolean {
   return e instanceof ApiError && e.status === 404;
 }
+
+/**
+ * WebSocket 基址：**从 API 基址推导**（同 host 换协议 http→ws / https→wss），
+ * `NEXT_PUBLIC_WS_BASE` 仅作显式覆盖（R-11：两个环境变量各自独立默认值，
+ * 部署只改其一会让 WS 静默指错——表现为永远离线重连且无报错）。
+ */
+export function wsBaseUrl(): string {
+  const override = process.env.NEXT_PUBLIC_WS_BASE;
+  if (override) return override;
+  return BASE.replace(/^http/, "ws");
+}

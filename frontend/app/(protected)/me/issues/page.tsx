@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button, Card, MeasureLine } from "@/components/ui";
-import { useMyIssues } from "@/features/issue";
+import { useMyIssues } from "@/features/task";
 import { useChrome } from "@/stores/chrome";
 import { priorityLabel, type MyIssuesScope } from "@/types/issue";
 
@@ -89,12 +89,19 @@ export default function MyIssuesPage() {
               <span className="text-[11px] font-mono text-[color:var(--color-ink-3)] w-14 flex-shrink-0">
                 #{it.sequence_id}
               </span>
-              <Link
-                href={`/w/${it.workspace_slug}/projects/${it.project}`}
-                className="text-[13px] text-[color:var(--color-ink)] hover:text-[color:var(--color-accent)] truncate min-w-0 flex-1"
-              >
-                {it.title}
-              </Link>
+              {it.workspace_slug ? (
+                <Link
+                  href={`/w/${it.workspace_slug}/projects/${it.project}`}
+                  className="text-[13px] text-[color:var(--color-ink)] hover:text-[color:var(--color-accent)] truncate min-w-0 flex-1"
+                >
+                  {it.title}
+                </Link>
+              ) : (
+                /* 私人工程（ADR-001）暂无独立路由，Phase 5 提供 /projects/{pid} 页 */
+                <span className="text-[13px] text-[color:var(--color-ink)] truncate min-w-0 flex-1">
+                  {it.title}
+                </span>
+              )}
               <span className="text-[10px] uppercase tracking-[0.14em] text-[color:var(--color-ink-3)] font-sans font-medium flex-shrink-0 hidden sm:inline">
                 {it.project_name}
               </span>

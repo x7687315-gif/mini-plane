@@ -1,9 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Card, CardBody, CardHeader, Field, Input } from "@/components/ui";
-import { createAgentToken, listAgentTokens, revokeAgentToken } from "@/features/agents/api";
+import {
+  useAgentTokens,
+  useCreateAgentToken,
+  useRevokeAgentToken,
+} from "@/features/agents/hooks";
 import { AGENT_SCOPE_LABELS } from "@/types/agent";
 
 /**
@@ -13,16 +16,9 @@ import { AGENT_SCOPE_LABELS } from "@/types/agent";
  * Token 权限是白名单（读项目/读任务/写任务/写日志/更新进度），不含破坏性能力。
  */
 export function AgentTokenCard() {
-  const qc = useQueryClient();
-  const { data: tokens } = useQuery({ queryKey: ["agent-tokens"], queryFn: listAgentTokens });
-  const createMutation = useMutation({
-    mutationFn: (name: string) => createAgentToken({ name }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-tokens"] }),
-  });
-  const revokeMutation = useMutation({
-    mutationFn: (id: string) => revokeAgentToken(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-tokens"] }),
-  });
+  const { data: tokens } = useAgentTokens();
+  const createMutation = useCreateAgentToken();
+  const revokeMutation = useRevokeAgentToken();
 
   const [name, setName] = useState("");
   const [revealed, setRevealed] = useState<string | null>(null);

@@ -51,7 +51,7 @@ from apps.projects.serializers import ProjectPlanSerializer, ProjectSerializer
 from apps.projects.services import get_or_create_plan, update_stage
 from apps.worklogs.models import Worklog, WorklogSource
 from apps.worklogs.serializers import WorklogSerializer
-from core.permissions import accessible_project_ids, resolve_project
+from core.permissions import accessible_project_ids, resolve_project, resolve_project_by_id
 
 IDEM_HEADER = "HTTP_IDEMPOTENCY_KEY"
 
@@ -60,6 +60,19 @@ def require_scope(request, scope: str) -> None:
     token = request.auth
     if token is None or scope not in (token.scopes or []):
         raise PermissionDenied(f"Agent Token 缺少权限：{scope}。")
+
+
+def _resolve_agent_project(user, v):
+    """按请求体定位工程（Phase 3 规范化）。
+
+    有 workspace_slug → 旧双重作用域（兼容既有 Agent 调用）；
+    没有 → 规范解析（私人工程也可被 Agent 访问，ADR-001）。
+    不可见/不存在统一 404（防枚举）。
+    """
+    slug = v.get("workspace_slug")
+    if slug:
+        return resolve_project(user, slug, v["project_id"])
+    return resolve_project_by_id(user, v["project_id"])
 
 
 def _replay(request, action: str):
@@ -134,19 +147,39 @@ def agent_token_revoke(request, token_id):
 _AGENT_AUTH = [AgentTokenAuthentication]
 
 
+def _agent_project_get_impl(request, project):
+    require_scope(request, AgentScopes.READ_PROJECT)
+    plan = get_or_create_plan(project)
+    return Response(
+        {"project": ProjectSerializer(project).data, "plan": ProjectPlanSerializer(plan).data}
+    )
+
+
 @extend_schema(
-    summary="project.get：项目 + Global Plan 快照", responses={200: AgentProjectSnapshotSerializer}
+    summary="project.get：工程 + Global Plan 快照（规范路由）",
+    operation_id="agent_project_get_canonical",
+    responses={200: AgentProjectSnapshotSerializer},
+)
+@api_view(["GET"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_project_get_canonical(request, project_id):
+    """规范路由：只凭 Project ID；私人工程对 owner 的 Token 可见（ADR-001）。"""
+    return _agent_project_get_impl(request, resolve_project_by_id(request.user, project_id)[0])
+
+
+@extend_schema(
+    summary="project.get：项目 + Global Plan 快照（兼容路由，deprecated）",
+    deprecated=True,
+    responses={200: AgentProjectSnapshotSerializer},
 )
 @api_view(["GET"])
 @authentication_classes(_AGENT_AUTH)
 @permission_classes([IsAuthenticated])
 def agent_project_get(request, workspace_slug: str, project_id):
-    """project.get：项目 + Global Plan 快照。"""
-    require_scope(request, AgentScopes.READ_PROJECT)
-    project, _ = resolve_project(request.user, workspace_slug, project_id)
-    plan = get_or_create_plan(project)
-    return Response(
-        {"project": ProjectSerializer(project).data, "plan": ProjectPlanSerializer(plan).data}
+    """兼容路由：含 workspace slug 的旧路径，委托同一实现。"""
+    return _agent_project_get_impl(
+        request, resolve_project(request.user, workspace_slug, project_id)[0]
     )
 
 
@@ -168,7 +201,7 @@ def agent_task_create(request):
     serializer = AgentTaskCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
-    project, role = resolve_project(request.user, v["workspace_slug"], v["project_id"])
+    project, role = _resolve_agent_project(request.user, v)
     kwargs = {"title": v["title"], "description": v.get("description", "")}
     if v.get("priority"):
         kwargs["priority"] = v["priority"]
@@ -236,7 +269,7 @@ def agent_worklog_create(request):
     serializer = AgentWorklogCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
-    project, _ = resolve_project(request.user, v["workspace_slug"], v["project_id"])
+    project, _ = _resolve_agent_project(request.user, v)
 
     stage = None
     if v.get("stage_id"):
@@ -258,22 +291,12 @@ def agent_worklog_create(request):
     return _remember(request, "worklog.create", resp)
 
 
-@extend_schema(
-    summary="progress.update：改阶段进度 / 切当前阶段（幂等）",
-    request=AgentProgressSerializer,
-    responses={200: ProjectPlanSerializer},
-)
-@api_view(["POST"])
-@authentication_classes(_AGENT_AUTH)
-@permission_classes([IsAuthenticated])
-def agent_progress_update(request, workspace_slug: str, project_id):
-    """progress.update / stage.update：改某阶段进度或切换当前阶段。"""
+def _agent_progress_update_impl(request, project):
     require_scope(request, AgentScopes.UPDATE_PROGRESS)
     cached = _replay(request, "progress.update")
     if cached is not None:
         return cached
 
-    project, _ = resolve_project(request.user, workspace_slug, project_id)
     serializer = AgentProgressSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
@@ -291,23 +314,71 @@ def agent_progress_update(request, workspace_slug: str, project_id):
     return _remember(request, "progress.update", resp)
 
 
-# ── Sprint 13：Agent Session（开始/结束 + WebSocket 实时）──────────────
+@extend_schema(
+    summary="progress.update：改阶段进度 / 切当前阶段（规范路由，幂等）",
+    operation_id="agent_progress_update_canonical",
+    request=AgentProgressSerializer,
+    responses={200: ProjectPlanSerializer},
+)
+@api_view(["POST"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_progress_update_canonical(request, project_id):
+    return _agent_progress_update_impl(request, resolve_project_by_id(request.user, project_id)[0])
 
 
 @extend_schema(
-    summary="agent.sessions：项目会话列表（?active=1 只看运行中）",
+    summary="progress.update：改阶段进度 / 切当前阶段（兼容路由，deprecated，幂等）",
+    deprecated=True,
+    request=AgentProgressSerializer,
+    responses={200: ProjectPlanSerializer},
+)
+@api_view(["POST"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_progress_update(request, workspace_slug: str, project_id):
+    """兼容路由：含 workspace slug 的旧路径，委托同一实现。"""
+    return _agent_progress_update_impl(
+        request, resolve_project(request.user, workspace_slug, project_id)[0]
+    )
+
+
+# ── Sprint 13：Agent Session（开始/结束 + WebSocket 实时）──────────────
+
+
+def _agent_session_list_impl(request, project):
+    require_scope(request, AgentScopes.READ_PROJECT)
+    qs = project.agent_sessions.select_related("token")
+    if request.query_params.get("active") == "1":
+        qs = qs.filter(status=AgentSessionStatus.RUNNING)
+    return Response(AgentSessionSerializer(qs[:50], many=True).data)
+
+
+@extend_schema(
+    summary="agent.sessions：工程会话列表（规范路由，?active=1 只看运行中）",
+    operation_id="agent_session_list_canonical",
+    responses={200: AgentSessionSerializer(many=True)},
+)
+@api_view(["GET"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_session_list_canonical(request, project_id):
+    return _agent_session_list_impl(request, resolve_project_by_id(request.user, project_id)[0])
+
+
+@extend_schema(
+    summary="agent.sessions：项目会话列表（兼容路由，deprecated）",
+    deprecated=True,
     responses={200: AgentSessionSerializer(many=True)},
 )
 @api_view(["GET"])
 @authentication_classes(_AGENT_AUTH)
 @permission_classes([IsAuthenticated])
 def agent_session_list(request, workspace_slug: str, project_id):
-    require_scope(request, AgentScopes.READ_PROJECT)
-    project, _ = resolve_project(request.user, workspace_slug, project_id)
-    qs = project.agent_sessions.select_related("token")
-    if request.query_params.get("active") == "1":
-        qs = qs.filter(status=AgentSessionStatus.RUNNING)
-    return Response(AgentSessionSerializer(qs[:50], many=True).data)
+    """兼容路由：含 workspace slug 的旧路径，委托同一实现。"""
+    return _agent_session_list_impl(
+        request, resolve_project(request.user, workspace_slug, project_id)[0]
+    )
 
 
 @extend_schema(
@@ -327,7 +398,7 @@ def agent_session_start(request):
     serializer = AgentSessionStartSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
-    project, _ = resolve_project(request.user, v["workspace_slug"], v["project_id"])
+    project, _ = _resolve_agent_project(request.user, v)
     task = None
     if v.get("task_id"):
         task = get_object_or_404(Issue, id=v["task_id"], project=project)
@@ -340,7 +411,7 @@ def agent_session_start(request):
 
 
 @extend_schema(
-    summary="session.end：结束会话（done/failed/stopped，广播 agent.session）",
+    summary="session.end：结束会话（done/failed/stopped，广播 agent.session，幂等）",
     request=AgentSessionEndSerializer,
     responses={200: AgentSessionSerializer},
 )
@@ -348,7 +419,13 @@ def agent_session_start(request):
 @authentication_classes(_AGENT_AUTH)
 @permission_classes([IsAuthenticated])
 def agent_session_end(request, session_id):
+    """Phase 3 补齐幂等（Phase 0 风险 R-06）：与其余 7 个写动作一致，
+    带 Idempotency-Key 的重复 end 直接回放首次响应。"""
     require_scope(request, AgentScopes.WRITE_TASK)
+    cached = _replay(request, "session.end")
+    if cached is not None:
+        return cached
+
     session = get_object_or_404(
         AgentSession, id=session_id, project_id__in=accessible_project_ids(request.user)
     )
@@ -358,7 +435,8 @@ def agent_session_end(request, session_id):
     session = agent_services.end_session(
         session, status=v.get("status", AgentSessionStatus.DONE), note=v.get("note", "")
     )
-    return Response(AgentSessionSerializer(session).data)
+    resp = Response(AgentSessionSerializer(session).data)
+    return _remember(request, "session.end", resp)
 
 
 @extend_schema(

@@ -5,6 +5,7 @@ import re
 from django.conf import settings
 from django.core.validators import MaxValueValidator, RegexValidator
 from django.db import models
+from django.db.models import Q
 
 from apps.workspaces.models import Workspace
 from core.models import BaseModel
@@ -25,20 +26,42 @@ class ProjectRoles(models.IntegerChoices):
 
 
 class Project(BaseModel):
-    """项目：工作区内的协作单元，URL 同时携带 workspace slug 与项目 id（决策 D6）。"""
+    """工程：个人或团队持续推进的协作单元（DOMAIN_MODEL.md · ADR-001 方案 B）。
+
+    所有权：
+    - `owner` 是当前所有者（个人工程的唯一访问者；团队工程里 owner 恒可访问）；
+    - `workspace` **可空**——只有需要团队协作时才设置；私人工程 workspace 为 NULL；
+    - `created_by` 仅是创建审计，不承担所有权语义。
+
+    URL 兼容：旧路径 `/workspaces/{slug}/projects/{id}/` 继续工作（团队工程）；
+    新规范路径 `/api/v1/projects/{id}/` 由 Phase 3 提供。
+    """
 
     workspace = models.ForeignKey(
         Workspace,
         verbose_name="工作区",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="projects",
+        help_text="团队协作范围；私人工程为空",
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="所有者",
+        on_delete=models.PROTECT,
+        related_name="projects_owned",
+        help_text="工程所有者；个人工程仅 owner 可见",
     )
     name = models.CharField("名称", max_length=120)
     identifier = models.CharField(
         "标识符",
         max_length=5,
         validators=[identifier_validator],
-        help_text="2-5 位大写字母数字，用于 Issue 前缀（如 AMI-1），工作区内唯一",
+        help_text=(
+            "2-5 位大写字母数字，用于 Task 前缀（如 AMI-1）；"
+            "私人工程在 owner 内唯一，团队工程在工作区内唯一"
+        ),
     )
     description = models.TextField("描述", blank=True, default="")
     # PROTECT：项目存在期间禁止删除创建者
@@ -53,12 +76,22 @@ class Project(BaseModel):
 
     class Meta:
         constraints = [
+            # 条件唯一（ADR-001）：团队工程按 workspace 唯一，私人工程按 owner 唯一。
+            # SQLite 与 PostgreSQL 均以 partial unique index 实现。
             models.UniqueConstraint(
-                fields=["workspace", "identifier"], name="uniq_project_identifier_per_workspace"
+                fields=["workspace", "identifier"],
+                condition=Q(workspace__isnull=False),
+                name="uniq_project_identifier_per_workspace",
+            ),
+            models.UniqueConstraint(
+                fields=["owner", "identifier"],
+                condition=Q(workspace__isnull=True),
+                name="uniq_project_identifier_per_owner",
             ),
         ]
         indexes = [
             models.Index(fields=["workspace", "-created_at"]),
+            models.Index(fields=["owner", "-created_at"]),
         ]
         ordering = ["-created_at"]
 
@@ -140,6 +173,13 @@ class ProjectStage(BaseModel):
         constraints = [
             models.UniqueConstraint(fields=["plan", "order"], name="uniq_stage_order_per_plan"),
             models.UniqueConstraint(fields=["plan", "name"], name="uniq_stage_name_per_plan"),
+            # is_current 的数据库级兜底（DOMAIN_MODEL §6）：service 事务保证之外的
+            # 第二道保险；SQLite/Postgres 均以 partial unique index 实现。
+            models.UniqueConstraint(
+                fields=["plan"],
+                condition=Q(is_current=True),
+                name="uniq_current_stage_per_plan",
+            ),
         ]
         indexes = [
             models.Index(fields=["plan", "order"]),

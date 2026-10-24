@@ -1,8 +1,8 @@
 /**
- * Comment API — docs/api/05-comments.md.
+ * Comment API — docs/api/05-comments.md · 规范路由见 10-canonical-projects.md。
  *
- * Routes are nested under the issue:
- *   /workspaces/{slug}/projects/{pid}/issues/{iid}/comments/
+ * Routes are nested under the task:
+ *   /api/v1/projects/{pid}/tasks/{tid}/comments/
  *
  * Permission notes:
  * - create → effective role ≥ Member (Viewer gets 403)
@@ -14,8 +14,9 @@ import { api } from "@/lib/api";
 import type { Paginated } from "@/types/project";
 import type { Comment, CreateCommentPayload, UpdateCommentPayload } from "@/types/comment";
 
-function commentsBase(slug: string, projectId: string, issueId: string): string {
-  return `/workspaces/${slug}/projects/${projectId}/issues/${issueId}/comments`;
+/** 规范路由（Phase 4）：slug 参数仅保留签名兼容，URL 不再使用。 */
+function commentsBase(_slug: string, projectId: string, issueId: string): string {
+  return `/projects/${projectId}/tasks/${issueId}/comments`;
 }
 
 export async function listComments(

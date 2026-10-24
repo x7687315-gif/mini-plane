@@ -1,6 +1,8 @@
 """Agent 集成层路由：挂在 /api/v1/agent/ 之下（Sprint 12）。
 
 Token 管理走用户会话；动作端点走 Agent Token（Bearer mpa_…）。
+Phase 3：工程动作提供**规范路由**（只凭 Project ID，私人工程可访问）与
+**兼容路由**（含 workspace slug，deprecated）两种形态，委托同一视图实现。
 """
 
 from django.urls import path
@@ -11,7 +13,23 @@ urlpatterns = [
     # Token 管理（用户会话）
     path("tokens/", views.agent_token_list_create, name="agent-token-list"),
     path("tokens/<uuid:token_id>/revoke/", views.agent_token_revoke, name="agent-token-revoke"),
-    # 工程动作（Agent Token）
+    # 工程动作（Agent Token）——规范路由（Phase 3）
+    path(
+        "projects/<uuid:project_id>/",
+        views.agent_project_get_canonical,
+        name="agent-project-get-canonical",
+    ),
+    path(
+        "projects/<uuid:project_id>/progress/",
+        views.agent_progress_update_canonical,
+        name="agent-progress-update-canonical",
+    ),
+    path(
+        "projects/<uuid:project_id>/sessions/",
+        views.agent_session_list_canonical,
+        name="agent-session-list-canonical",
+    ),
+    # 工程动作——兼容路由（含 workspace slug，deprecated）
     path(
         "projects/<slug:workspace_slug>/<uuid:project_id>/",
         views.agent_project_get,

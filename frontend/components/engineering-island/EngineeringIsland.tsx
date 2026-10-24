@@ -80,9 +80,12 @@ export function EngineeringIsland({ variant = "page" }: { variant?: "page" | "pa
     void (willPin ? desktopBridge.pinIsland() : desktopBridge.unpinIsland()).then(reconcile);
   }, [pinned, reconcile]);
 
-  // 桌面版快捷键：Alt+I 唤出/收起 Island 窗口（主窗口与面板窗口都监听）
+  // 桌面版快捷键：Alt+I 唤出/收起 Island 窗口。
+  // R-14 修复：**仅面板窗口**在此注册——主窗口（含 /island 页）由 AppShell 的
+  // useIslandHotkey 全局注册，两处同挂会让桌面 /island 一次按键触发两次 toggle。
+  // 面板窗口不套 AppShell（(panel)/layout.tsx），本地注册是它唯一的快捷键来源。
   useEffect(() => {
-    if (!isDesktop()) return;
+    if (!isDesktop() || !isPanel) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
@@ -91,7 +94,7 @@ export function EngineeringIsland({ variant = "page" }: { variant?: "page" | "pa
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onToggle]);
+  }, [isPanel, onToggle]);
 
   useEffect(() => {
     if (!isPanel || !isDesktop()) return;

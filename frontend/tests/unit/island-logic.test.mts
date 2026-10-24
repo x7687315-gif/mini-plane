@@ -48,12 +48,12 @@ describe("图纸翻页边界", () => {
   });
 });
 
-describe("进度换算：两套量纲分别显式处理，不靠猜", () => {
-  test("progressPercent 只认 0~1（/projects/mine/ 的比例）", () => {
-    assert.equal(progressPercent(0.72), 72);
+describe("进度：全 API 统一 0~100 量纲（DOMAIN_MODEL §3，Phase 2 起）", () => {
+  test("progressPercent 直通 0~100 整数（mine 聚合与 stage 同量纲）", () => {
+    assert.equal(progressPercent(72), 72);
     assert.equal(progressPercent(0), 0);
-    assert.equal(progressPercent(1), 100, "0~1 量纲里 1 就是 100%");
-    assert.equal(progressPercent(0.005), 1, "0.5% 向上取整到 1%，不显示成 0%");
+    assert.equal(progressPercent(100), 100);
+    assert.equal(progressPercent(1), 1, "0~100 量纲里 1 就是 1%");
   });
 
   test("percentValue 处理 0~100 整数量纲（plan 的 stage.progress）", () => {
@@ -63,7 +63,7 @@ describe("进度换算：两套量纲分别显式处理，不靠猜", () => {
   });
 
   test("越界与非法值被夹住，UI 宽度不接受 103%", () => {
-    assert.equal(progressPercent(1.03), 100);
+    assert.equal(progressPercent(103), 100);
     assert.equal(progressPercent(-0.2), 0);
     assert.equal(progressPercent(Number.NaN), 0);
     assert.equal(progressPercent(null), 0);
