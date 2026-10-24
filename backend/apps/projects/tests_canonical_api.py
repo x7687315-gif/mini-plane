@@ -148,7 +148,7 @@ class CanonicalProjectAPITests(APITestCase):
 
     def test_workspace_create_requires_membership(self):
         from apps.workspaces import services as ws_services
-        from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
+        from apps.workspaces.models import WorkspaceMember, WorkspaceRoles
 
         ws = ws_services.create_workspace(self.alice, "团队", "team-ws")
         # bob 不是成员 → 拒绝创建团队工程

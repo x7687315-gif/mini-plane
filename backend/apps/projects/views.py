@@ -119,7 +119,8 @@ def _project_list_response(queryset, request, workspace=None, workspace_role=Non
     description=(
         "个人优先（ADR-001）：GET 默认返回我拥有的工程（scope=owned，含已共享到团队的）；"
         "scope=accessible 返回我可访问的全部（含他人拥有的团队工程）。"
-        "POST 默认创建私人工程（不需要 workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。"
+        "POST 默认创建私人工程（不需要 workspace）；"
+        "传 workspace_id 则创建该团队的工程（需成员权限）。"
     ),
     request=ProjectWriteSerializer,
     responses={200: ProjectSerializer(many=True), 201: ProjectSerializer},
@@ -150,7 +151,7 @@ def project_list_create_canonical(request):
         try:
             workspace = Workspace.objects.get(id=workspace_id)
         except (ObjectDoesNotExist, ValueError, TypeError):
-            raise ValidationError({"workspace_id": ["工作区不存在。"]})
+            raise ValidationError({"workspace_id": ["工作区不存在。"]}) from None
         # 显式共享进团队：要求请求者是该 WS 的 Member+（与兼容路由创建门槛一致）
         member_role = (
             WorkspaceMember.objects.filter(workspace=workspace, user=request.user)

@@ -1561,8 +1561,8 @@ paths:
   /api/v1/projects/{project_id}/worklogs/:
     get:
       operationId: v1_projects_worklogs_list
-      description: GET：工程日志（倒序 date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD；POST
-        ≥ Member。
+      description: GET：工程日志（倒序 date → created_at），?date=today 或 YYYY-MM-DD；POST ≥
+        Member。
       summary: 工程日志列表 / 创建（规范路由）
       parameters:
       - in: path
@@ -1592,8 +1592,8 @@ paths:
           description: ''
     post:
       operationId: v1_projects_worklogs_create
-      description: GET：工程日志（倒序 date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD；POST
-        ≥ Member。
+      description: GET：工程日志（倒序 date → created_at），?date=today 或 YYYY-MM-DD；POST ≥
+        Member。
       summary: 工程日志列表 / 创建（规范路由）
       parameters:
       - in: path

@@ -107,7 +107,7 @@ def _worklog_detail_impl(request, project, role, worklog_id):
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def worklog_list_create_canonical(request, project_id):
-    """GET：工程日志（倒序 date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD；POST ≥ Member。"""
+    """GET：工程日志（倒序 date → created_at），?date=today 或 YYYY-MM-DD；POST ≥ Member。"""
     return _worklog_list_create_impl(request, *resolve_project_by_id(request.user, project_id))
 
 

@@ -1,8 +1,8 @@
 """Task（历史名 Issue）/ Label / Comment 接口。
 
 路由形态（Phase 3 契约统一）：
-- **规范路由**：`/api/v1/projects/{pid}/tasks/…`（个人优先，无需 workspace；对外统一 Task 命名）；
-- **兼容路由**：`/workspaces/{ws}/projects/{pid}/issues/…`（旧 URL，委托同一实现，已标记 deprecated）。
+- **规范路由**：`/api/v1/projects/{pid}/tasks/…`（个人优先，无需 workspace）；
+- **兼容路由**：`/workspaces/{ws}/projects/{pid}/issues/…`（旧 URL，deprecated）。
 
 两种路由只差「作用域解析」（resolve_project_by_id vs resolve_project），
 业务体全部在 `_impl` 函数里，同一份实现（计划 §3.4：兼容层薄、可测、可退役）。
