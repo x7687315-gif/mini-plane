@@ -9,6 +9,7 @@
 """
 
 from django.contrib.auth import get_user_model
+from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.activity.models import ActivityLog
@@ -193,3 +194,54 @@ class LastActivityTests(APITestCase):
         row = self._mine_row()
         self.assertEqual(row["progress"], 25)
         self.assertEqual(row["progress_source"], "plan")
+
+
+class AutoIdentifierTests(APITestCase):
+    """identifier 省略时自动生成（个人版冷启动，Phase 5）。"""
+
+    def setUp(self):
+        self.alice = User.objects.create_user(
+            username="auto", email="auto@example.com", password="pw-auto-12345"
+        )
+        self.client.force_authenticate(self.alice)
+
+    def test_create_without_identifier_autogenerates(self):
+        r = self.client.post("/api/v1/projects/", {"name": "Graduation Design"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        # 名称中的 ASCII 字母大写 → "GRAD"
+        self.assertEqual(r.json()["identifier"], "GRAD")
+
+    def test_chinese_name_falls_back_and_stays_unique(self):
+        ids = []
+        for _ in range(3):
+            r = self.client.post("/api/v1/projects/", {"name": "毕业设计"}, format="json")
+            self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+            ids.append(r.json()["identifier"])
+        self.assertEqual(len(set(ids)), 3, "自动生成的 identifier 必须互不相同")
+        for ident in ids:
+            self.assertRegex(ident, r"^[A-Z][A-Z0-9]{1,4}$")
+
+    def test_blank_identifier_on_patch_is_noop(self):
+        r = self.client.post("/api/v1/projects/", {"name": "Keep"}, format="json")
+        pid = r.json()["id"]
+        original = r.json()["identifier"]
+        r = self.client.patch(f"/api/v1/projects/{pid}/", {"identifier": ""}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.assertEqual(r.json()["identifier"], original)
+
+
+class NowTaskIdTests(APITestCase):
+    """mine 聚合的 now_task_id 与 now_task 同源（Phase 5 首页「继续」行依赖）。"""
+
+    def test_now_task_id_present(self):
+        from apps.issues import services as issue_services
+
+        u = User.objects.create_user(
+            username="ntid", email="ntid@example.com", password="pw-ntid-12345"
+        )
+        p = project_services.create_project(u, name="N", identifier="NTID")
+        issue_services.create_issue(p, u, title="正在做的事")
+        self.client.force_authenticate(u)
+        row = self.client.get("/api/v1/projects/mine/").json()[0]
+        self.assertIsNotNone(row["now_task_id"])
+        self.assertIsNotNone(row["now_task"])
