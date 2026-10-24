@@ -42,12 +42,16 @@ class LabelWriteSerializer(serializers.ModelSerializer):
 
 
 class IssueSerializer(serializers.ModelSerializer):
-    """Issue 只读响应体。调用方需 select_related(state/assignee/created_by) + prefetch(labels)。"""
+    """Issue 只读响应体。调用方需 select_related(state/assignee/created_by/stage)
+    + prefetch(labels)。"""
 
     state = StateSerializer(read_only=True)
     assignee = UserLiteSerializer(read_only=True)
     created_by = UserLiteSerializer(read_only=True)
     labels = LabelSerializer(many=True, read_only=True)
+    stage = serializers.SerializerMethodField(
+        help_text="所属 Stage {id, name, order}；未归属为 null"
+    )
 
     class Meta:
         model = Issue
@@ -62,22 +66,35 @@ class IssueSerializer(serializers.ModelSerializer):
             "assignee",
             "created_by",
             "labels",
+            "stage",
             "created_at",
             "updated_at",
         ]
         read_only_fields = fields
 
+    def get_stage(self, obj) -> dict | None:
+        stage = obj.stage
+        if stage is None:
+            return None
+        return {"id": str(stage.id), "name": stage.name, "order": stage.order}
+
 
 class MyIssueSerializer(IssueSerializer):
-    """「我的工作」专用：在 IssueSerializer 基础上补项目名与工作区 slug，
-    让跨项目聚合列表能显示归属并深链到对应项目（IssueSerializer 本身只有 project id）。
+    """「我的工作」专用：在 IssueSerializer 基础上补项目名与归属信息，
+    让跨项目聚合列表能显示归属并深链（IssueSerializer 本身只有 project id）。
+    私人工程（workspace 为空，ADR-001）workspace_slug 为 null。
     """
 
     project_name = serializers.CharField(source="project.name", read_only=True)
-    workspace_slug = serializers.CharField(source="project.workspace.slug", read_only=True)
+    workspace_slug = serializers.SerializerMethodField(
+        help_text="团队工程的归属 slug；私人工程为 null"
+    )
 
     class Meta(IssueSerializer.Meta):
         fields = [*IssueSerializer.Meta.fields, "project_name", "workspace_slug"]
+
+    def get_workspace_slug(self, obj) -> str | None:
+        return obj.project.workspace.slug if obj.project.workspace_id else None
 
 
 class IssueWriteSerializer(serializers.Serializer):
@@ -115,6 +132,11 @@ class IssueWriteSerializer(serializers.Serializer):
         max_length=50,
         help_text="标签 id 列表（最多 50 个）；空数组表示清空标签",
     )
+    stage_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        help_text="所属 Stage id（可选归属，DOMAIN_MODEL §2）；必须属于同一项目，null 表示脱离阶段",
+    )
 
     def validate(self, attrs):
         project = self.context["project"]
@@ -124,6 +146,20 @@ class IssueWriteSerializer(serializers.Serializer):
             if state is None:
                 raise serializers.ValidationError({"state": ["所选状态不属于该项目。"]})
             attrs["state"] = state
+
+        if "stage_id" in attrs:
+            # Task↔Stage（ADR-001 / DOMAIN_MODEL §2）：可选单关联；同项目校验
+            # 跨项目注入 → 400 字段错误（与 state/labels 同语义；URL 中的越界 id 才 404）
+            stage_id = attrs.pop("stage_id")
+            if stage_id is None:
+                attrs["stage"] = None
+            else:
+                from apps.projects.models import ProjectStage
+
+                stage = ProjectStage.objects.filter(id=stage_id, plan__project=project).first()
+                if stage is None:
+                    raise serializers.ValidationError({"stage": ["所选阶段不属于该项目。"]})
+                attrs["stage"] = stage
 
         if "assignee_id" in attrs:
             assignee_id = attrs.pop("assignee_id")

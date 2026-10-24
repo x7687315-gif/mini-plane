@@ -2689,7 +2689,9 @@ components:
         * `cancelled` - 已取消
     Issue:
       type: object
-      description: Issue 只读响应体。调用方需 select_related(state/assignee/created_by) + prefetch(labels)。
+      description: |-
+        Issue 只读响应体。调用方需 select_related(state/assignee/created_by/stage)
+        + prefetch(labels)。
       properties:
         id:
           type: string
@@ -2734,6 +2736,12 @@ components:
           items:
             $ref: '#/components/schemas/Label'
           readOnly: true
+        stage:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+          description: 所属 Stage {id, name, order}；未归属为 null
         created_at:
           type: string
           format: date-time
@@ -2752,6 +2760,7 @@ components:
       - priority
       - project
       - sequence_id
+      - stage
       - state
       - title
       - updated_at
@@ -2826,6 +2835,11 @@ components:
             format: uuid
           description: 标签 id 列表（最多 50 个）；空数组表示清空标签
           maxItems: 50
+        stage_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: 所属 Stage id（可选归属，DOMAIN_MODEL §2）；必须属于同一项目，null 表示脱离阶段
       required:
       - title
     KindEnum:
@@ -2894,8 +2908,9 @@ components:
     MyIssue:
       type: object
       description: |-
-        「我的工作」专用：在 IssueSerializer 基础上补项目名与工作区 slug，
-        让跨项目聚合列表能显示归属并深链到对应项目（IssueSerializer 本身只有 project id）。
+        「我的工作」专用：在 IssueSerializer 基础上补项目名与归属信息，
+        让跨项目聚合列表能显示归属并深链（IssueSerializer 本身只有 project id）。
+        私人工程（workspace 为空，ADR-001）workspace_slug 为 null。
       properties:
         id:
           type: string
@@ -2940,6 +2955,12 @@ components:
           items:
             $ref: '#/components/schemas/Label'
           readOnly: true
+        stage:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+          description: 所属 Stage {id, name, order}；未归属为 null
         created_at:
           type: string
           format: date-time
@@ -2953,7 +2974,9 @@ components:
           readOnly: true
         workspace_slug:
           type: string
+          nullable: true
           readOnly: true
+          description: 团队工程的归属 slug；私人工程为 null
       required:
       - assignee
       - created_at
@@ -2965,6 +2988,7 @@ components:
       - project
       - project_name
       - sequence_id
+      - stage
       - state
       - title
       - updated_at
@@ -3023,6 +3047,11 @@ components:
             format: uuid
           description: 标签 id 列表（最多 50 个）；空数组表示清空标签
           maxItems: 50
+        stage_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: 所属 Stage id（可选归属，DOMAIN_MODEL §2）；必须属于同一项目，null 表示脱离阶段
     PatchedLabelWrite:
       type: object
       description: 标签创建 / 更新请求体；项目内 name 唯一由 service 显式校验。
@@ -3042,14 +3071,15 @@ components:
           $ref: '#/components/schemas/RoleEnum'
     PatchedProjectStageWrite:
       type: object
-      description: 新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+      description: |-
+        新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+
+        `order` **不可写**（Phase 0 风险 R-05 收紧）：追加由 service 按"现有最大 +1"发号，
+        重排（swap/shift）服务尚未提供；开放 order 会撞 `uniq_stage_order_per_plan` 唯一约束。
       properties:
         name:
           type: string
           maxLength: 120
-        order:
-          type: integer
-          minimum: 0
         weight:
           type: integer
           minimum: 1
@@ -3063,7 +3093,9 @@ components:
           type: boolean
     PatchedProjectWrite:
       type: object
-      description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。
+      description: |-
+        创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
+        由 service 显式校验。
       properties:
         name:
           type: string
@@ -3147,7 +3179,13 @@ components:
           type: string
           format: uuid
           readOnly: true
+          nullable: true
           title: 工作区
+          description: 团队协作范围；私人工程为空
+        owner:
+          type: string
+          format: uuid
+          readOnly: true
         name:
           type: string
           readOnly: true
@@ -3156,7 +3194,7 @@ components:
           type: string
           readOnly: true
           title: 标识符
-          description: 2-5 位大写字母数字，用于 Issue 前缀（如 AMI-1），工作区内唯一
+          description: 2-5 位大写字母数字，用于 Task 前缀（如 AMI-1）；私人工程在 owner 内唯一，团队工程在工作区内唯一
         description:
           type: string
           readOnly: true
@@ -3186,6 +3224,7 @@ components:
       - id
       - identifier
       - name
+      - owner
       - updated_at
       - workspace
     ProjectEngineering:
@@ -3205,8 +3244,12 @@ components:
           type: string
         workspace_slug:
           type: string
+          nullable: true
+          description: 团队工程归属 slug；私人工程为 null
         workspace_name:
           type: string
+          nullable: true
+          description: 团队工程名；私人工程为 null
         total_tasks:
           type: integer
         open_tasks:
@@ -3216,10 +3259,13 @@ components:
         started_tasks:
           type: integer
         progress:
-          type: number
-          format: double
+          type: integer
+          description: 0~100 整数（DOMAIN_MODEL §3 统一量纲）；有 Global Plan 时=Σ(weight×progress)/Σweight，否则=已完成/总数×100
           readOnly: true
-          description: 0~1；有 Global Plan 时=Σ(weight×progress)/Σweight，否则=已完成/总数
+        progress_source:
+          type: string
+          readOnly: true
+          description: '"plan"（Stage 加权）或 "tasks"（任务完成率回退）——进度唯一计算来源的显式标注'
         current_stage:
           type: string
           nullable: true
@@ -3291,6 +3337,7 @@ components:
       - now_task
       - open_tasks
       - progress
+      - progress_source
       - recent_done
       - started_tasks
       - today_logs
@@ -3421,14 +3468,15 @@ components:
       - weight
     ProjectStageWrite:
       type: object
-      description: 新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+      description: |-
+        新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
+
+        `order` **不可写**（Phase 0 风险 R-05 收紧）：追加由 service 按"现有最大 +1"发号，
+        重排（swap/shift）服务尚未提供；开放 order 会撞 `uniq_stage_order_per_plan` 唯一约束。
       properties:
         name:
           type: string
           maxLength: 120
-        order:
-          type: integer
-          minimum: 0
         weight:
           type: integer
           minimum: 1
@@ -3444,7 +3492,9 @@ components:
       - name
     ProjectWrite:
       type: object
-      description: 创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。
+      description: |-
+        创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
+        由 service 显式校验。
       properties:
         name:
           type: string

@@ -95,7 +95,9 @@ def project_list_create(request, workspace_slug: str):
         raise PermissionDenied()  # WS Viewer 不能创建项目（矩阵 §4.2）
     serializer = ProjectWriteSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    project = services.create_project(workspace, request.user, **serializer.validated_data)
+    project = services.create_project(
+        request.user, workspace=workspace, **serializer.validated_data
+    )
     body = ProjectSerializer(project, context={"role": ProjectRoles.ADMIN})
     return Response(body.data, status=status.HTTP_201_CREATED)
 
@@ -117,7 +119,10 @@ def project_detail(request, workspace_slug: str, project_id):
         cached = project_cache.get_detail(workspace_slug, project_id)
         if cached is not None:
             role = get_effective_project_role_by_ids(
-                request.user, workspace_id=cached["workspace"], project_id=project_id
+                request.user,
+                workspace_id=cached["workspace"],
+                project_id=project_id,
+                owner_id=cached.get("owner"),
             )
             if role is None:
                 raise Http404  # 与冷路径一致：非成员一律 404（防枚举）
@@ -281,7 +286,7 @@ def my_projects_summary(request):
                 _issue_field("title", started, order=("created_at",)),
                 output_field=CharField(),
             ),
-            last_activity=_issue_field("updated_at", order=("-updated_at",)),
+            last_task_activity=_issue_field("updated_at", order=("-updated_at",)),
             # Sprint 11：今日工程日志条数（首页 Today 维度）
             today_logs=Coalesce(
                 Subquery(
@@ -311,19 +316,36 @@ def my_projects_summary(request):
         )
         # Plan/Stages 用 prefetch 一次取回（2 条额外查询），供 progress/current_stage 优先读 Plan
         .prefetch_related("plan__stages")
-        .order_by("-last_activity", "name")
+        .order_by()  # last_activity 在 Python 侧合成（三元 max），见下
     )
 
     # Island V2 阶段 3：DONE 与最新日志用**两条批量查询**取回，再按项目分组。
     # 为什么不用 ArrayAgg：桌面版跑 SQLite，没有数组聚合；而"每项目一条查询"
     # 就是规格明令禁止的 N+1。两条查询 + Python 分组 = O(1) 次查询。
-    project_ids = list(queryset.values_list("id", flat=True))
+    projects = list(queryset)
+    project_ids = [p.id for p in projects]
     recent_done = _recent_done_titles(project_ids)
     latest_log = _latest_logs(project_ids)
 
+    # last_activity 唯一定义（DOMAIN_MODEL §3，Phase 0 修订）：
+    # max(最新 Task.updated_at, 最新 Worklog.updated_at, Project.updated_at)。
+    # 不在 SQL 里用 Greatest 合成：SQLite 标量 MAX 对 NULL 传播，跨引擎行为不一致，
+    # Python 侧合成一次 O(n) 更诚实（n = 个人工程数量级）。
+    for p in projects:
+        log_row = latest_log.get(str(p.id))
+        times = [
+            t
+            for t in (p.last_task_activity, log_row and log_row.get("updated_at"), p.updated_at)
+            if t is not None
+        ]
+        p.last_activity = max(times) if times else None
+    projects.sort(
+        key=lambda p: (-(p.last_activity.timestamp() if p.last_activity else 0.0), p.name)
+    )
+
     return Response(
         ProjectEngineeringSerializer(
-            queryset,
+            projects,
             many=True,
             context={"recent_done": recent_done, "latest_log": latest_log},
         ).data
@@ -366,20 +388,29 @@ def _recent_done_titles(project_ids: list) -> dict[str, list[str]]:
 
 
 def _latest_logs(project_ids: list) -> dict[str, dict]:
-    """每个项目最新一条工程日志的标题与结论（实际做了什么）。"""
+    """每个项目最新一条工程日志的标题与结论（实际做了什么）。
+
+    额外带回 `updated_at` 供视图合成 last_activity（DOMAIN_MODEL §3）；
+    序列化器输出时会剥掉这个内部字段。
+    """
     if not project_ids:
         return {}
     rows = (
         Worklog.objects.filter(project_id__in=project_ids)
         .order_by("project_id", "-date", "-created_at")
-        .values_list("project_id", "title", "summary", "date")
+        .values_list("project_id", "title", "summary", "date", "updated_at")
     )
     out: dict[str, dict] = {}
-    for pid, title, summary, date in rows:
+    for pid, title, summary, date, updated_at in rows:
         key = str(pid)
         if key in out:
             continue  # 已按 (project, -date) 排序，第一个就是最新
-        out[key] = {"title": title, "summary": summary, "date": date.isoformat()}
+        out[key] = {
+            "title": title,
+            "summary": summary,
+            "date": date.isoformat(),
+            "updated_at": updated_at,
+        }
     return out
 
 
@@ -410,7 +441,6 @@ def plan_detail(request, workspace_slug: str, project_id):
     stage = services.add_stage(
         plan,
         name=v["name"],
-        order=v.get("order"),
         weight=v.get("weight", 1),
         progress=v.get("progress", 0),
         goal=v.get("goal", ""),

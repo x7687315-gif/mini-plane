@@ -10,7 +10,7 @@
 from apps.activity.models import Actions, ActivityLog, EntityTypes
 
 # 06 契约「字段 diff 白名单」：只有这些字段的变化会进活动流
-TRACKED_ISSUE_FIELDS = ("title", "description", "state", "priority", "assignee", "labels")
+TRACKED_ISSUE_FIELDS = ("title", "description", "state", "priority", "assignee", "labels", "stage")
 
 
 def record_activity(
@@ -104,6 +104,7 @@ def capture_issue_snapshot(issue, *, labels=None) -> dict:
         "priority": issue.priority,
         "assignee": issue.assignee.username if issue.assignee_id else None,
         "labels": sorted(labels),
+        "stage": issue.stage.name if issue.stage_id else None,
     }
 
 

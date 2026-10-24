@@ -149,7 +149,7 @@ class IssueRecordingTests(IssueAPITestCase):
         from apps.projects import services as project_services
 
         project = project_services.create_project(
-            self.workspace, self.owner, name="留痕项目", identifier="TRC"
+            self.owner, workspace=self.workspace, name="留痕项目", identifier="TRC"
         )
         created = ActivityLog.objects.get(
             entity_type=EntityTypes.PROJECT, entity_id=project.id, action=Actions.CREATED
@@ -168,7 +168,7 @@ class IssueRecordingTests(IssueAPITestCase):
         from apps.projects import services as project_services
 
         project = project_services.create_project(
-            self.workspace, self.owner, name="没变项目", identifier="TRE"
+            self.owner, workspace=self.workspace, name="没变项目", identifier="TRE"
         )
         project_services.update_project(project, actor=self.owner, name="没变项目")
         self.assertFalse(
@@ -288,7 +288,8 @@ class ActivityEndpointTests(IssueAPITestCase):
         self.assertEqual(self.client.delete(self.issue_activities_url(self.issue)).status_code, 405)
 
     def test_activities_query_count_has_no_n_plus_one(self):
-        """解析项目 2 次 + 分页 count 1 次 + 取页 1 次（actor 已 select_related）= 4。"""
+        """owner 短路（ADR-001）：解析项目 1 次 + 分页 count 1 次 + 取页 1 次 = 3。
+        （原为 4：resolve 需查 ProjectMember；owner 命中短路省去该查询。）"""
         self.auth(self.owner)
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(3):
             self.client.get(self.project_activities_url)

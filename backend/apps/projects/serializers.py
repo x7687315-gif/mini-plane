@@ -18,6 +18,7 @@ from apps.users.serializers import UserLiteSerializer
 
 class ProjectSerializer(serializers.ModelSerializer):
     created_by = serializers.UUIDField(source="created_by_id", read_only=True)
+    owner = serializers.UUIDField(source="owner_id", read_only=True)
     current_user_role = serializers.SerializerMethodField(
         help_text="当前请求用户的生效角色（20/15/5）"
     )
@@ -27,6 +28,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "workspace",
+            "owner",
             "name",
             "identifier",
             "description",
@@ -42,7 +44,8 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 
 class ProjectWriteSerializer(serializers.ModelSerializer):
-    """创建 / 更新请求体。identifier 唯一性（工作区内）由 service 显式校验。"""
+    """创建 / 更新请求体。identifier 唯一性（私人按 owner / 团队按 workspace）
+    由 service 显式校验。"""
 
     identifier = serializers.CharField(
         max_length=5, validators=[identifier_validator], help_text="2-5 位大写字母数字，Issue 前缀"
@@ -90,14 +93,22 @@ class ProjectEngineeringSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()
     identifier = serializers.CharField()
-    workspace_slug = serializers.CharField()
-    workspace_name = serializers.CharField()
+    workspace_slug = serializers.CharField(
+        allow_null=True, help_text="团队工程归属 slug；私人工程为 null"
+    )
+    workspace_name = serializers.CharField(allow_null=True, help_text="团队工程名；私人工程为 null")
     total_tasks = serializers.IntegerField()
     open_tasks = serializers.IntegerField()
     done_tasks = serializers.IntegerField()
     started_tasks = serializers.IntegerField()
     progress = serializers.SerializerMethodField(
-        help_text="0~1；有 Global Plan 时=Σ(weight×progress)/Σweight，否则=已完成/总数"
+        help_text=(
+            "0~100 整数（DOMAIN_MODEL §3 统一量纲）；有 Global Plan 时"
+            "=Σ(weight×progress)/Σweight，否则=已完成/总数×100"
+        )
+    )
+    progress_source = serializers.SerializerMethodField(
+        help_text='"plan"（Stage 加权）或 "tasks"（任务完成率回退）——进度唯一计算来源的显式标注'
     )
     current_stage = serializers.SerializerMethodField(
         help_text="有 Plan 时为当前 Stage 名，否则回退 NOW 任务所在状态名"
@@ -136,7 +147,11 @@ class ProjectEngineeringSerializer(serializers.Serializer):
         return list(self._extra(obj).get("recent_done", {}).get(str(obj.id), []))
 
     def get_latest_log(self, obj) -> dict | None:
-        return self._extra(obj).get("latest_log", {}).get(str(obj.id))
+        row = self._extra(obj).get("latest_log", {}).get(str(obj.id))
+        if row is None:
+            return None
+        # updated_at 是视图合成 last_activity 用的内部字段，不进响应
+        return {k: row[k] for k in ("title", "summary", "date") if k in row}
 
     def _extra(self, obj) -> dict:
         ctx = self.context or {}
@@ -145,16 +160,29 @@ class ProjectEngineeringSerializer(serializers.Serializer):
             "latest_log": ctx.get("latest_log", {}),
         }
 
-    def get_progress(self, obj) -> float:
+    def get_progress(self, obj) -> int:
+        """0~100 整数（DOMAIN_MODEL §3：全 API 统一量纲，Plan 契约同步）。
+
+        与 plan_progress（ProjectPlanSerializer）同一套加权规则；
+        无 Stage / 零权重 → 回退任务完成率，progress_source 标注 "tasks"。
+        """
+        return self._progress_pair(obj)[1]
+
+    def get_progress_source(self, obj) -> str:
+        source, _ = self._progress_pair(obj)
+        return source
+
+    def _progress_pair(self, obj) -> tuple[str, int]:
         stages = self._plan_stages(obj)
         if stages:
             total_w = sum(s.weight for s in stages)
             if total_w > 0:
-                return round(sum(s.weight * s.progress for s in stages) / total_w / 100, 4)
+                weighted = sum(s.weight * s.progress for s in stages)
+                return "plan", round(weighted / total_w)
         total = obj.total_tasks or 0
         if total <= 0:
-            return 0.0
-        return round((obj.done_tasks or 0) / total, 4)
+            return "tasks", 0
+        return "tasks", round((obj.done_tasks or 0) * 100 / total)
 
     def get_current_stage(self, obj) -> str | None:
         for s in self._plan_stages(obj):
@@ -173,10 +201,13 @@ class ProjectStageSerializer(serializers.ModelSerializer):
 
 
 class ProjectStageWriteSerializer(serializers.Serializer):
-    """新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。"""
+    """新增 / 修改 Stage 的请求体。is_current=true 时同 plan 其余阶段自动取消。
 
-    name = serializers.CharField(max_length=120)
-    order = serializers.IntegerField(required=False, min_value=0)
+    `order` **不可写**（Phase 0 风险 R-05 收紧）：追加由 service 按"现有最大 +1"发号，
+    重排（swap/shift）服务尚未提供；开放 order 会撞 `uniq_stage_order_per_plan` 唯一约束。
+    """
+
+    name = serializers.CharField(max_length=120)  # PATCH 由 partial=True 自然可选
     weight = serializers.IntegerField(required=False, min_value=1)
     progress = serializers.IntegerField(required=False, min_value=0, max_value=100)
     goal = serializers.CharField(required=False, allow_blank=True)

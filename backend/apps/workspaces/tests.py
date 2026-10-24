@@ -125,15 +125,27 @@ class WorkspaceCRUDTests(WorkspaceTestBase):
         )
         self.assertEqual(response.json()["slug"], "amiya-2")
 
-    def test_delete_by_admin_204_and_cascades(self):
+    def test_delete_with_projects_rejected_400(self):
+        """ADR-001 删除守卫：工作区仍有工程 → 400 拒绝（防级联清空工程，Phase 0 R-01）。"""
         from apps.projects import services as project_services
 
-        project_services.create_project(self.workspace, self.a, name="P", identifier="DEL")
+        project_services.create_project(
+            self.a, workspace=self.workspace, name="P", identifier="DEL"
+        )
+        response = self.client_as(self.a).delete(self.detail_url())
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("不能直接删除", response.json()["detail"])
+        # 工作区与工程都还在
+        self.assertEqual(Workspace.objects.filter(slug=self.workspace.slug).count(), 1)
+        self.assertEqual(Project.objects.filter(workspace_id=self.workspace.id).count(), 1)
+
+    def test_delete_by_admin_204_and_cascades(self):
+        """空工作区（工程已清）可删；级联语义只作用于协作数据。"""
         response = self.client_as(self.a).delete(self.detail_url())
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Workspace.objects.filter(slug=self.workspace.slug).count(), 0)
-        self.assertEqual(Project.objects.filter(workspace_id=self.workspace.id).count(), 0)
         self.assertEqual(WorkspaceMember.objects.filter(workspace_id=self.workspace.id).count(), 0)
 
     def test_delete_by_member_403(self):
@@ -225,7 +237,7 @@ class WorkspaceMemberTests(WorkspaceTestBase):
         from apps.projects.models import ProjectMember, ProjectRoles
 
         project = project_services.create_project(
-            self.workspace, self.a, name="P2", identifier="PCC"
+            self.a, workspace=self.workspace, name="P2", identifier="PCC"
         )
         membership = ProjectMember.objects.create(
             project=project, user=self.b, role=ProjectRoles.MEMBER

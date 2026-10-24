@@ -36,7 +36,7 @@ class JobScenarioMixin:
             WorkspaceMember.objects.create(workspace=cls.workspace, user=user, role=role)
 
         cls.project = create_project(
-            cls.workspace, cls.owner, name="Jobs Project", identifier=identifier
+            cls.owner, workspace=cls.workspace, name="Jobs Project", identifier=identifier
         )
         for user, role in (
             (cls.member, ProjectRoles.MEMBER),

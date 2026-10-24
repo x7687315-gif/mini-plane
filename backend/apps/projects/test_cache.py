@@ -33,7 +33,9 @@ class ProjectDetailCacheTests(APITestCase):
         cls.member = make_user("cache-member")
         cls.stranger = make_user("cache-stranger")
         cls.workspace = create_workspace(cls.owner, "Cache Workspace", "cache-ws")
-        cls.project = create_project(cls.workspace, cls.owner, name="缓存项目", identifier="CCH")
+        cls.project = create_project(
+            cls.owner, workspace=cls.workspace, name="缓存项目", identifier="CCH"
+        )
         ProjectMember.objects.create(project=cls.project, user=cls.member, role=ProjectRoles.MEMBER)
 
     @property

@@ -116,6 +116,31 @@ def change_role(workspace: Workspace, member: WorkspaceMember, role: int) -> Wor
     return member
 
 
+def delete_workspace(workspace: Workspace) -> None:
+    """删除工作区（ADR-001 守卫版）。
+
+    **仍有工程 → 400 拒绝**：工程是个人/团队资产，不允许因删工作区被级联清空
+    （Phase 0 风险 R-01）。先删除或显式脱离（转私人，Phase 6 提供操作）全部工程后才能删。
+    数据库层 Project.workspace 已改为 SET_NULL，本守卫之下的 workspace.delete()
+    只会级联 WorkspaceMember 等协作数据，正常路径触不到 SET_NULL 兜底。
+    """
+    from apps.projects import cache as project_cache
+    from apps.projects.models import Project
+
+    remaining = Project.objects.filter(workspace=workspace).count()
+    if remaining:
+        raise ValidationError(
+            {
+                "detail": (
+                    f"该工作区仍有 {remaining} 个工程，不能直接删除。"
+                    "请先删除这些工程，或将其脱离协作（转为私人工程）后再删除工作区。"
+                )
+            }
+        )
+    project_cache.invalidate_workspace(workspace)
+    workspace.delete()
+
+
 def remove_member(workspace: Workspace, member: WorkspaceMember) -> None:
     """移除成员；双守卫：所有者不可移除 + 至少保留一位管理员（02 契约）。
 

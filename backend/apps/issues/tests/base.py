@@ -59,7 +59,7 @@ class IssueScenarioMixin:
 
         # 项目：owner 自动成为项目 ADMIN + 预置五态
         cls.project = create_project(
-            cls.workspace, cls.owner, name="Amiya Project", identifier=identifier
+            cls.owner, workspace=cls.workspace, name="Amiya Project", identifier=identifier
         )
         for user, role in (
             (cls.project_member, ProjectRoles.MEMBER),
@@ -70,7 +70,10 @@ class IssueScenarioMixin:
 
         # 同工作区的另一个项目（跨项目校验用）
         cls.other_project = create_project(
-            cls.workspace, cls.owner, name="Other Project", identifier=f"{identifier[:2]}X"
+            cls.owner,
+            workspace=cls.workspace,
+            name="Other Project",
+            identifier=f"{identifier[:2]}X",
         )
 
     # ── URL 便捷属性 ──────────────────────────────────────────────
