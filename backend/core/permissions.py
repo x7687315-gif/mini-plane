@@ -13,9 +13,16 @@
 """
 
 from django.http import Http404
+from rest_framework.exceptions import PermissionDenied
 
 from apps.projects.models import Project, ProjectMember, ProjectRoles
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
+
+
+def require_role(role: int, threshold: int) -> None:
+    """角色门槛判定（全局唯一实现，原各 app views 的 _require_role 归一于此）。"""
+    if role < threshold:
+        raise PermissionDenied()
 
 
 def get_workspace_role(user, workspace) -> int | None:

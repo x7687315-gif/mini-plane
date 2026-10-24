@@ -11,7 +11,6 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -20,12 +19,8 @@ from apps.projects.models import ProjectRoles, ProjectStage
 from apps.worklogs.models import Worklog
 from apps.worklogs.serializers import WorklogSerializer, WorklogWriteSerializer
 from core.pagination import StandardPagination
+from core.permissions import require_role as _require_role
 from core.permissions import resolve_project, resolve_project_by_id
-
-
-def _require_role(role: int, threshold: int) -> None:
-    if role < threshold:
-        raise PermissionDenied()
 
 
 def _resolve_stage(project, stage_id):
