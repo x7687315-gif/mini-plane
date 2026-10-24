@@ -1,7 +1,8 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ApiError, primeCsrf } from "@/lib/api";
 
 /**
  * React Query client wrapper.
@@ -26,10 +27,11 @@ export function QueryProvider({ children }: { children: ReactNode }) {
             gcTime: 5 * 60_000,
             refetchOnWindowFocus: false,
             retry: (failureCount, error) => {
-              // Don't retry 4xx — they are deterministic, retrying just wastes time
-              if (error instanceof Error && /^\d{3}$/.test(error.message)) {
-                const status = Number(error.message);
-                if (status >= 400 && status < 500) return false;
+              // Don't retry 4xx — they are deterministic, retrying just wastes time.
+              // R-04 修复：ApiError 的默认 message 是 "API 404" 而非裸 "404"，
+              // 旧正则 /^\d{3}$/ 永不命中 → 4xx 曾被无谓地重试 2 次。
+              if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+                return false;
               }
               return failureCount < 2;
             },
@@ -40,6 +42,14 @@ export function QueryProvider({ children }: { children: ReactNode }) {
         },
       }),
   );
+
+  // 首次 CSRF 播种（R-15）：登录态确立后种一次 csrftoken，避免首个写请求
+  // 走 403→重播种→重试的自愈绕路。自愈逻辑仍保留作兜底。
+  useEffect(() => {
+    void primeCsrf().catch(() => {
+      /* 后端未起时的播种失败无害：自愈路径会再试 */
+    });
+  }, []);
 
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

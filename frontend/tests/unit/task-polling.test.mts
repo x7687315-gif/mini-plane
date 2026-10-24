@@ -15,7 +15,7 @@ import {
   nextTaskPollDelay,
   TASK_POLL_INTERVAL_MS,
   TASK_POLL_MAX_ATTEMPTS,
-} from "@/features/task/polling.ts";
+} from "@/features/jobrun/polling.ts";
 import type { TaskRun, TaskRunStatus } from "@/types/task.ts";
 
 function run(status: TaskRunStatus, extra: Partial<TaskRun> = {}): TaskRun {

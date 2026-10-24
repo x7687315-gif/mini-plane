@@ -11,7 +11,7 @@ import { IssueRow } from "@/components/issue/IssueRow";
 import { normalizeDrawerTab, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
 import { BulkActionBar } from "@/components/issue/BulkActionBar";
 import dynamic from "next/dynamic";
-import { useIssueFilters, useIssues, useLabels } from "@/features/issue";
+import { useIssueFilters, useIssues, useLabels } from "@/features/task";
 import { useProject, useProjectMembers, useProjectStates } from "@/features/project";
 import { useProjectRealtime } from "@/features/realtime";
 import { useWorkspace } from "@/features/workspace";

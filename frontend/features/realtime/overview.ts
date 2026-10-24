@@ -19,13 +19,11 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { nextBackoffDelay } from "@/features/realtime/policy";
-
-/** mine/ 与 worklog 的 query key（与 features/project/hooks.ts 保持一致的字面量）。 */
-const MINE_KEY = ["projects", "mine"];
+import { projectKeys } from "@/lib/queryKeys";
+import { wsBaseUrl } from "@/lib/api";
 
 function overviewUrl(): string {
-  const base = process.env.NEXT_PUBLIC_WS_BASE ?? "ws://localhost:8000";
-  return `${base}/ws/engineering/overview/`;
+  return `${wsBaseUrl()}/ws/engineering/overview/`;
 }
 
 export interface OverviewState {
@@ -55,9 +53,10 @@ export function useEngineeringOverview(
     let watchdog: ReturnType<typeof setInterval> | null = null;
 
     const invalidateAll = () => {
-      // 断线窗口内的事件可能丢 → 全量失效（REST 补齐）
-      void qc.invalidateQueries({ queryKey: MINE_KEY });
-      void qc.invalidateQueries({ queryKey: ["worklogs"] });
+      // 断线窗口内的事件可能丢 → 全量失效（REST 补齐）。
+      // projectKeys.all 前缀覆盖 mine + 各项目子树（tasks/comments/worklogs/activities），
+      // 键来自统一工厂——R-03（手写 ["worklogs"] 前缀永不命中）的根治。
+      void qc.invalidateQueries({ queryKey: projectKeys.all });
     };
 
     const connect = () => {
@@ -96,13 +95,13 @@ export function useEngineeringOverview(
         }
         if (event === "membership.changed") {
           // 订阅被收敛（被移出项目）→ 总览数据变了，失效重取
-          void qc.invalidateQueries({ queryKey: MINE_KEY });
+          void qc.invalidateQueries({ queryKey: projectKeys.mine() });
           return;
         }
         // 业务事件：payload.project_id 由 overview consumer 注入
         const pid = typeof frame.payload?.project_id === "string" ? frame.payload.project_id : null;
-        void qc.invalidateQueries({ queryKey: MINE_KEY });
-        if (pid) void qc.invalidateQueries({ queryKey: ["worklogs", pid] });
+        void qc.invalidateQueries({ queryKey: projectKeys.mine() });
+        if (pid) void qc.invalidateQueries({ queryKey: projectKeys.worklogs(pid) });
       };
 
       ws.onclose = () => {

@@ -1,12 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { projectKeys, taskKeys } from "@/lib/queryKeys";
 import { listIssueActivities, listProjectActivities } from "./api";
 
+/**
+ * 活动流查询键——统一委托 lib/queryKeys 工厂（Phase 4）。
+ * 保留 (slug, pid) 签名兼容既有调用点；键只按 project/task id 组织。
+ */
 export const activityKeys = {
-  issue: (slug: string, pid: string, iid: string) =>
-    ["activities", "issue", slug, pid, iid] as const,
-  project: (slug: string, pid: string) => ["activities", "project", slug, pid] as const,
+  issue: (_slug: string, pid: string, iid: string) => taskKeys.activities(pid, iid),
+  project: (_slug: string, pid: string) => projectKeys.activities(pid),
 };
 
 /**

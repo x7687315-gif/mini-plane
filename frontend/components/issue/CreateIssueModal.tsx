@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Avatar, Button, EditableField, Field, Input, Modal, Textarea } from "@/components/ui";
-import { useCreateIssue } from "@/features/issue";
+import { useCreateIssue } from "@/features/task";
 import { useProjectMembers } from "@/features/project";
 import { ApiError } from "@/lib/api";
 import { flattenErrors } from "@/types/auth";

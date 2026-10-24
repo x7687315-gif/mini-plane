@@ -15,7 +15,7 @@ import {
 import { ActivityFeed } from "@/components/activity/ActivityFeed";
 import { CommentList } from "@/components/issue/CommentList";
 import { CommentComposer } from "@/components/issue/CommentComposer";
-import { useDeleteIssue, useIssue, useLabels, useUpdateIssue } from "@/features/issue";
+import { useDeleteIssue, useIssue, useLabels, useUpdateIssue } from "@/features/task";
 import { useProjectMembers } from "@/features/project";
 import { useComments, useCreateComment, useDeleteComment, useUpdateComment } from "@/features/comment";
 import { useIssueActivities } from "@/features/activity";

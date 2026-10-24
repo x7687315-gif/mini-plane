@@ -8,8 +8,8 @@ import {
   useBulkDeleteIssues,
   useBulkSetLabels,
   useBulkUpdateIssues,
-} from "@/features/issue";
-import { useTaskRun, describeTaskStatus } from "@/features/task";
+} from "@/features/task";
+import { useTaskRun, describeTaskStatus } from "@/features/jobrun";
 import { isTerminalTaskRun } from "@/types/task";
 import { ApiError } from "@/lib/api";
 import { toast } from "@/stores/toast";

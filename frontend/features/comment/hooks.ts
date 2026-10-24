@@ -6,10 +6,16 @@ import type { Paginated } from "@/types/project";
 import type { Comment, CreateCommentPayload, UpdateCommentPayload } from "@/types/comment";
 import { createComment, deleteComment, listComments, updateComment } from "./api";
 import { activityKeys } from "@/features/activity/hooks";
+import { taskKeys } from "@/lib/queryKeys";
 
+/**
+ * 评论查询键——委托 lib/queryKeys 工厂（Phase 4）。
+ * 保留 (slug, pid, iid) 签名兼容既有调用点。
+ */
 export const commentKeys = {
-  all: (slug: string, pid: string, iid: string) => ["comments", slug, pid, iid] as const,
-  list: (slug: string, pid: string, iid: string) => [...commentKeys.all(slug, pid, iid), "list"] as const,
+  all: (_slug: string, pid: string, iid: string) => taskKeys.comments(pid, iid),
+  list: (_slug: string, pid: string, iid: string) =>
+    [...taskKeys.comments(pid, iid), "list"] as const,
 };
 
 export function useComments(

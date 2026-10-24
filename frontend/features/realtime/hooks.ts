@@ -6,9 +6,10 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth";
 import { useWsStore } from "@/stores/ws";
 import { useAgentSessionStore } from "@/stores/agentSession";
-import { issueKeys } from "@/features/issue/hooks";
+import { issueKeys } from "@/features/task/hooks";
 import { activityKeys } from "@/features/activity/hooks";
-import { projectKeys } from "@/features/project/hooks";
+import { projectKeys, taskKeys } from "@/lib/queryKeys";
+import { wsBaseUrl } from "@/lib/api";
 import { ProjectSocket } from "./ws";
 import { planRealtimeEffect } from "./policy";
 
@@ -74,9 +75,9 @@ export function useProjectRealtime(
 
     useWsStore.getState().setConnecting(projectId);
 
-    // 与 lib/api.ts 同理：默认必须与页面同 host（localhost），否则跨站的
-    // WebSocket 握手带不上 Session Cookie，会直接收到 4401 关闭码。
-    const base = process.env.NEXT_PUBLIC_WS_BASE ?? "ws://localhost:8000";
+    // 与 lib/api.ts 同理：基址从 API base 推导（同 host 换协议），必须与页面同 host，
+    // 否则跨站的 WebSocket 握手带不上 Session Cookie，会直接收到 4401 关闭码。
+    const base = wsBaseUrl();
     const ctx: RealtimeContext = {
       qc: latest.current.qc,
       slug,
@@ -124,7 +125,8 @@ export function useProjectRealtime(
 function invalidateProject(qc: QueryClient, slug: string, projectId: string): void {
   void qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) });
   void qc.invalidateQueries({ queryKey: activityKeys.project(slug, projectId) });
-  void qc.invalidateQueries({ queryKey: ["comments", slug, projectId] });
+  // 评论挂在 task 之下：失效整个 tasks 子树（含列表/详情/评论，工厂键前缀）
+  void qc.invalidateQueries({ queryKey: taskKeys.list(projectId) });
 }
 
 function applyEffect(event: string, payload: unknown, ctx: RealtimeContext): void {
@@ -148,7 +150,12 @@ function applyEffect(event: string, payload: unknown, ctx: RealtimeContext): voi
 
     case "comment-created": {
       if (effect.ownComment) return; // already inserted optimistically by the composer
-      void qc.invalidateQueries({ queryKey: ["comments", slug, projectId] });
+      // 该 task 的评论线程（键来自工厂，R-03 的失配教训：不再手写字面量）
+      if (effect.issueId) {
+        void qc.invalidateQueries({ queryKey: taskKeys.comments(projectId, effect.issueId) });
+      } else {
+        void qc.invalidateQueries({ queryKey: taskKeys.list(projectId) });
+      }
       // A comment also writes a `comment.created` activity row (06 契约).
       if (effect.issueId) {
         void qc.invalidateQueries({

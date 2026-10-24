@@ -68,19 +68,15 @@ export const hasNextSheet = (index: number, total: number): boolean =>
   total > 0 && index < total - 1;
 
 /**
- * 进度：0~1 小数（`GET /projects/mine/` 的 `progress`）→ 0~100 整数。
+ * 进度 → 0~100 整数（DOMAIN_MODEL §3：Phase 2 起全 API 统一 0-100 量纲）。
  *
- * ⚠️ 后端**两个端点的量纲不同**，所以这里只认 0~1 这一种，不做"大于 1 就当百分数"
- * 的猜测——那个魔法阈值在 1 < x ≤ 100 区间天然歧义（1.03 到底是 1.03% 还是 103%？），
- * 而 progress 条的宽度宁可就高不就低地猜错。
- * 需要 0~100 量纲（plan 的 `ProjectStage.progress`）时用下面的 `percentValue`。
+ * `progress`（mine 聚合、ProjectStage.progress）已是 0~100，这里只做边界夹取；
+ * 量纲来源由响应的 `progress_source: "plan" | "tasks"` 显式标注，前端不再换算。
  */
-export const progressPercent = (ratio: number | null | undefined): number => {
-  if (typeof ratio !== "number" || !Number.isFinite(ratio)) return 0;
-  return Math.min(100, Math.max(0, Math.round(ratio * 100)));
-};
+export const progressPercent = (value: number | null | undefined): number =>
+  percentValue(value);
 
-/** 0~100 整数量纲直通（ProjectStage.progress），只做边界夹取。 */
+/** 0~100 整数量纲直通，只做边界夹取。 */
 export const percentValue = (value: number | null | undefined): number => {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
   return Math.min(100, Math.max(0, Math.round(value)));

@@ -1,7 +1,9 @@
 /**
- * Project API — docs/api/03-projects.md.
+ * Project API — docs/api/10-canonical-projects.md（Phase 4 切规范路由）。
  *
- * All project routes are workspace-scoped: /workspaces/{slug}/projects/{pid}/…
+ * 详情/Plan/Stage/Worklog/工程 CRUD/States 走 /api/v1/projects/{pid}/…（slug 参数
+ * 仅保留签名兼容）；**成员管理**保留兼容路由（团队协作概念，属 Workspace namespace）；
+ * 工作区内工程列表（团队页数据源）亦保留兼容路由。
  */
 
 import { api } from "@/lib/api";
@@ -30,7 +32,7 @@ export async function listMyProjects(): Promise<ProjectEngineering[]> {
 /* ---------------- Global Plan / Stage（Sprint 10） ---------------- */
 
 export async function getPlan(slug: string, projectId: string): Promise<ProjectPlan> {
-  return api<ProjectPlan>(`/workspaces/${slug}/projects/${projectId}/plan`);
+  return api<ProjectPlan>(`/projects/${projectId}/plan`);
 }
 
 export async function addStage(
@@ -38,7 +40,7 @@ export async function addStage(
   projectId: string,
   payload: StagePayload,
 ): Promise<ProjectStage> {
-  return api<ProjectStage>(`/workspaces/${slug}/projects/${projectId}/plan`, {
+  return api<ProjectStage>(`/projects/${projectId}/plan`, {
     method: "POST",
     json: payload,
   });
@@ -50,7 +52,7 @@ export async function updateStage(
   stageId: string,
   payload: Partial<StagePayload>,
 ): Promise<ProjectStage> {
-  return api<ProjectStage>(`/workspaces/${slug}/projects/${projectId}/plan/stages/${stageId}`, {
+  return api<ProjectStage>(`/projects/${projectId}/plan/stages/${stageId}`, {
     method: "PATCH",
     json: payload,
   });
@@ -64,7 +66,7 @@ export async function listWorklogs(
   query: { date?: string } = {},
 ): Promise<Paginated<Worklog>> {
   const qs = query.date ? `?date=${query.date}` : "";
-  return api<Paginated<Worklog>>(`/workspaces/${slug}/projects/${projectId}/worklogs${qs}`);
+  return api<Paginated<Worklog>>(`/projects/${projectId}/worklogs${qs}`);
 }
 
 export async function createWorklog(
@@ -72,7 +74,7 @@ export async function createWorklog(
   projectId: string,
   payload: WorklogPayload,
 ): Promise<Worklog> {
-  return api<Worklog>(`/workspaces/${slug}/projects/${projectId}/worklogs`, {
+  return api<Worklog>(`/projects/${projectId}/worklogs`, {
     method: "POST",
     json: payload,
   });
@@ -83,7 +85,7 @@ export async function deleteWorklog(
   projectId: string,
   worklogId: string,
 ): Promise<void> {
-  return api<void>(`/workspaces/${slug}/projects/${projectId}/worklogs/${worklogId}`, {
+  return api<void>(`/projects/${projectId}/worklogs/${worklogId}`, {
     method: "DELETE",
   });
 }
@@ -93,7 +95,7 @@ export async function listProjects(slug: string): Promise<Paginated<Project>> {
 }
 
 export async function getProject(slug: string, projectId: string): Promise<Project> {
-  return api<Project>(`/workspaces/${slug}/projects/${projectId}`);
+  return api<Project>(`/projects/${projectId}`);
 }
 
 export async function createProject(
@@ -108,14 +110,14 @@ export async function updateProject(
   projectId: string,
   payload: UpdateProjectPayload,
 ): Promise<Project> {
-  return api<Project>(`/workspaces/${slug}/projects/${projectId}`, {
+  return api<Project>(`/projects/${projectId}`, {
     method: "PATCH",
     json: payload,
   });
 }
 
 export async function deleteProject(slug: string, projectId: string): Promise<void> {
-  return api<void>(`/workspaces/${slug}/projects/${projectId}`, { method: "DELETE" });
+  return api<void>(`/projects/${projectId}`, { method: "DELETE" });
 }
 
 /* ---- members ---- */
@@ -169,6 +171,6 @@ export async function listStates(
   projectId: string,
 ): Promise<Paginated<IssueState>> {
   return api<Paginated<IssueState>>(
-    `/workspaces/${slug}/projects/${projectId}/states`,
+    `/projects/${projectId}/states`,
   );
 }
