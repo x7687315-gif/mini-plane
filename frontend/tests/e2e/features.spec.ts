@@ -40,31 +40,40 @@ test.describe("我的工作（B）", () => {
   });
 });
 
-test.describe("Global Plan（Sprint 10）", () => {
-  test("项目页显示 Global Plan 并可添加阶段", async ({ page }) => {
+test.describe("Global Plan（Sprint 10 · Phase 5 路线）", () => {
+  test("项目页显示路线并可添加阶段（调整态）", async ({ page }) => {
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
     await api.dispose();
 
     await page.goto(projectUrl(fixture));
-    await expect(page.getByText(/GLOBAL PLAN/).first()).toBeVisible({ timeout: 15_000 });
+
+    // 只读路线默认呈现；点「调整」进入编辑态（v2：编辑控件默认隐藏）
+    await expect(page.getByText("路线").first()).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "调整" }).click();
 
     await page.getByLabel("新阶段名称").fill("Sprint 验收");
-    await page.getByRole("button", { name: "添加阶段" }).click();
+    await page.getByLabel("新阶段名称").press("Enter");
     await expect(page.getByText("Sprint 验收").first()).toBeVisible({ timeout: 10_000 });
   });
 });
 
-test.describe("工程日志（Sprint 11）", () => {
-  test("记一条日志并出现在 Engineering Log", async ({ page }) => {
+test.describe("工程日志（Sprint 11 · Phase 5 快速记录）", () => {
+  test("记一笔 → 出现在工程日志", async ({ page }) => {
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
     await api.dispose();
 
     await page.goto(projectUrl(fixture));
-    await page.getByLabel("日志标题").fill("E2E 工程日志");
-    await page.getByLabel("完成内容").fill("跑通 Sprint 11 验收链路");
-    await page.getByRole("button", { name: "记一条日志" }).click();
+
+    // 状态行的「✎ 记一笔」打开全局弹层（预选当前工程）
+    await page.getByRole("button", { name: "记一笔" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "记一笔" });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+    await dialog.getByLabel("标题").fill("E2E 工程日志");
+    await dialog.getByLabel("完成了什么").fill("跑通 Phase 5 快速记录链路");
+    await dialog.getByRole("button", { name: "记录" }).click();
+
     await expect(page.getByText("E2E 工程日志").first()).toBeVisible({ timeout: 10_000 });
   });
 });

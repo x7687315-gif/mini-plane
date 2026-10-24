@@ -57,6 +57,16 @@ Phase 2 的删除守卫（有工程 → 400）使旧版 `purgeE2EWorkspaces` 只
 
 `useIssues/useIssue/CreateIssueModal/IssueRow/IssueDrawer` 等导出名与组件名仍用历史名 `Issue`；类型层已有 `Task` 别名。UI 重构动到这些组件时一并更名，避免专门返工。
 
-## TD-08 · 私人工程独立路由（UI 重构核心依赖）
+## TD-08 · 私人工程独立路由（✅ 已解决，Phase 5 C3）
 
-私人工程（workspace=null）目前**无独立详情路由**：首页卡片与「我的工作」对 `workspace_slug=null` 只能渲染不可跳转降级。UI 重构的「个人工程主页」必须提供 `/projects/{pid}`（或等价）路由并迁移卡片链接——这是设计方案的阻塞级依赖，需在方案评审时一并确认。
+`/projects/[pid]` 规范工程台已上线，旧 `/w/{slug}/projects/{pid}` 为服务端重定向；首页与「我的工作」全部改指新路由。WS 项目通道同步补了 pid-only 路由（私人工程此前没有项目级实时通道的缺口）。
+
+## TD-09 · 任务抽屉完整 v2 化（UI 重构余项）
+
+Phase 5 只做了抽屉的第一步（META 与删除收进「详情」折叠）。字段区仍是 EditableField 盒装样式，与模板的「手写横线行」不一致。余项：把 状态/优先级/阶段/指派/标签 改为 dfield 行样式（乐观更新逻辑保持不动）。
+
+## TD-10 · E2E 适配清单（Phase 5 后的专项批次）
+
+- **已适配**：helpers.projectUrl、mode-switch ×4、issue-thread 建任务流程、features 计划/日志两条。
+- **未适配**：filter-bulk.spec（旧 FilterBar 断言——新工程台是文字过滤+搜索，无优先级/标签下拉与 ?ordering= 参数）。
+- **前置**：全量回归依赖 TD-01（共享会话失效）修复后统一执行；届时一并补「初见上手屏」与「记一笔弹层」的新 E2E。

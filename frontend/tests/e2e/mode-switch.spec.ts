@@ -27,48 +27,39 @@ test.describe("模式切换（个人 ⇄ 团队）", () => {
    *
    * 所以这里老老实实让记忆按产品的真实行为落盘，断言也一步不让。
    */
-  test("往返切换：URL 跟着变，按钮文案随之翻转", async ({ page }) => {
+  test("往返切换：侧栏协作区 ↔ 我的工程，URL 跟着变（Phase 5 v2 导航）", async ({ page }) => {
     await page.goto("/");
 
-    const toTeam = page.getByRole("button", { name: "切换到团队协作" });
-    await expect(toTeam).toBeVisible({ timeout: 20_000 });
+    // 个人页：协作区在侧栏底部（有工作区数据才出现）
+    const teamNav = page.getByRole("navigation", { name: "协作工作区" });
+    await expect(teamNav).toBeVisible({ timeout: 20_000 });
 
-    // 无记忆时落到工作区列表
-    await toTeam.click();
-    await expect(page).toHaveURL(/\/workspaces$/, { timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "切换到个人工程" })).toBeVisible();
+    // 进团队层
+    await teamNav.locator("a").first().click();
+    await expect(page).toHaveURL(/\/w\//, { timeout: 20_000 });
 
-    // 再切回来
-    await page.getByRole("button", { name: "切换到个人工程" }).click();
+    // 再回个人层
+    await page.getByRole("navigation", { name: "个人" }).getByText("我的工程").click();
     await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "切换到团队协作" })).toBeVisible();
   });
 
-  test("刷新后仍记得上次停留的团队位置（记忆真的落盘了）", async ({ page }) => {
+  test("刷新后仍落在正确的层（模式由 URL 判定，不是组件 state）", async ({ page }) => {
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
-    const wsPath = `/w/${fixture.workspaceSlug}/`;
     await api.dispose();
 
-    await page.goto(wsPath);
-    await page.getByRole("button", { name: "切换到个人工程" }).click();
-    await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
+    await page.goto(`/w/${fixture.workspaceSlug}/`);
+    await expect(page).toHaveURL(new RegExp(`/w/${fixture.workspaceSlug}$`), { timeout: 20_000 });
 
-    // ★ 这条的核心：刷新后仍落在个人首页（说明模式由 URL 判定，不是组件 state）
+    // ★ 这条的核心：刷新后仍在团队层（模式由 URL 判定）
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`/w/${fixture.workspaceSlug}$`), { timeout: 20_000 });
+
+    // 回个人层再刷新：仍在个人层
+    await page.getByRole("navigation", { name: "个人" }).getByText("我的工程").click();
+    await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
     await page.reload();
     await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
-
-    // ★ 关键断言：切回团队时**直接回到上次那个工作区**，而不是退回 /workspaces。
-    // 若这里失败，先怀疑记忆没写进 localStorage，不要放宽断言。
-    //
-    // 注意 URL 形状：应用路由规范化后**不带尾斜杠**（`/w/<slug>`），
-    // 记忆里存的也是这个形状，所以期望值同样不带斜杠。
-    // （曾经在这里写成带斜杠的版本，断言形态写错导致假红——已实测确认应用侧行为正确。）
-    await page.getByRole("button", { name: "切换到团队协作" }).click();
-    await expect(page).toHaveURL(
-      new RegExp(`/w/${fixture.workspaceSlug}$`),
-      { timeout: 20_000 },
-    );
   });
 
   test("/island-panel 不受 TopBar 改造影响（桌面 Island 窗口没有主窗口的 chrome）", async ({
@@ -83,7 +74,7 @@ test.describe("模式切换（个人 ⇄ 团队）", () => {
     await expect(page.getByRole("link", { name: /Plane/ })).toHaveCount(0);
   });
 
-  test("侧栏接上真实数据：假数据已删、个人层有入口、当前项可读", async ({ page }) => {
+  test("侧栏接上真实数据：假数据已删、个人层有入口、协作区带 aria-current", async ({ page }) => {
     const api = await apiClient();
     const fixture = await readDemoFixture(api);
     await api.dispose();
@@ -98,18 +89,11 @@ test.describe("模式切换（个人 ⇄ 团队）", () => {
       await expect(personalNav.getByText(fake)).toHaveCount(0);
     }
 
-    // 首页的「进入团队」入口
-    await page.getByRole("link", { name: "进入团队" }).click();
-    await expect(page).toHaveURL(/\/workspaces$/, { timeout: 20_000 });
-
-    // 团队层：侧栏换成真实工作区列表，且当前项带 aria-current（无障碍 + E2E 抓手）
-    //
-    // 用 href 定位而不是工作区名：DemoFixture 里只有 slug（没有 workspaceName，
-    // 写名字会在 CI 的 tsc 上直接报类型错），而侧栏链接的 href 是确定的 `/w/<slug>`。
-    const wsNav = page.getByRole("navigation", { name: "工作区" });
-    await expect(wsNav).toBeVisible();
+    // 协作区（Phase 5 v2：团队收进底部虚线区），当前项带 aria-current
+    const teamNav = page.getByRole("navigation", { name: "协作工作区" });
+    await expect(teamNav).toBeVisible({ timeout: 20_000 });
     await page.goto(`/w/${fixture.workspaceSlug}/`);
-    const current = wsNav.locator(`a[href="/w/${fixture.workspaceSlug}"]`);
+    const current = teamNav.locator(`a[href="/w/${fixture.workspaceSlug}"]`);
     await expect(current).toBeVisible({ timeout: 20_000 });
     await expect(current).toHaveAttribute("aria-current", "page");
   });

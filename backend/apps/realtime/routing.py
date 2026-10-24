@@ -10,6 +10,12 @@ websocket_urlpatterns = [
         "ws/engineering/overview/",
         OverviewConsumer.as_asgi(),
     ),
+    # 规范路径（Phase 5）：只凭 pid——私人工程（ADR-001）的唯一项目通道
+    path(
+        "ws/projects/<uuid:project_id>/",
+        ProjectConsumer.as_asgi(),
+    ),
+    # 兼容路径：含 workspace slug（团队工程既有客户端，deprecated）
     path(
         "ws/workspaces/<slug:workspace_slug>/projects/<uuid:project_id>/",
         ProjectConsumer.as_asgi(),

@@ -34,9 +34,11 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
             return
 
         kwargs = self.scope["url_route"]["kwargs"]
-        workspace_slug = kwargs["workspace_slug"]
-        # uuid 路径转换器给的是 UUID 对象；后面要进 JSON 帧，统一转成字符串
+        # 双路由形态（Phase 5）：含 workspace slug 的兼容路径与只凭 pid 的规范路径
+        # （私人工程没有 slug，ADR-001）。uuid 路径转换器给的是 UUID 对象；后面要进
+        # JSON 帧，统一转成字符串。
         project_id = str(kwargs["project_id"])
+        workspace_slug = kwargs.get("workspace_slug")
 
         role = await self._effective_role(workspace_slug, project_id)
         if role is None:
@@ -91,21 +93,24 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
     def _effective_role(self, workspace_slug, project_id):
         """与 HTTP 侧同一套生效角色实现（core.permissions，唯一判定点）。
 
-        刻意只取 `id` 和 `workspace_id` 两列：这是 WebSocket 的**高频握手**，
-        不需要把整行（含 description）读出来。
+        刻意只取少量列：这是 WebSocket 的**高频握手**，不需要把整行读出来。
+        `workspace_slug` 为 None = 规范路径（只凭 pid，ADR-001；私人工程走这里）。
         """
         from apps.projects.models import Project
         from core.permissions import get_effective_project_role_by_ids
 
         project = (
-            Project.objects.filter(id=project_id, workspace__slug=workspace_slug)
-            .only("id", "workspace_id")
-            .first()
-        )
+            Project.objects.filter(id=project_id)
+            if workspace_slug is None
+            else Project.objects.filter(id=project_id, workspace__slug=workspace_slug)
+        ).only("id", "workspace_id", "owner_id").first()
         if project is None:
             return None
         return get_effective_project_role_by_ids(
-            self.scope["user"], workspace_id=project.workspace_id, project_id=project.id
+            self.scope["user"],
+            workspace_id=project.workspace_id,
+            project_id=project.id,
+            owner_id=project.owner_id,
         )
 
 

@@ -60,7 +60,7 @@ export function useIssues(
   return useQuery({
     queryKey: issueKeys.list(slug ?? "", projectId ?? "", query),
     queryFn: () => listIssues(slug!, projectId!, query),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
     // Keep the previous page visible while the next one loads (no layout jump).
     placeholderData: (prev) => prev,
   });
@@ -74,7 +74,7 @@ export function useIssue(
   return useQuery({
     queryKey: issueKeys.detail(slug ?? "", projectId ?? "", issueId ?? ""),
     queryFn: () => getIssue(slug!, projectId!, issueId!),
-    enabled: Boolean(slug && projectId && issueId),
+    enabled: Boolean(projectId && issueId),
   });
 }
 
@@ -82,7 +82,7 @@ export function useLabels(slug: string | undefined, projectId: string | undefine
   return useQuery({
     queryKey: issueKeys.labels(slug ?? "", projectId ?? ""),
     queryFn: () => listLabels(slug!, projectId!),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
     staleTime: 5 * 60_000,
   });
 }

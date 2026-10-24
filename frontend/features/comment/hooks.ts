@@ -26,7 +26,7 @@ export function useComments(
   return useQuery({
     queryKey: commentKeys.list(slug ?? "", projectId ?? "", issueId ?? ""),
     queryFn: () => listComments(slug!, projectId!, issueId!),
-    enabled: Boolean(slug && projectId && issueId),
+    enabled: Boolean(projectId && issueId),
   });
 }
 

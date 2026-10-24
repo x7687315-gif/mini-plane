@@ -21,24 +21,17 @@ test.describe("Issue 列表与详情", () => {
 
     await page.goto(projectUrl(fixture));
 
-    // 打开新建弹窗（按钮文案 /new issue/）
-    await page.getByRole("button", { name: /新建任务/ }).first().click();
+    // Phase 5 v2：就地新建——列表末尾的「新任务」空白横线，点开输入 ⏎
+    await page.getByRole("button", { name: "新任务" }).click();
+    await page.getByLabel("新任务标题").fill(title);
+    await page.getByLabel("新任务标题").press("Enter");
 
-    // 弹窗里的标题输入（CreateIssueModal: Field label="Title" 对应 #i-title）。
-    // 限定在 dialog 内：项目页还有 WorklogPanel 的"日志标题"输入，page 级 getByLabel("标题")
-    // 会因子串匹配命中两个（strict mode 违规）。
-    await page.getByRole("dialog").getByLabel("标题").fill(title);
-    await page.getByRole("button", { name: /^创建/ }).click();
-
-    // 创建成功后会直接打开该 Issue 的抽屉；先关掉，回到列表核对
-    await expect(page).toHaveURL(/issue=/, { timeout: 20_000 });
-    await page.keyboard.press("Escape");
-    // .first()：抽屉关闭有动画，短时间内标题可能同时存在于列表行与抽屉 DOM 里
+    // 列表出现新任务（创建后由列表刷新兑现）
     await expect(page.getByText(title, { exact: true }).first()).toBeVisible({
       timeout: 20_000,
     });
 
-    // 从列表点开它（用列表行里的那个，不是抽屉残留）
+    // 从列表点开它
     await page.getByText(title, { exact: true }).first().click();
     await expect(page).toHaveURL(/issue=/, { timeout: 15_000 });
 
