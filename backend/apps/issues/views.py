@@ -13,7 +13,6 @@ from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -36,11 +35,7 @@ from apps.jobs.serializers import TaskRunSerializer
 from apps.projects.models import ProjectRoles
 from core.pagination import StandardPagination
 from core.permissions import accessible_project_ids, resolve_project, resolve_project_by_id
-
-
-def _require_role(role: int, threshold: int) -> None:
-    if role < threshold:
-        raise PermissionDenied()
+from core.permissions import require_role as _require_role
 
 
 def _issue_queryset(project):

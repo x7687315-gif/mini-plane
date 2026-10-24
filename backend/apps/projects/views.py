@@ -53,11 +53,9 @@ from core.permissions import (
     resolve_project_by_id,
     resolve_workspace,
 )
-
-
-def _require_role(role: int, threshold: int) -> None:
-    if role < threshold:
-        raise PermissionDenied()
+from core.permissions import (
+    require_role as _require_role,
+)
 
 
 @extend_schema(

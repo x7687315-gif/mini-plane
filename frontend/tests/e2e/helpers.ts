@@ -129,11 +129,23 @@ export interface DemoFixture {
   issues: { id: string; sequenceId: number; title: string }[];
 }
 
-/** 清掉所有 E2E 工作区（级联删除项目/Issue/评论/活动）。 */
+/**
+ * 清掉所有 E2E 工作区（级联删除项目/Issue/评论/活动）。
+ *
+ * Phase 2 起工作区删除有守卫（仍有工程 → 400，ADR-001 防级联清空个人工程），
+ * 因此清理顺序必须是**先删每个工作区下的工程，再删工作区**；否则残留工作区
+ * 会因 slug 自动后缀无限堆积（实测一轮就 -2、-3、-4…）。
+ */
 export async function purgeE2EWorkspaces(api: Api): Promise<number> {
   const { body } = await api.get<{ results: { slug: string }[] }>("/api/v1/workspaces/");
   const targets = (body?.results ?? []).filter((w) => w.slug.startsWith(E2E_SLUG_PREFIX));
   for (const w of targets) {
+    const projects = await api.get<{ results: { id: string }[] }>(
+      `/api/v1/workspaces/${w.slug}/projects/`,
+    );
+    for (const p of projects.body?.results ?? []) {
+      await api.write("DELETE", `/api/v1/workspaces/${w.slug}/projects/${p.id}/`);
+    }
     await api.write("DELETE", `/api/v1/workspaces/${w.slug}/`);
   }
   return targets.length;

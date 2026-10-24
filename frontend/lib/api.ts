@@ -56,6 +56,16 @@ function buildUrl(path: string): string {
   return `${BASE}/api/v1${normalised}${query ? `?${query}` : ""}`;
 }
 
+/** DRF 的 CSRF 失败 403 带 `{"detail": "CSRF Failed: …"}`——自愈重试只认这个特征。 */
+function isCsrfFailure(body: unknown): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    typeof (body as { detail?: unknown }).detail === "string" &&
+    ((body as { detail: string }).detail as string).startsWith("CSRF Failed")
+  );
+}
+
 interface ApiInit extends RequestInit {
   /** Convenience: pass a JSON-serialisable object instead of stringifying yourself. */
   json?: unknown;
@@ -88,11 +98,14 @@ export async function api<T = unknown>(
     body,
   });
 
-  // CSRF self-healing — same logic as 09-frontend-integration.md §三 step 5
+  // CSRF self-healing — same logic as 09-frontend-integration.md §三 step 5.
+  // R-16 收窄：只对 **CSRF 失败特征** 的 403 重播种重试——权限 403 是确定性拒绝，
+  // 重试只是多打一次请求（对非幂等 POST 是不必要的重复投递）。
   if (
     resp.status === 403 &&
     method !== "GET" &&
-    !init.skipCsrfRetry
+    !init.skipCsrfRetry &&
+    isCsrfFailure(await resp.clone().json().catch(() => null))
   ) {
     // re-prime CSRF cookie
     await fetch(`${BASE}/api/v1/auth/csrf/`, {

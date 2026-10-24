@@ -308,7 +308,7 @@ v1.0.0 Personal Engineering Mgmt Platform→ Sprint 16–17 ⏳
 - **README「运行测试」小节的用例数已过期**：写的是后端 310 / 前端 98 / E2E 18，实际已是 **334 / 99 / 23**（进度表已更新，速查段落未同步）。接手后可顺手订正。
 - **`docs/devlog/README.md` 索引**：新增 devlog 时记得登记（若尚未自动化）。
 - E2E 里 **Ctrl+K 在真实 Chrome 中被浏览器拦截**，命令面板用例改为点 TopBar「搜索」按钮触发；桌面 WebView2 无浏览器 chrome，`Ctrl+K` 在桌面版可正常工作（此为环境差异，非缺陷）。
-- 提供的 **PAT `ghp_2dYg…` 已过期（401）**；推送走 **SSH**（`git@github.com`）正常。公共仓库 CI 状态可免鉴权读 `api.github.com/.../check-runs`。
+- 提供的 **PAT 已过期（401，凭据值不记录在案）**；推送走 **SSH**（`git@github.com`）正常。公共仓库 CI 状态可免鉴权读 `api.github.com/.../check-runs`。
 - 仓库 main 开了 branch protection（要求 backend job 通过），但当前是直接 push main（提示 "Bypassed rule violations"）；若接手后改走 PR 流程，注意满足必需状态检查。
 
 ---

@@ -8,7 +8,6 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -23,12 +22,8 @@ from apps.workspaces.serializers import (
     WorkspaceWriteSerializer,
 )
 from core.pagination import StandardPagination
+from core.permissions import require_role as _require_role
 from core.permissions import resolve_workspace
-
-
-def _require_role(role: int, threshold: int) -> None:
-    if role < threshold:
-        raise PermissionDenied()
 
 
 @extend_schema(
