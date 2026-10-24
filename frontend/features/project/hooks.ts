@@ -58,7 +58,7 @@ export function usePlan(slug: string | undefined, projectId: string | undefined)
   return useQuery({
     queryKey: projectKeys.plan(projectId ?? ""),
     queryFn: () => getPlan(slug!, projectId!),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
   });
 }
 
@@ -95,7 +95,7 @@ export function useWorklogs(
   return useQuery({
     queryKey: projectKeys.worklogs(projectId ?? "", date),
     queryFn: () => listWorklogs(slug!, projectId!, date ? { date } : {}),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
   });
 }
 
@@ -133,7 +133,7 @@ export function useProject(slug: string | undefined, projectId: string | undefin
   return useQuery({
     queryKey: projectKeys.detail(projectId ?? ""),
     queryFn: () => getProject(slug!, projectId!),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
   });
 }
 
@@ -141,7 +141,7 @@ export function useProjectMembers(slug: string | undefined, projectId: string | 
   return useQuery({
     queryKey: projectKeys.members(projectId ?? ""),
     queryFn: () => listProjectMembers(slug!, projectId!),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
   });
 }
 
@@ -149,7 +149,7 @@ export function useProjectStates(slug: string | undefined, projectId: string | u
   return useQuery({
     queryKey: projectKeys.states(projectId ?? ""),
     queryFn: () => listStates(slug!, projectId!),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
     // States are created once with the project and never change in MVP.
     staleTime: 10 * 60_000,
   });

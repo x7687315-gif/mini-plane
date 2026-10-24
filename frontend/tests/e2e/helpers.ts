@@ -225,9 +225,9 @@ export async function readDemoFixture(api: Api): Promise<DemoFixture> {
   };
 }
 
-/** 前端项目页路由。 */
-export function projectUrl(fixture: Pick<DemoFixture, "workspaceSlug" | "projectId">): string {
-  return `/w/${fixture.workspaceSlug}/projects/${fixture.projectId}`;
+/** 前端项目页路由（Phase 5：/projects/{pid} 规范路由，slug 不再参与）。 */
+export function projectUrl(fixture: Pick<DemoFixture, "projectId">): string {
+  return `/projects/${fixture.projectId}`;
 }
 
 /**

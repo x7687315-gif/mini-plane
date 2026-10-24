@@ -11,7 +11,7 @@ import { activityKeys } from "@/features/activity/hooks";
 import { projectKeys, taskKeys } from "@/lib/queryKeys";
 import { wsBaseUrl } from "@/lib/api";
 import { ProjectSocket } from "./ws";
-import { planRealtimeEffect } from "./policy";
+import { buildProjectSocketUrl, buildProjectSocketUrlById, planRealtimeEffect } from "./policy";
 
 /**
  * useProjectRealtime — connects the project channel for as long as the page is mounted.
@@ -71,21 +71,27 @@ export function useProjectRealtime(
   });
 
   useEffect(() => {
-    if (!enabled || !slug || !projectId) return;
+    if (!enabled || !projectId) return;
+    // slug 现为可选（Phase 5）：空 = 私人工程/规范路径，走 pid-only WS 路由
+    const slugStr = slug ?? "";
 
     useWsStore.getState().setConnecting(projectId);
 
     // 与 lib/api.ts 同理：基址从 API base 推导（同 host 换协议），必须与页面同 host，
     // 否则跨站的 WebSocket 握手带不上 Session Cookie，会直接收到 4401 关闭码。
     const base = wsBaseUrl();
+    // 双路由（Phase 5）：有 slug 走兼容路径；私人工程（slug 为空）走 pid 规范路径。
+    const url = slugStr
+      ? buildProjectSocketUrl(base, slugStr, projectId)
+      : buildProjectSocketUrlById(base, projectId);
     const ctx: RealtimeContext = {
       qc: latest.current.qc,
-      slug,
+      slug: slugStr,
       projectId,
       currentUserId: latest.current.currentUserId,
     };
 
-    const socket = ProjectSocket.forProject(base, slug, projectId, {
+    const socket = new ProjectSocket(url, {
       onReady: (role) => useWsStore.getState().setLive({ projectId, role }),
 
       onEvent: (event, payload) => {
@@ -109,7 +115,7 @@ export function useProjectRealtime(
 
       onRecovered: () => {
         // Nothing was buffered while we were away — refetch the project wholesale.
-        invalidateProject(latest.current.qc, slug, projectId);
+        invalidateProject(latest.current.qc, slugStr, projectId);
       },
     });
 
@@ -119,6 +125,7 @@ export function useProjectRealtime(
       useWsStore.getState().reset();
     };
   }, [enabled, slug, projectId]);
+  // slug 仅用于选择 WS 路由形态（兼容 slug 路径 / pid 规范路径），空串 = pid 路径。
 }
 
 /** Invalidate every cached fact belonging to one project. */

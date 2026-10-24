@@ -347,41 +347,61 @@ export function IssueDrawer({
               )}
             </div>
 
-            <MeasureLine left="FIG · META" right="READ-ONLY" />
+            <MeasureLine left="FIG · META" right="DETAILS · FOLDED" />
 
-            <dl className="grid grid-cols-[110px_1fr] gap-y-2 text-[11px] mb-8">
-              <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
-                created by
-              </dt>
-              <dd className="flex items-center gap-2">
-                <Avatar name={issue.created_by?.username} size="xs" />
-                <span className="text-[color:var(--color-ink)]">
-                  {issue.created_by?.username ?? "—"}
-                </span>
-              </dd>
+            {/* Phase 5 v2：元信息与危险操作收进折叠——高频编辑（上方字段）不再与
+                低频内容争夺注意力（UI_REDESIGN_PROPOSAL R6）。 */}
+            <details className="mb-8 group">
+              <summary className="cursor-pointer list-none py-1.5 font-medium text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]">
+                详情 · 元信息 <span className="font-mono text-[9px] tracking-normal">▸</span>
+              </summary>
+              <dl className="grid grid-cols-[110px_1fr] gap-y-2 text-[11px] pt-3">
+                <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
+                  created by
+                </dt>
+                <dd className="flex items-center gap-2">
+                  <Avatar name={issue.created_by?.username} size="xs" />
+                  <span className="text-[color:var(--color-ink)]">
+                    {issue.created_by?.username ?? "—"}
+                  </span>
+                </dd>
 
-              <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
-                created
-              </dt>
-              <dd className="text-[color:var(--color-ink-2)]">{formatDateTime(issue.created_at)}</dd>
+                <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
+                  created
+                </dt>
+                <dd className="text-[color:var(--color-ink-2)]">{formatDateTime(issue.created_at)}</dd>
 
-              <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
-                updated
-              </dt>
-              <dd className="text-[color:var(--color-ink-2)]">
-                {formatDateTime(issue.updated_at)}{" "}
-                <span className="text-[color:var(--color-ink-3)]">
-                  ({formatDistanceToNow(issue.updated_at)} ago)
-                </span>
-              </dd>
+                <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
+                  updated
+                </dt>
+                <dd className="text-[color:var(--color-ink-2)]">
+                  {formatDateTime(issue.updated_at)}{" "}
+                  <span className="text-[color:var(--color-ink-3)]">
+                    ({formatDistanceToNow(issue.updated_at)} ago)
+                  </span>
+                </dd>
 
-              <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
-                issue id
-              </dt>
-              <dd className="font-mono text-[10px] text-[color:var(--color-ink-3)] break-all">
-                {issue.id}
-              </dd>
-            </dl>
+                <dt className="uppercase tracking-[0.2em] text-[color:var(--color-ink-3)] font-sans font-medium">
+                  issue id
+                </dt>
+                <dd className="font-mono text-[10px] text-[color:var(--color-ink-3)] break-all">
+                  {issue.id}
+                </dd>
+              </dl>
+              {writable && (
+                <div className="pt-4 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmDeleteIssue(true)}
+                    disabled={deleteMutation.isPending}
+                    className="text-[color:var(--color-urgent)]"
+                  >
+                    {deleteMutation.isPending ? "删除中…" : "删除任务"}
+                  </Button>
+                </div>
+              )}
+            </details>
 
             <MeasureLine left="FIG · THREAD" right="AUDIT TRAIL · CONVERSATION" />
 
@@ -435,20 +455,6 @@ export function IssueDrawer({
 
               {tab === "refs" && <RefsPlaceholder />}
             </div>
-
-            {writable && (
-              <div className="pt-5 mt-2 border-t border-[color:var(--color-rule)] flex justify-end">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setConfirmDeleteIssue(true)}
-                  disabled={deleteMutation.isPending}
-                  className="border-[color:var(--color-urgent)] text-[color:var(--color-urgent)]"
-                >
-                  {deleteMutation.isPending ? "删除中…" : "删除任务"}
-                </Button>
-              </div>
-            )}
           </>
         )}
       </div>

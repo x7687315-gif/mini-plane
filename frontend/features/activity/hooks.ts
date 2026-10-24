@@ -28,7 +28,7 @@ export function useIssueActivities(
   return useQuery({
     queryKey: activityKeys.issue(slug ?? "", projectId ?? "", issueId ?? ""),
     queryFn: () => listIssueActivities(slug!, projectId!, issueId!),
-    enabled: Boolean(slug && projectId && issueId),
+    enabled: Boolean(projectId && issueId),
   });
 }
 
@@ -40,6 +40,6 @@ export function useProjectActivities(
   return useQuery({
     queryKey: activityKeys.project(slug ?? "", projectId ?? ""),
     queryFn: () => listProjectActivities(slug!, projectId!),
-    enabled: Boolean(slug && projectId),
+    enabled: Boolean(projectId),
   });
 }

@@ -120,6 +120,14 @@ export function buildProjectSocketUrl(
   return `${base.replace(/\/+$/, "")}/ws/workspaces/${workspaceSlug}/projects/${projectId}/`;
 }
 
+/**
+ * 规范路径（Phase 5）：只凭 projectId——私人工程（ADR-001，workspace 为空）
+ * 的唯一项目通道。后端同一 Consumer，双路由等价鉴权。
+ */
+export function buildProjectSocketUrlById(base: string, projectId: string): string {
+  return `${base.replace(/\/+$/, "")}/ws/projects/${projectId}/`;
+}
+
 /* ---------------- event → effect ---------------- */
 
 /**
