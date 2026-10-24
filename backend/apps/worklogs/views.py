@@ -1,5 +1,7 @@
 """Worklog 接口（Sprint 11，PRODUCT_REFACTOR_PLAN §10/§11）。
 
+Phase 3 双路由：规范 `/api/v1/projects/{pid}/worklogs/…` + 兼容
+`/workspaces/{ws}/projects/{pid}/worklogs/…`（委托同一实现）。
 权限沿用项目作用域：读 ≥ Viewer，写 ≥ Member；stage 跨项目 → 404 防越权。
 """
 
@@ -18,7 +20,7 @@ from apps.projects.models import ProjectRoles, ProjectStage
 from apps.worklogs.models import Worklog
 from apps.worklogs.serializers import WorklogSerializer, WorklogWriteSerializer
 from core.pagination import StandardPagination
-from core.permissions import resolve_project
+from core.permissions import resolve_project, resolve_project_by_id
 
 
 def _require_role(role: int, threshold: int) -> None:
@@ -27,25 +29,13 @@ def _require_role(role: int, threshold: int) -> None:
 
 
 def _resolve_stage(project, stage_id):
-    """stage 必须属于该项目；属于别的项目 → 404（防跨项目越权/枚举）。"""
+    """stage 必须属于该工程；属于别的工程 → 404（防跨项目越权/枚举）。"""
     if stage_id is None:
         return None
     return get_object_or_404(ProjectStage, id=stage_id, plan__project=project)
 
 
-@extend_schema(
-    summary="工程日志列表 / 创建",
-    request=WorklogWriteSerializer,
-    responses={200: WorklogSerializer(many=True), 201: WorklogSerializer},
-)
-@api_view(["GET", "POST"])
-@permission_classes([IsAuthenticated])
-def worklog_list_create(request, workspace_slug: str, project_id):
-    """GET：项目日志（倒序：date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD。
-    POST：写一条日志（≥ Member）。
-    """
-    project, role = resolve_project(request.user, workspace_slug, project_id)
-
+def _worklog_list_create_impl(request, project, role):
     if request.method == "GET":
         queryset = project.worklogs.select_related("author", "stage")
         raw = request.query_params.get("date")
@@ -84,16 +74,7 @@ def worklog_list_create(request, workspace_slug: str, project_id):
     return Response(WorklogSerializer(worklog).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema_view(
-    patch=extend_schema(
-        summary="修改工程日志", request=WorklogWriteSerializer, responses={200: WorklogSerializer}
-    ),
-    delete=extend_schema(summary="删除工程日志", responses={204: None}),
-)
-@api_view(["PATCH", "DELETE"])
-@permission_classes([IsAuthenticated])
-def worklog_detail(request, workspace_slug: str, project_id, worklog_id):
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+def _worklog_detail_impl(request, project, role, worklog_id):
     _require_role(role, ProjectRoles.MEMBER)
     worklog = get_object_or_404(project.worklogs, id=worklog_id)
 
@@ -113,3 +94,70 @@ def worklog_detail(request, workspace_slug: str, project_id, worklog_id):
         worklog.date = v["date"]
     worklog.save()
     return Response(WorklogSerializer(worklog).data)
+
+
+# ── 规范路由（/api/v1/projects/{pid}/worklogs/…）───────────────────
+
+
+@extend_schema(
+    summary="工程日志列表 / 创建（规范路由）",
+    request=WorklogWriteSerializer,
+    responses={200: WorklogSerializer(many=True), 201: WorklogSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def worklog_list_create_canonical(request, project_id):
+    """GET：工程日志（倒序 date → created_at），支持 ?date=today 或 ?date=YYYY-MM-DD；POST ≥ Member。"""
+    return _worklog_list_create_impl(request, *resolve_project_by_id(request.user, project_id))
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改工程日志（规范路由）",
+        request=WorklogWriteSerializer,
+        responses={200: WorklogSerializer},
+    ),
+    delete=extend_schema(summary="删除工程日志（规范路由）", responses={204: None}),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def worklog_detail_canonical(request, project_id, worklog_id):
+    return _worklog_detail_impl(
+        request, *resolve_project_by_id(request.user, project_id), worklog_id
+    )
+
+
+# ── 兼容路由（/workspaces/{ws}/projects/{pid}/worklogs/…，deprecated）──
+
+
+@extend_schema(
+    summary="工程日志列表 / 创建（兼容路由，deprecated）",
+    deprecated=True,
+    request=WorklogWriteSerializer,
+    responses={200: WorklogSerializer(many=True), 201: WorklogSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def worklog_list_create(request, workspace_slug: str, project_id):
+    return _worklog_list_create_impl(
+        request, *resolve_project(request.user, workspace_slug, project_id)
+    )
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改工程日志（兼容路由，deprecated）",
+        request=WorklogWriteSerializer,
+        responses={200: WorklogSerializer},
+        deprecated=True,
+    ),
+    delete=extend_schema(
+        summary="删除工程日志（兼容路由，deprecated）", responses={204: None}, deprecated=True
+    ),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def worklog_detail(request, workspace_slug: str, project_id, worklog_id):
+    return _worklog_detail_impl(
+        request, *resolve_project(request.user, workspace_slug, project_id), worklog_id
+    )

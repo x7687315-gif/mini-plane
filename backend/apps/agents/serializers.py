@@ -51,9 +51,13 @@ class AgentProjectSnapshotSerializer(serializers.Serializer):
 
 
 class AgentTaskCreateSerializer(serializers.Serializer):
-    """Agent 建任务：以"工程动作"为中心，只暴露必要字段。"""
+    """Agent 建任务：以"工程动作"为中心，只暴露必要字段。
 
-    workspace_slug = serializers.SlugField()
+    project_id 必填；workspace_slug **可选**（Phase 3 规范化：私人工程无 slug；
+    传了则按旧双重作用域校验，兼容既有 Agent 调用方）。
+    """
+
+    workspace_slug = serializers.SlugField(required=False, allow_blank=True)
     project_id = serializers.UUIDField()
     title = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True)
@@ -61,7 +65,9 @@ class AgentTaskCreateSerializer(serializers.Serializer):
 
 
 class AgentWorklogCreateSerializer(serializers.Serializer):
-    workspace_slug = serializers.SlugField()
+    """Agent 写工程日志；workspace_slug 可选（同上，Phase 3 规范化）。"""
+
+    workspace_slug = serializers.SlugField(required=False, allow_blank=True)
     project_id = serializers.UUIDField()
     title = serializers.CharField(max_length=120)
     summary = serializers.CharField()
@@ -148,7 +154,9 @@ class AgentSessionProgressSerializer(serializers.Serializer):
 
 
 class AgentSessionStartSerializer(serializers.Serializer):
-    workspace_slug = serializers.SlugField()
+    """session.start；workspace_slug 可选（Phase 3 规范化，私人工程无 slug）。"""
+
+    workspace_slug = serializers.SlugField(required=False, allow_blank=True)
     project_id = serializers.UUIDField()
     title = serializers.CharField(max_length=120)
     task_id = serializers.UUIDField(required=False, allow_null=True)

@@ -22,6 +22,7 @@ OpenAPI 描述"接口长什么样"，下面的手写契约解释"行为为什么
 | [07-cache-and-tasks.md](api/07-cache-and-tasks.md) | 缓存行为说明 + 批量任务状态接口 | ✅ 已冻结（前端 Sprint 6 · 异步任务部分） |
 | [08-realtime.md](api/08-realtime.md) | WebSocket：握手、关闭码、事件帧、心跳 | ✅ 已冻结（前端 Sprint 7） |
 | [09-frontend-integration.md](api/09-frontend-integration.md) | **前端接入指南**：环境地址、认证/CSRF 流程、错误与分页处理、实时与任务接入、自检清单 | 手册（随前端进展回填） |
+| [10-canonical-projects.md](api/10-canonical-projects.md) | **工程规范路由**（Phase 3）：`/api/v1/projects/…` 个人优先端点、Task/JobRun 命名、迁移表 | ✅ **当前有效**（03–07 中的旧路径已 deprecated，行为以本文 + OpenAPI 为准） |
 
 > **冻结的含义**：前端已按该契约实现并逐项验收通过，后端不再单方面变更；
 > 需要变更时走 PR 并同步更新契约的「变更记录」。冻结状态由前端在对应 Sprint 收尾时推进，

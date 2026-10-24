@@ -50,6 +50,7 @@ from core.permissions import (
     accessible_project_ids,
     get_effective_project_role_by_ids,
     resolve_project,
+    resolve_project_by_id,
     resolve_workspace,
 )
 
@@ -60,36 +61,19 @@ def _require_role(role: int, threshold: int) -> None:
 
 
 @extend_schema(
-    summary="项目列表 / 创建",
+    summary="项目列表 / 创建（兼容路由，deprecated）",
+    deprecated=True,
     request=ProjectWriteSerializer,
     responses={200: ProjectSerializer(many=True), 201: ProjectSerializer},
 )
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def project_list_create(request, workspace_slug: str):
-    """GET：WS 成员可见全部项目（批量算生效角色防 N+1）；POST：WS Member+ 可创建。"""
+    """兼容路由：WS 作用域内的项目列表 / 创建；与规范路由委托同一 service。"""
     workspace, workspace_role = resolve_workspace(request.user, workspace_slug)
 
     if request.method == "GET":
-        paginator = StandardPagination()
-        page = paginator.paginate_queryset(workspace.projects.all(), request)
-
-        member_roles = dict(
-            ProjectMember.objects.filter(user=request.user, project__in=page).values_list(
-                "project_id", "role"
-            )
-        )
-        data = []
-        for project in page:
-            role = member_roles.get(project.id)
-            if role is None:
-                role = (
-                    ProjectRoles.ADMIN
-                    if workspace_role == WorkspaceRoles.ADMIN
-                    else ProjectRoles.VIEWER
-                )
-            data.append(ProjectSerializer(project, context={"role": role}).data)
-        return paginator.get_paginated_response(data)
+        return _project_list_response(workspace.projects.all(), request, workspace, workspace_role)
 
     if workspace_role < WorkspaceRoles.MEMBER:
         raise PermissionDenied()  # WS Viewer 不能创建项目（矩阵 §4.2）
@@ -102,21 +86,95 @@ def project_list_create(request, workspace_slug: str):
     return Response(body.data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema_view(
-    get=extend_schema(summary="项目详情", responses={200: ProjectSerializer}),
-    patch=extend_schema(
-        summary="修改项目", request=ProjectWriteSerializer, responses={200: ProjectSerializer}
+def _project_list_response(queryset, request, workspace=None, workspace_role=None):
+    """项目列表的统一实现：批量算生效角色防 N+1（含 owner 短路）。"""
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(queryset.order_by("-created_at"), request)
+
+    member_roles = dict(
+        ProjectMember.objects.filter(user=request.user, project__in=page).values_list(
+            "project_id", "role"
+        )
+    )
+    data = []
+    for project in page:
+        if request.user.id == project.owner_id:
+            role = ProjectRoles.ADMIN
+        else:
+            role = member_roles.get(project.id)
+            if role is None:
+                if project.workspace_id is None:
+                    continue  # 私人工程非 owner 不会出现在查询集里；防御性跳过
+                role = (
+                    ProjectRoles.ADMIN
+                    if workspace_role == WorkspaceRoles.ADMIN
+                    else ProjectRoles.VIEWER
+                )
+        data.append(ProjectSerializer(project, context={"role": role}).data)
+    return paginator.get_paginated_response(data)
+
+
+@extend_schema(
+    summary="工程列表 / 创建（规范路由）",
+    description=(
+        "个人优先（ADR-001）：GET 默认返回我拥有的工程（scope=owned，含已共享到团队的）；"
+        "scope=accessible 返回我可访问的全部（含他人拥有的团队工程）。"
+        "POST 默认创建私人工程（不需要 workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。"
     ),
-    delete=extend_schema(summary="删除项目", responses={204: None}),
+    request=ProjectWriteSerializer,
+    responses={200: ProjectSerializer(many=True), 201: ProjectSerializer},
 )
-@api_view(["GET", "PATCH", "DELETE"])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-def project_detail(request, workspace_slug: str, project_id):
-    """GET：WS 成员（走缓存，见 apps/projects/cache.py）；PATCH / DELETE：生效角色 ≥ Admin。"""
+def project_list_create_canonical(request):
+    from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
+
+    scope = request.query_params.get("scope", "owned")
+    if scope == "accessible":
+        queryset = Project.objects.filter(id__in=accessible_project_ids(request.user))
+    else:
+        # owned：我拥有的（无论私人还是已共享团队）
+        queryset = Project.objects.filter(owner=request.user)
+
+    if request.method == "GET":
+        return _project_list_response(queryset, request)
+
+    serializer = ProjectWriteSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    workspace = None
+    workspace_id = request.data.get("workspace_id")
+    if workspace_id is not None:
+        from django.core.exceptions import ObjectDoesNotExist
+        from rest_framework.exceptions import ValidationError
+
+        try:
+            workspace = Workspace.objects.get(id=workspace_id)
+        except (ObjectDoesNotExist, ValueError, TypeError):
+            raise ValidationError({"workspace_id": ["工作区不存在。"]})
+        # 显式共享进团队：要求请求者是该 WS 的 Member+（与兼容路由创建门槛一致）
+        member_role = (
+            WorkspaceMember.objects.filter(workspace=workspace, user=request.user)
+            .values_list("role", flat=True)
+            .first()
+        )
+        if member_role is None:
+            raise ValidationError({"workspace_id": ["你不是该工作区成员。"]})
+        if member_role < WorkspaceRoles.MEMBER:
+            raise PermissionDenied()
+    project = services.create_project(
+        request.user, workspace=workspace, **serializer.validated_data
+    )
+    body = ProjectSerializer(project, context={"role": ProjectRoles.ADMIN})
+    return Response(body.data, status=status.HTTP_201_CREATED)
+
+
+def _project_detail_impl(request, project_id, resolve_fn, cache_scope_slug):
+    """详情/改/删的统一实现。resolve_fn 是 () -> (project, role) 的惰性解析；
+    cache_scope_slug 仅用于 GET 缓存键（兼容路由 = ws slug；规范路由 = None → 哨兵）。"""
     # 命中缓存的快路径：不加载 Project 行，但**鉴权仍然实时执行**
     # （成员被移除后缓存不能继续放行）。详见 apps/projects/cache.py 的模块说明。
     if request.method == "GET":
-        cached = project_cache.get_detail(workspace_slug, project_id)
+        cached = project_cache.get_detail(cache_scope_slug, project_id)
         if cached is not None:
             role = get_effective_project_role_by_ids(
                 request.user,
@@ -128,11 +186,11 @@ def project_detail(request, workspace_slug: str, project_id):
                 raise Http404  # 与冷路径一致：非成员一律 404（防枚举）
             return Response({**cached, "current_user_role": role})
 
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+    project, role = resolve_fn()
 
     if request.method == "GET":
         payload = project_cache.build_payload(project)
-        project_cache.set_detail(workspace_slug, project.id, payload)
+        project_cache.set_detail(cache_scope_slug, project.id, payload)
         return Response({**payload, "current_user_role": role})
 
     _require_role(role, ProjectRoles.ADMIN)
@@ -143,10 +201,66 @@ def project_detail(request, workspace_slug: str, project_id):
         project = services.update_project(project, actor=request.user, **serializer.validated_data)
         return Response(ProjectSerializer(project, context={"role": role}).data)
 
-    # 先失效再删：删完就拿不到 workspace slug 了
-    project_cache.invalidate(project.id, workspace_slug=workspace_slug)
-    project.delete()  # 级联删除成员/状态/Issue
+    # 先失效再删：双路由两种缓存键同时作废（见 cache.invalidate_all_scopes）
+    project_cache.invalidate_all_scopes(
+        project.id, workspace_slug=project.workspace.slug if project.workspace_id else None
+    )
+    project.delete()  # 级联删除成员/状态/Task/Worklog/Plan
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema_view(
+    get=extend_schema(summary="工程详情（规范路由）", responses={200: ProjectSerializer}),
+    patch=extend_schema(
+        summary="修改工程（规范路由）",
+        request=ProjectWriteSerializer,
+        responses={200: ProjectSerializer},
+    ),
+    delete=extend_schema(summary="删除工程（规范路由）", responses={204: None}),
+)
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def project_detail_canonical(request, project_id):
+    """规范路由：私人/团队工程统一只凭 Project ID；owner 恒可访问（ADR-001）。
+
+    缓存键取舍：团队工程在旧路径下以 ws slug 为键，规范路径不查 slug、统一用
+    哨兵键——首次访问冷写入、后续命中；与旧路径缓存互不干扰（同一 payload，双份
+    存储，任一路径的写失效会同时作废两种键，见 update/delete 的失效实现）。
+    """
+
+    return _project_detail_impl(
+        request,
+        project_id,
+        lambda: resolve_project_by_id(request.user, project_id),
+        None,
+    )
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="项目详情（兼容路由，deprecated）",
+        responses={200: ProjectSerializer},
+        deprecated=True,
+    ),
+    patch=extend_schema(
+        summary="修改项目（兼容路由，deprecated）",
+        request=ProjectWriteSerializer,
+        responses={200: ProjectSerializer},
+        deprecated=True,
+    ),
+    delete=extend_schema(
+        summary="删除项目（兼容路由，deprecated）", responses={204: None}, deprecated=True
+    ),
+)
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def project_detail(request, workspace_slug: str, project_id):
+    """兼容路由：与规范路由委托同一实现；缓存键沿用 ws slug。"""
+
+    def resolver():
+        return resolve_project(request.user, workspace_slug, project_id)
+
+    return _project_detail_impl(request, project_id, resolver, workspace_slug)
 
 
 @extend_schema(
@@ -203,15 +317,31 @@ def project_member_detail(request, workspace_slug: str, project_id, member_id):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@extend_schema(summary="状态列表（预置五态，只读）", responses={200: StateSerializer(many=True)})
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def state_list(request, workspace_slug: str, project_id):
-    project, _ = resolve_project(request.user, workspace_slug, project_id)
+def _state_list_impl(request, project):
     queryset = project.states.all()
     paginator = StandardPagination()
     page = paginator.paginate_queryset(queryset, request)
     return paginator.get_paginated_response(StateSerializer(page, many=True).data)
+
+
+@extend_schema(
+    summary="状态列表（规范路由，预置五态只读）", responses={200: StateSerializer(many=True)}
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def state_list_canonical(request, project_id):
+    return _state_list_impl(request, resolve_project_by_id(request.user, project_id)[0])
+
+
+@extend_schema(
+    summary="状态列表（兼容路由，deprecated）",
+    deprecated=True,
+    responses={200: StateSerializer(many=True)},
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def state_list(request, workspace_slug: str, project_id):
+    return _state_list_impl(request, resolve_project(request.user, workspace_slug, project_id)[0])
 
 
 # ── Sprint 09：我的工程（个人模式首页数据）──────────────────────────
@@ -417,18 +547,9 @@ def _latest_logs(project_ids: list) -> dict[str, dict]:
 # ── Sprint 10：Global Plan / Stage（PRODUCT_REFACTOR_PLAN §5/§6）──────────────
 
 
-@extend_schema(
-    summary="Global Plan（读）/ 新增 Stage（写）",
-    request=ProjectStageWriteSerializer,
-    responses={200: ProjectPlanSerializer, 201: ProjectStageSerializer},
-)
-@api_view(["GET", "POST"])
-@permission_classes([IsAuthenticated])
-def plan_detail(request, workspace_slug: str, project_id):
-    """GET：项目 Global Plan（stages 有序 + 总进度 + 当前/下一阶段）；读 ≥ Viewer。
-    POST：追加一个 Stage；写 ≥ Member（§15：Global Plan 结构由人维护）。
-    """
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+def _plan_detail_impl(request, project, role):
+    """GET：Global Plan（stages 有序 + 总进度 + 当前/下一阶段）；读 ≥ Viewer。
+    POST：追加一个 Stage；写 ≥ Member（§15：Global Plan 结构由人维护）。"""
     plan = services.get_or_create_plan(project)
 
     if request.method == "GET":
@@ -449,19 +570,31 @@ def plan_detail(request, workspace_slug: str, project_id):
     return Response(ProjectStageSerializer(stage).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema_view(
-    patch=extend_schema(
-        summary="修改 Stage",
-        request=ProjectStageWriteSerializer,
-        responses={200: ProjectStageSerializer},
-    ),
-    delete=extend_schema(summary="删除 Stage", responses={204: None}),
+@extend_schema(
+    summary="Global Plan（读）/ 新增 Stage（规范路由）",
+    request=ProjectStageWriteSerializer,
+    responses={200: ProjectPlanSerializer, 201: ProjectStageSerializer},
 )
-@api_view(["PATCH", "DELETE"])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-def stage_detail(request, workspace_slug: str, project_id, stage_id):
-    """改 / 删某个 Stage；写 ≥ Member。stage 必须属于该项目（否则 404 防枚举）。"""
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+def plan_detail_canonical(request, project_id):
+    return _plan_detail_impl(request, *resolve_project_by_id(request.user, project_id))
+
+
+@extend_schema(
+    summary="Global Plan（读）/ 新增 Stage（兼容路由，deprecated）",
+    deprecated=True,
+    request=ProjectStageWriteSerializer,
+    responses={200: ProjectPlanSerializer, 201: ProjectStageSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def plan_detail(request, workspace_slug: str, project_id):
+    return _plan_detail_impl(request, *resolve_project(request.user, workspace_slug, project_id))
+
+
+def _stage_detail_impl(request, project, role, stage_id):
+    """改 / 删某个 Stage；写 ≥ Member。stage 必须属于该工程（否则 404 防枚举）。"""
     _require_role(role, ProjectRoles.MEMBER)
     stage = get_object_or_404(ProjectStage, id=stage_id, plan__project=project)
 
@@ -473,3 +606,36 @@ def stage_detail(request, workspace_slug: str, project_id, stage_id):
 
     stage.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改 Stage（规范路由）",
+        request=ProjectStageWriteSerializer,
+        responses={200: ProjectStageSerializer},
+    ),
+    delete=extend_schema(summary="删除 Stage（规范路由）", responses={204: None}),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def stage_detail_canonical(request, project_id, stage_id):
+    return _stage_detail_impl(request, *resolve_project_by_id(request.user, project_id), stage_id)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改 Stage（兼容路由，deprecated）",
+        request=ProjectStageWriteSerializer,
+        responses={200: ProjectStageSerializer},
+        deprecated=True,
+    ),
+    delete=extend_schema(
+        summary="删除 Stage（兼容路由，deprecated）", responses={204: None}, deprecated=True
+    ),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def stage_detail(request, workspace_slug: str, project_id, stage_id):
+    return _stage_detail_impl(
+        request, *resolve_project(request.user, workspace_slug, project_id), stage_id
+    )

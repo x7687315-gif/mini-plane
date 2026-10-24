@@ -118,8 +118,8 @@ def update_project(
 
 
 def _invalidate_cache(project: Project) -> None:
-    """私人工程无 workspace slug，cache 层用哨兵作用域（见 cache.py）。"""
-    project_cache.invalidate(
+    """作废该项目的**全部**缓存键（规范哨兵键 + 兼容 ws 键，Phase 3 双路由）。"""
+    project_cache.invalidate_all_scopes(
         project.id, workspace_slug=project.workspace.slug if project.workspace_id else None
     )
 

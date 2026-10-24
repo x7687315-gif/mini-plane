@@ -86,6 +86,17 @@ def invalidate(
     )
 
 
+def invalidate_all_scopes(project_id, *, workspace_slug: str | None = None) -> None:
+    """作废该项目的**全部**缓存键（规范路由的哨兵键 + 兼容路由的 ws 键）。
+
+    Phase 3 双路由后同一项目可能存在两份缓存（两种作用域键），任何写路径都必须
+    同时作废两种，否则会出现「旧路径改了、新路径仍读旧缓存」的 staleness。
+    """
+    invalidate(project_id, workspace_slug=None)  # 哨兵键（私人工程 / 规范路由）
+    if workspace_slug:
+        invalidate(project_id, workspace_slug=workspace_slug)
+
+
 def cached_get_or_load(workspace_slug: str, project_id, loader):
     """Cache-Aside：命中返回 (payload, True)，未命中回填并返回 (payload, False)。"""
     scope = detail_scope(workspace_slug, project_id)
