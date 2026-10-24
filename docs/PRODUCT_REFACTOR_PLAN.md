@@ -1,5 +1,10 @@
 # Mini Plane 产品重构计划（PRODUCT_REFACTOR_PLAN）
 
+> **⚠️ 历史档案（2026-10-24 起）**：本文的 Sprint 09–17 已全部完成，其产品原则与目标模型部分由
+> [`PRODUCT_PRINCIPLES.md`](PRODUCT_PRINCIPLES.md) 与 [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) 取代。
+> 新一轮「个人优先重构」（Phase 0–9）见 [`refactor/`](refactor/) 目录。本文仅供追溯，不要再按本文实施。
+
+
 > 状态：**已采纳，执行中**（2026-09-30 收束）
 > 版本路线：v0.3.0 Personal Engineering Foundation → v1.0.0 Personal Engineering Management Platform
 > Sprint 顺序：09 Product Foundation → 10 Project Plan → 11 Worklog → 12 Agent Local API →
