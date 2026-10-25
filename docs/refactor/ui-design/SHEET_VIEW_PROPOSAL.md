@@ -43,5 +43,15 @@
 |---|---|
 | `open source project roadmap visualization stages progress react-flow d3 mermaid github` | [React Flow 官网](https://reactflow.dev) · [Showcase](https://reactflow.dev/showcase) · [社区用例讨论 #3588](https://github.com/xyflow/xyflow/discussions/3588) |
 | `self-hosted project management visual roadmap structure diagram stages tasks hierarchy open source` | [OpenProject](https://github.com/opf/openproject)（甘特/路线） · [Plane 自托管指南](https://plane.so/blog/self-hosted-project-management-jira-server-alternatives) · [Kanboard](https://kanboard.org) |
+| `GitHub Skyline contributions 3D city skyline isometric contributions extension stars`（用户指定的主流设计调研） | 官方 [gh-skyline CLI](https://github.com/orgs/community/discussions/129740) · [GitCity](https://github.com/rishabhbhartiya/GitCity) · [Isometric Contributions 扩展 4.9★](https://chromewebstore.google.com/detail/isometric-contributions/mjoedlfflcchnleknnceiplgaeoegien) · [等距贡献 API](https://dev.to/spec_psx/i-built-an-api-that-turns-your-github-contributions-into-a-3d-isometric-graph-43dk) |
+| `Excalidraw hand-drawn diagram style why popular rough sketch aesthetic stars` | [MakeUseOf：手绘风消除完美主义](https://www.makeuseof.com/making-diagrams-hand-drawn-style-tool) · [D2 的手绘美学实践（填充要克制）](https://d2lang.com/blog/hand-drawn-diagrams) · [draw.io sketch 模式](https://www.drawio.com/docs/manual/styles/rough-style) · [xyflow 社区讨论](https://github.com/xyflow/xyflow/discussions/3591) |
 
-结论：同类产品的可视化=甘特/看板二选一；「以结构而非时间为主轴」的剖面图在个人工程管理里没有直接同类——属本产品差异化（借用的是建筑制图惯例，不是软件 UI 惯例）。
+### 借鉴落地（原型 v2 已并入，均为主流验证过的元素）
+
+| 来源 | 借什么 | 怎么借（不违背 DESIGN.md 红线） |
+|---|---|---|
+| GitHub Skyline / Isometric Contributions（4.9★） | 「盖楼=进度」的大众认知 + 等距深度 | 楼层背后 6px 偏移的**轴测幽灵线**（纯线稿，不渲染 3D、不加阴影/渐变） |
+| Excalidraw / rough.js（现象级流行） | 手绘线质=思考工具而非仪表盘 | SVG 位移滤镜只作用于**线条**；按 D2 的教训，断面填充保持制图级 crisp |
+| GitHub 贡献格（辨识度最高的进度视觉） | 密度格语言 | 图纸底部「证据格」：Worklog 密度带（蓝=手动 / 绿=Agent），空格如实留空 |
+
+结论：同类产品的可视化=甘特/看板二选一；「以结构而非时间为主轴」的剖面图在个人工程管理里没有直接同类——属本产品差异化（借用的是建筑制图惯例 + 上述三个已被大众接纳的视觉语言）。

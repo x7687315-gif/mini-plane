@@ -107,6 +107,13 @@
       <line x1="0" y1="0" x2="0" y2="7" stroke="#1F3FA8" stroke-width="1" opacity=".55"/></pattern>`;
   }
 
+  // 手绘线质（借 Excalidraw/rough.js 的大众审美：线条微抖=思考工具；D2 教训：填充保持制图级 crisp）
+  const roughDef=`<filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2"/></filter>`;
+
+  // 证据格数据（借 GitHub 贡献格：人类最熟悉的进度视觉；Worklog=证据）
+  const evidence=[0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0];
+
   function render(){
     document.querySelectorAll('.pv button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===S.v)));
     const Wpx=board.clientWidth||980, Hpx=board.clientHeight||540;
@@ -122,6 +129,8 @@
         const fillH=h*s.p/100;
         rows+=`
         <g class="fl" data-k="${s.no}" style="cursor:pointer">
+          <g transform="translate(6,-4)" opacity=".38">${/* 轴测深度线（借 GitHub Skyline/等距贡献图的楼栋隐喻，纯线稿不渲染 3D） */
+            `<rect x="${L}" y="${yTop}" width="${R-L}" height="${h}" fill="none" stroke="#8F8B80" stroke-width="1"/>`}</g>
           <rect x="${L}" y="${yTop}" width="${R-L}" height="${h}" fill="none" stroke="${s.cur?'#1F3FA8':'#8F8B80'}" stroke-width="${s.cur?1.5:1}"/>
           <rect x="${L+1}" y="${y-fillH+1}" width="${R-L-2}" height="${fillH-2||0}" fill="url(#hx)" ${s.p===0?'opacity="0"':''}/>
           <text x="${L+12}" y="${yTop+18}" font-family="JetBrains Mono" font-size="11" fill="${s.cur?'#1F3FA8':'#8F8B80'}">${s.no}</text>
@@ -145,11 +154,15 @@
           <line x1="6" x2="30" y1="${bottom-2}" y2="${bottom-2}" stroke="#8F8B80"/>
         </g>`;
       board.innerHTML=`<svg width="${Wpx}" height="${Hpx}" role="img" aria-label="工程结构剖面图">
-        <defs>${hatch('hx',0)}</defs>
-        <line x1="${L}" y1="${bottom+6}" x2="${R}" y2="${bottom+6}" stroke="#1B1A17" stroke-width="1.5"/>
+        <defs>${hatch('hx',0)}${roughDef}</defs>
+        <line x1="${L}" y1="${bottom+6}" x2="${R}" y2="${bottom+6}" stroke="#1B1A17" stroke-width="1.5" filter="url(#rough)"/>
         ${marks.map((m,i)=>`<line x1="${L}" x2="${L}" y1="${m.y}" y2="${bottom}" stroke="#CFCAB9" stroke-dasharray="2 4"/>`).join('')}
-        ${rows}${elev}
+        <g filter="url(#rough)">${rows}</g>${elev}
         <text x="${R-8}" y="${bottom+20}" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#8F8B80">SECTION A-A · 证据列（工程日志）→</text>
+        ${/* 证据格（借 GitHub 贡献格）：底部一条 Worklog 密度带，0=空 1=手动 2=Agent */
+          `<g transform="translate(${L},${bottom+26})">${evidence.map((v,i)=>
+            `<rect x="${i*13}" y="0" width="10" height="10" fill="${v===0?'none':v===1?'#1F3FA8':'#1D7A5F'}" fill-opacity="${v?'.75':'.06'}" stroke="#CFCAB9" stroke-width=".8"/>`).join('')}
+            <text x="${evidence.length*13+10}" y="9" font-family="JetBrains Mono" font-size="9" fill="#8F8B80">证据 · 近12周（蓝=手动 绿=Agent）</text></g>`}
       </svg>`;
     } else {
       // 流水线：横向工位；宽∝权重；NOW 任务在当前工位下方展开
