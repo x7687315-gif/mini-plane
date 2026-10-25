@@ -108,7 +108,7 @@ function archetype(taskCount: number): "foundation" | "openbox" | "portal" | "ca
 }
 
 export function AnatomyPlate({
-  identifier, stages, tasks, states,
+  identifier, stages, tasks,
   agentRunning, nextStageName, onOpenTask,
 }: AnatomyPlateProps) {
   const [focus, setFocus] = useState(-1);
