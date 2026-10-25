@@ -70,7 +70,7 @@
       <span class="big">60<span style="font-size:14px">%</span></span>
     </span>
   </div>
-  <div class="sub">整栋完成度 = Σ(层高×填充)/Σ层高 —— 权重即层高，进度即剖面填充线；当前层有脚手架与 NOW。</div>
+  <div class="sub">整栋完成度 = Σ(层高×填充)/Σ层高 —— 权重即层高，进度即剖面填充线；线粗分级（剖切粗/投影细），转角微出头：丁字尺时代的制图手感，几何不差分毫。</div>
 
   <div class="board" id="board"></div>
   <div class="floor-tip" id="tip">把鼠标移到任意楼层查看阶段目标；点击「当前层」展开它的任务。</div>
@@ -107,9 +107,16 @@
       <line x1="0" y1="0" x2="0" y2="7" stroke="#1F3FA8" stroke-width="1" opacity=".55"/></pattern>`;
   }
 
-  // 手绘线质（借 Excalidraw/rough.js 的大众审美：线条微抖=思考工具；D2 教训：填充保持制图级 crisp）
-  const roughDef=`<filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="7" result="n"/>
-    <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2"/></filter>`;
+  // 严谨制图线质（用户定向：不做 Excalidraw 式抖动，走建筑手绘的工程伦理——
+  // 几何精确 + 两处人味：线粗分级、转角微出头[运笔过交点 1-2px，是丁字尺时代的手的痕迹]）
+  function drect(x,y,w,h,color,sw,o=3){
+    return `<g stroke="${color}" stroke-width="${sw}" fill="none" shape-rendering="crispEdges">
+      <line x1="${x-o}" y1="${y}" x2="${x+w+o}" y2="${y}"/>
+      <line x1="${x}" y1="${y-o}" x2="${x}" y2="${y+h+o}"/>
+      <line x1="${x-o}" y1="${y+h}" x2="${x+w+o}" y2="${y+h}"/>
+      <line x1="${x+w}" y1="${y-o}" x2="${x+w}" y2="${y+h+o}"/>
+    </g>`;
+  }
 
   // 证据格数据（借 GitHub 贡献格：人类最熟悉的进度视觉；Worklog=证据）
   const evidence=[0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0];
@@ -129,9 +136,9 @@
         const fillH=h*s.p/100;
         rows+=`
         <g class="fl" data-k="${s.no}" style="cursor:pointer">
-          <g transform="translate(6,-4)" opacity=".38">${/* 轴测深度线（借 GitHub Skyline/等距贡献图的楼栋隐喻，纯线稿不渲染 3D） */
-            `<rect x="${L}" y="${yTop}" width="${R-L}" height="${h}" fill="none" stroke="#8F8B80" stroke-width="1"/>`}</g>
-          <rect x="${L}" y="${yTop}" width="${R-L}" height="${h}" fill="none" stroke="${s.cur?'#1F3FA8':'#8F8B80'}" stroke-width="${s.cur?1.5:1}"/>
+          <g transform="translate(6,-4)" opacity=".38">${/* 轴测深度线（借 Skyline 系楼栋隐喻，纯线稿不渲染 3D） */
+            drect(L,yTop,R-L,h,'#8F8B80',.7,2)}</g>
+          ${drect(L,yTop,R-L,h, s.cur?'#1F3FA8':'#8F8B80', s.cur?1.4:.9, s.cur?4:3)}
           <rect x="${L+1}" y="${y-fillH+1}" width="${R-L-2}" height="${fillH-2||0}" fill="url(#hx)" ${s.p===0?'opacity="0"':''}/>
           <text x="${L+12}" y="${yTop+18}" font-family="JetBrains Mono" font-size="11" fill="${s.cur?'#1F3FA8':'#8F8B80'}">${s.no}</text>
           <text x="${L+40}" y="${yTop+19}" font-family="Cormorant Garamond" font-style="italic" font-size="16" fill="${s.cur?'#1F3FA8':'#1B1A17'}">${s.name}${s.cur?' · 当前':''}</text>
@@ -154,10 +161,10 @@
           <line x1="6" x2="30" y1="${bottom-2}" y2="${bottom-2}" stroke="#8F8B80"/>
         </g>`;
       board.innerHTML=`<svg width="${Wpx}" height="${Hpx}" role="img" aria-label="工程结构剖面图">
-        <defs>${hatch('hx',0)}${roughDef}</defs>
-        <line x1="${L}" y1="${bottom+6}" x2="${R}" y2="${bottom+6}" stroke="#1B1A17" stroke-width="1.5" filter="url(#rough)"/>
+        <defs>${hatch('hx',0)}</defs>
+        <line x1="${L-6}" y1="${bottom+6}" x2="${R+6}" y2="${bottom+6}" stroke="#1B1A17" stroke-width="1.6"/>
         ${marks.map((m,i)=>`<line x1="${L}" x2="${L}" y1="${m.y}" y2="${bottom}" stroke="#CFCAB9" stroke-dasharray="2 4"/>`).join('')}
-        <g filter="url(#rough)">${rows}</g>${elev}
+        ${rows}${elev}
         <text x="${R-8}" y="${bottom+20}" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#8F8B80">SECTION A-A · 证据列（工程日志）→</text>
         ${/* 证据格（借 GitHub 贡献格）：底部一条 Worklog 密度带，0=空 1=手动 2=Agent */
           `<g transform="translate(${L},${bottom+26})">${evidence.map((v,i)=>
