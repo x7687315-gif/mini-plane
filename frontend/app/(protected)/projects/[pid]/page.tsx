@@ -276,7 +276,21 @@ function Workbench({
             </button>
           ),
         )}
-        <span className="ml-auto flex items-center gap-2 text-[color:var(--color-ink-3)]">
+        <span className="ml-auto flex items-center gap-3 text-[color:var(--color-ink-3)]">
+          <button
+            type="button"
+            className="v2-ia"
+            onClick={() => {
+              setNewTaskOpen(true);
+              requestAnimationFrame(() =>
+                document
+                  .getElementById("wb-newtask-input")
+                  ?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+              );
+            }}
+          >
+            <span className="mk" aria-hidden>＋</span>新任务
+          </button>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -347,6 +361,7 @@ function Workbench({
           </span>
           <input
             autoFocus
+            id="wb-newtask-input"
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
             onKeyDown={(e) => {
