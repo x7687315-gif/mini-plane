@@ -45,8 +45,10 @@ def effective_role(user, *, workspace_id, project_id, owner_id=None) -> int | No
     """
     if not user.is_authenticated:
         return None
-    # owner 短路：所有权优先于一切成员关系（含被移出工作区的场景）
-    if owner_id is not None and owner_id == user.id:
+    # owner 短路：所有权优先于一切成员关系（含被移出工作区的场景）。
+    # str() 归一：缓存命中路径的 owner_id 经 JSON 往返是字符串，user.id 是 UUID——
+    # 直接 == 会恒为 False，导致私人工程在缓存命中时整只 404（Phase 5 实测教训）。
+    if owner_id is not None and str(owner_id) == str(user.id):
         return ProjectRoles.ADMIN
     project_role = (
         ProjectMember.objects.filter(project_id=project_id, user=user)
