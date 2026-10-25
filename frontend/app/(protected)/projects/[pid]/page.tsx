@@ -2,12 +2,10 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
-import { AppShell } from "@/components/shell/AppShell";
 import { BulkActionBar } from "@/components/issue/BulkActionBar";
 import { IssueDrawer, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
 import { DimProgress, SectionHead } from "@/components/ui/v2";
 import { AnatomyPlate } from "@/components/anatomy/AnatomyPlate";
-import { useIslandHotkey } from "@/features/engineering-island";
 import {
   useAddStage,
   useDeleteProject,
@@ -50,17 +48,15 @@ const GROUP_LABEL: Record<StateFilter, string> = {
 
 export default function ProjectWorkbenchPage() {
   return (
-    <Suspense fallback={<AppShell>
-      <div aria-hidden className="max-w-4xl">
-        <div className="h-8 w-56 bg-[color:var(--color-paper-2)]" />
-        <div className="mt-6 h-10 border-y border-[color:var(--color-rule)]" />
-        <div className="mt-4 space-y-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-9 border-b border-[color:var(--color-rule)]" />
-          ))}
-        </div>
+    <Suspense fallback={<div aria-hidden className="max-w-4xl px-9 py-7">
+      <div className="h-8 w-56 bg-[color:var(--color-paper-2)]" />
+      <div className="mt-6 h-10 border-y border-[color:var(--color-rule)]" />
+      <div className="mt-4 space-y-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-9 border-b border-[color:var(--color-rule)]" />
+        ))}
       </div>
-    </AppShell>}>
+    </div>}>
       <WorkbenchRoute />
     </Suspense>
   );
@@ -91,7 +87,6 @@ function WorkbenchRoute() {
   const { data: taskPage } = useIssues("", pid, {});
   const { data: mine } = useMyProjects();
 
-  useIslandHotkey();
   useChrome({
     topbar: {
       project: project ? `${project.name} · ${project.identifier}` : undefined,
@@ -102,16 +97,14 @@ function WorkbenchRoute() {
 
   if (projectError) {
     return (
-      <AppShell>
-        <div className="py-20 text-center text-[13px] text-[color:var(--color-ink-3)]">
-          工程不存在或不可见。
-        </div>
-      </AppShell>
+      <div className="py-20 text-center text-[13px] text-[color:var(--color-ink-3)]">
+        工程不存在或不可见。
+      </div>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <Workbench
         pid={pid}
         identifier={project?.identifier ?? ""}
@@ -128,7 +121,7 @@ function WorkbenchRoute() {
         drawerTab={tab}
         onParam={handleParam}
       />
-    </AppShell>
+    </>
   );
 }
 
