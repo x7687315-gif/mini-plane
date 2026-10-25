@@ -56,13 +56,23 @@ class ProjectDetailCacheTests(APITestCase):
         self.assertEqual(cold["current_user_role"], ProjectRoles.ADMIN)
 
     def test_warm_read_skips_the_project_row_query(self):
-        """命中缓存后不再查项目行：鉴权只剩 1 条成员身份查询。"""
+        """命中缓存 + owner 短路：暖读 0 条鉴权查询（ADR-001 后 owner 无需查成员表）。
+
+        非 owner 的暖读仍需 1 条成员身份查询——对照保留，防止"短路放行所有人"。
+        """
         self.as_owner()
         self.client.get(self.detail_url)  # 预热
 
-        with self.assertNumQueries(1):
+        with self.assertNumQueries(0):
             response = self.client.get(self.detail_url)
 
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # 非 owner（项目成员）：暖读仍需 1 条 ProjectMember 角色查询
+        self.client.force_authenticate(user=self.member)
+        self.client.get(self.detail_url)  # 预热（member 视角的缓存同键同体）
+        with self.assertNumQueries(1):
+            response = self.client.get(self.detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_per_user_field_is_never_cached(self):

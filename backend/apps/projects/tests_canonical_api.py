@@ -229,3 +229,24 @@ class AgentCanonicalTests(APITestCase):
             f"/api/v1/agent/sessions/{sid}/end/", {"status": "stopped"}, format="json"
         )
         self.assertIn(third.status_code, (200, 400))
+
+
+class CacheHitOwnerTests(APITestCase):
+    """回归：私人工程详情第二次 GET（缓存命中）时 owner 短路仍需生效。
+
+    缓存载荷经 JSON 往返后 owner 是字符串，user.id 是 UUID——
+    未归一前 owner 短路失效 → 缓存命中一律 404（Phase 5 实测教训）。
+    """
+
+    def test_detail_get_twice_cache_hit_still_200(self):
+        u = User.objects.create_user(
+            username="cachehit", email="cachehit@example.com", password="pw-cache-12345"
+        )
+        project_services.create_project(u, name="缓存工程", identifier="CCH2")
+        self.client.force_authenticate(u)
+        pid = u.projects_owned.first().id
+        first = self.client.get(f"/api/v1/projects/{pid}/")
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        second = self.client.get(f"/api/v1/projects/{pid}/")
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.json()["identifier"], "CCH2")

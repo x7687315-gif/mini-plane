@@ -1,0 +1,163 @@
+<div id="sk">
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+#sk{--paper:#F4F1EA;--ink:#1B1A17;--ink2:#5A5851;--ink3:#8F8B80;--rule:#C8C3B4;--blue:#1F3FA8;--green:#1D7A5F;
+ font-family:'Inter',system-ui,sans-serif;color:var(--ink);font-size:13px;background:var(--paper)}
+#sk .serif{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+#sk .mono{font-family:'JetBrains Mono',monospace}
+#sk svg text{user-select:none}
+#sk .wrap{position:relative;width:100%;aspect-ratio:16/10;overflow:hidden}
+#sk .abs{position:absolute}
+#sk .fig-note{font:400 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:var(--ink3);text-transform:uppercase}
+#sk .stg-name{font:italic 500 15px 'Cormorant Garamond',Georgia,serif;color:var(--ink)}
+#sk .stg-meta{font:400 9.5px 'JetBrains Mono',monospace;color:var(--ink3)}
+#sk .h-air{font:italic 500 42px 'Cormorant Garamond',Georgia,serif;letter-spacing:.02em;color:var(--ink)}
+#sk .stat b{font:500 16px 'JetBrains Mono';color:var(--blue)}
+#sk .legend{display:flex;flex-direction:column;gap:5px;font-size:10px;color:var(--ink2)}
+#sk .legend .sw{width:11px;height:11px;border:1px solid var(--ink2);display:inline-block;margin-right:6px;vertical-align:-1px}
+#sk .idx td{padding:2px 8px 2px 0;font:400 10.5px 'JetBrains Mono';color:var(--ink2)}
+#sk .idx td.nm{font-family:'Inter';color:var(--ink)}
+#sk .cross{position:absolute;width:15px;height:15px}
+#sk .cross::before,#sk .cross::after{content:"";position:absolute;background:var(--ink3)}
+#sk .cross::before{left:7px;top:0;width:1px;height:15px}
+#sk .cross::after{top:7px;left:0;height:1px;width:15px}
+#sk .strip{position:absolute;left:0;right:0;bottom:0;border-top:1px solid var(--rule);padding:7px 26px;font:400 9.5px 'JetBrains Mono';letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;display:flex;justify-content:space-between}
+</style>
+<div class="wrap" id="stage">
+  <div class="abs" style="left:34px;top:30px">
+    <div class="fig-note">MINI PLANE — PROJECT / ANATOMY</div>
+    <div class="h-air" style="margin-top:10px">PROJECT<br>ANATOMY</div>
+    <div style="margin-top:8px;font:italic 400 13px 'Cormorant Garamond';color:var(--ink2);max-width:200px">一个软件工程，被拆解为空间构件。<span class="mono" style="font-size:9px;color:var(--ink3)">（示意数据 · 非真实 API 值）</span></div>
+  </div>
+  <div class="abs" style="right:40px;top:34px;text-align:left">
+    <div class="fig-note">TOTAL PROGRESS · 83% · PLAN</div>
+    <div style="margin:6px 0 10px"><span style="display:inline-block;width:150px;height:4px;border:1px solid var(--rule)"><span style="display:block;width:83%;height:100%;background:var(--blue)"></span></span></div>
+    <table class="idx">
+      <tr><td>01</td><td class="nm">产品定位重构</td><td>100%</td></tr>
+      <tr><td>02</td><td class="nm">领域模型扩展</td><td>100%</td></tr>
+      <tr><td>03</td><td class="nm">API 与实时层</td><td>100%</td></tr>
+      <tr><td>04</td><td class="nm">个人版 UI</td><td>100%</td></tr>
+      <tr><td>05</td><td class="nm">收束与发布</td><td>60%</td></tr>
+      <tr><td>——</td><td class="nm">散件（未归属）</td><td>3 件</td></tr>
+    </table>
+    <div style="margin-top:10px;font-size:10px;color:var(--ink2)">
+      <span class="ag" style="color:var(--green);font:500 9px 'JetBrains Mono';letter-spacing:.12em">● AGENT · RUNNING</span><br>
+      <span class="mono" style="font-size:9px;color:var(--ink3)">NOW · MP-16 Lighthouse 90<br>NEXT STAGE · 05（当前）</span>
+    </div>
+  </div>
+  <div class="abs legend" style="left:40px;bottom:64px">
+    <span><i class="sw" style="background:var(--paper)"></i>Stage 构件</span>
+    <span><i class="sw" style="background:var(--blue);border-color:var(--blue)"></i>Task · 已完成</span>
+    <span><i class="sw" style="background:var(--soft);border-color:var(--blue)"></i>Task · 进行中（NOW）</span>
+    <span><i class="sw" style="background:var(--paper)"></i>Task · 待办</span>
+    <span><i class="sw" style="border-style:dashed"></i>散件 · 未归属</span>
+  </div>
+  <div class="cross" style="left:12px;top:12px"></div>
+  <div class="cross" style="right:12px;top:12px"></div>
+  <div class="strip"><span>MINI PLANE / PROJECT ANATOMY / 2026</span><span>SKETCH A · SPATIAL EXPLODED · 示意</span></div>
+</div>
+<script>
+(function(){
+  const INK='#1B1A17',BLUE='#1F3FA8',PAPER='#F4F1EA';
+  const C30=Math.cos(Math.PI/6),S30=.5;
+  function mk(ox,oy,s){return (x,y,z)=>[ox+(x-y)*C30*s, oy+(x+y)*S30*s - z*s];}
+  const f=a=>a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  function box(P,x,y,z,a,b,h,c){ // c: {top,xf,yf,st,sw,dash}
+    const top=f([P(x,y,z+h),P(x+a,y,z+h),P(x+a,y+b,z+h),P(x,y+b,z+h)]);
+    const xf=f([P(x+a,y,z+h),P(x+a,y+b,z+h),P(x+a,y+b,z),P(x+a,y,z)]);
+    const yf=f([P(x,y+b,z+h),P(x+a,y+b,z+h),P(x+a,y+b,z),P(x,y+b,z)]);
+    const st=c.st||INK,sw=c.sw||.9,d=c.dash?' stroke-dasharray="3 3"':'',o=c.o!=null?` opacity="${c.o}"`:'';
+    return `<polygon points="${yf}" fill="${c.yf||'none'}" stroke="${st}" stroke-width="${(sw*.8).toFixed(2)}"${d}${o}/>`
+      +`<polygon points="${xf}" fill="${c.xf||'none'}" stroke="${st}" stroke-width="${(sw*.8).toFixed(2)}"${d}${o}/>`
+      +`<polygon points="${top}" fill="${c.top||'none'}" stroke="${st}" stroke-width="${sw}"${d}${o}/>`;
+  }
+  function cell(P,x,y,z,state,s){ s=s||7;
+    const M={done:{top:BLUE,xf:'#16308A',yf:'#2B4FC0',st:BLUE,sw:.8},
+             started:{top:'#E2E7F5',xf:'#D8DFF4',yf:'#CCD6F1',st:BLUE,sw:1.4},
+             todo:{top:'#F7F4EC',xf:'#EAE5D9',yf:'#DFD9C9',st:INK,sw:.7}};
+    return box(P,x,y,z,s,s,s,M[state]||M.todo);
+  }
+  // —— 阶段构件库：每个阶段的「建筑原型」由任务密度决定，不是同一块板 ——
+  function openbox(P,w,d,cells,lift){ // 开敞箱体：地板+三面墙（正面敞开），细胞在室内
+    let s=box(P,0,0,lift,w,d,3,{top:'#F7F4EC',xf:'#EAE5D9',yf:'#DFD9C9',st:INK,sw:.9});
+    s+=box(P,0,0,lift+3,3,d,20,{top:'#EFEAE0',xf:'#E2DCCE',yf:'#D8D2C2',st:INK,sw:.8});
+    s+=box(P,0,0,lift+3,w,3,20,{top:'#EFEAE0',xf:'#E2DCCE',yf:'#D8D2C2',st:INK,sw:.8});
+    cells.forEach(c=>{ s+=cell(P,c[0],c[1],lift+3,c[2]); });
+    return s;
+  }
+  function portal(P,w,d,cells,lift){ // 门式框架：双柱+横梁，细胞吊在跨度内
+    let s=box(P,0,0,lift,5,d,34,{top:'#EFEAE0',xf:'#E2DCCE',yf:'#D8D2C2',st:INK,sw:.9});
+    s+=box(P,w-5,0,lift,5,d,34,{top:'#EFEAE0',xf:'#E2DCCE',yf:'#D8D2C2',st:INK,sw:.9});
+    s+=box(P,0,0,lift+34,w,d,7,{top:'#F7F4EC',xf:'#EAE5D9',yf:'#DFD9C9',st:INK,sw:.9});
+    cells.forEach(c=>{ s+=cell(P,c[0],c[1],lift+8,c[2]); });
+    return s;
+  }
+  function campus(P,w,d,cells,lift){ // 多翼体：两块相连的基座+上显然不同的体量（最密集阶段）
+    let s=box(P,0,0,lift,w*.58,d,6,{top:'#F7F4EC',xf:'#EAE5D9',yf:'#DFD9C9',st:INK,sw:.9});
+    s+=box(P,w*.62,0,lift,w*.38,d*.72,12,{top:'#F7F4EC',xf:'#EAE5D9',yf:'#DFD9C9',st:INK,sw:.9});
+    cells.forEach((c,i)=>{ const wing=i%2; const cx=wing? w*.64+c[0]*.3 : 4+c[0]*.42; const cy=4+c[1]*.5;
+      s+=cell(P,cx,cy,lift+(wing?12:6),c[2]); });
+    return s;
+  }
+  function fins(P,w,d,cells,lift){ // 翼基座：薄板架在五片翼墙之上
+    let s=''; for(let i=0;i<5;i++){ const fx=i*(w-4)/4; s+=box(P,fx,0,lift,3,d,10,{top:'#EFEAE0',xf:'#E2DCCE',yf:'#D8D2C2',st:INK,sw:.7}); }
+    s+=box(P,0,0,lift+10,w,d,5,{top:'#F7F4EC',xf:'#EAE5D9',yf:'#DFD9C9',st:INK,sw:.9});
+    cells.forEach((c,i)=>{ s+=cell(P,4+i*(w-16)/Math.max(1,cells.length-1),d/2-3,lift+15,c[2]); });
+    return s;
+  }
+  function tray(P,w,d,cells,lift){ // 散件托盘：虚线开敞底盘（中性，不羞辱）
+    let s=box(P,0,0,0,w,d,2,{top:'none',xf:'none',yf:'none',st:'#8F8B80',sw:.8,dash:1});
+    cells.forEach((c,i)=>{ s+=cell(P,6+i*(w-18)/Math.max(1,cells.length-1),d*.35,2,c[2],6); });
+    return s;
+  }
+
+  const W=1440,H=900;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;display:block" role="img" aria-label="空间爆炸解剖图概念草图">`;
+  // 地面网格（低对比）
+  let grid=''; for(let i=0;i<=12;i++){ grid+=`<line x1="${60+i*115}" y1="${H-160}" x2="${60+i*115-260}" y2="${H-30}" stroke="#C8C3B4" stroke-width=".5" opacity=".5"/>`;}
+  for(let i=0;i<=6;i++){ grid+=`<line x1="${60-i*130}" y1="${H-160+i*65}" x2="${W-160-i*60}" y2="${H-160+i*65}" stroke="#C8C3B4" stroke-width=".5" opacity=".5"/>`;}
+  svg+=`<g opacity=".55">${grid}</g>`;
+
+  // 各阶段结构（位置/高度错落，投影虚线落地）
+  function structure(ox,oy,s,kind,cells,lift,label,labelPos,meta){
+    const LP = labelPos || null;
+    const P=mk(ox,oy,s);
+    let g=`<g>`;
+    // 投影虚线：结构底角 → 地面足迹
+    const fp=`<g opacity=".5"><polygon points="${f([P(0,0,0),P(60,0,0),P(60,38,0),P(0,38,0)])}" fill="none" stroke="#8F8B80" stroke-width=".7" stroke-dasharray="3 4"/>`;
+    [[0,0],[60,0],[60,38],[0,38]].forEach(c=>{ const a=P(c[0],c[1],lift),b=P(c[0],c[1],0); g+=`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="#8F8B80" stroke-width=".6" stroke-dasharray="2 4" opacity=".6"/>`; });
+    g+=fp+'</g>';
+    g+={openbox,portal,campus,fins,tray}[kind](P,60,38,cells,lift);
+    // 标注：引线 + 名称
+    if(LP){ const lp=LP;
+      const anchor=lp[0]===0? P(0,10,lift+34) : P(60,10,lift+34);
+      g+=`<line x1="${anchor[0].toFixed(1)}" y1="${anchor[1].toFixed(1)}" x2="${lp[1]+ (lp[0]===0?150:-10)}" y2="${lp[2]+6}" stroke="#8F8B80" stroke-width=".7"/>`; }
+    g+=`</g>`;
+    // HTML 标签由调用方放置（更清晰的字体渲染）
+    return {svg:g, labelAnchor:LP?[anchor[0].toFixed(1),anchor[1].toFixed(1)]:null};
+  }
+
+  const st1=structure(300,240,1.35,'openbox',[[12,14,'done'],[24,20,'done'],[34,10,'done']],36,[0,60,180]);
+  const st2=structure(760,180,1.45,'portal',[[14,10,'done'],[26,16,'done'],[38,10,'done'],[20,22,'done'],[34,24,'done']],60,[1,880,120]);
+  const st3=structure(210,420,1.8,'campus',[[8,10,'done'],[20,14,'done'],[32,8,'done'],[44,16,'done'],[10,26,'done'],[24,30,'done'],[38,28,'done'],[50,12,'done']],26,[0,150,470]);
+  const st4=structure(1000,520,1.3,'fins',[[6,0,'done'],[30,0,'done']],30,[1,1090,560]);
+  const st5=structure(660,560,1.55,'openbox',[[12,14,'done'],[26,20,'done'],[38,10,'started'],[22,26,'todo'],[36,26,'todo']],36,[0,600,740]);
+  const trayG=structure(1130,650,1.1,'tray',[[0,0,'todo'],[0,0,'todo'],[0,0,'todo']],0,[1,1210,700]);
+
+  const board=document.getElementById('stage');
+  const svgHost=document.createElement('div'); svgHost.className='abs'; svgHost.style.cssText='inset:0';
+  svgHost.innerHTML=svg+st1.svg+st2.svg+st3.svg+st4.svg+st5.svg+trayG.svg;
+  board.appendChild(svgHost);
+  // 标签层（HTML 绝对定位，按结构锚点换算 viewBox→px）
+  function tag(html,x,y){ const d=document.createElement('div'); d.className='abs'; d.style.cssText=`left:${x}%;top:${y}%`; d.innerHTML=html; board.appendChild(d); }
+  // 简化：标签直接放在结构附近（比例换算）
+  tag(`<div class="fig-note">01 · INITIATION</div><div class="stg-name">产品定位重构</div><div class="stg-meta">3 TASKS · 100%</div>`,300/W*100-4,240/H*100-2);
+  tag(`<div class="fig-note">02 · DEVELOPMENT</div><div class="stg-name">领域模型扩展</div><div class="stg-meta">5 TASKS · 100%</div>`,760/W*100+2,180/H*100-1);
+  tag(`<div class="fig-note">03 · API 与实时层（最密）</div><div class="stg-name">API 与实时层</div><div class="stg-meta">8 TASKS · 100% · 密度示意</div>`,210/W*100-2,420/H*100+1);
+  tag(`<div class="fig-note">04 · SHIP</div><div class="stg-name">个人版 UI</div><div class="stg-meta">2 TASKS · 100%</div>`,1000/W*100+1,520/H*100+2);
+  tag(`<div class="fig-note">05 · RELEASE（当前 · w3）</div><div class="stg-name">收束与发布</div><div class="stg-meta">5 TASKS · 60% · <span style="color:var(--blue)">NOW · MP-16</span></div>`,660/W*100+1,560/H*100+3);
+  tag(`<div class="fig-note">UNASSIGNED · 散件托盘</div><div class="stg-meta">3 TASKS · 待归属（中性可见）</div>`,1130/W*100,650/H*100-4);
+})();
+</script>
+</div>

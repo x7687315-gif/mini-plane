@@ -1,0 +1,216 @@
+<div id="mp-sheet"></div>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+#mp-sheet{
+  --paper:#F4F1EA; --paper2:#ECE8DE; --ink:#1B1A17; --ink2:#5A5851; --ink3:#8F8B80;
+  --rule:#CFCAB9; --blue:#1F3FA8; --soft:#E4E8F3; --green:#1D7A5F; --red:#B4321F;
+  font-family:'Inter',system-ui,sans-serif; color:var(--ink); font-size:13px;
+}
+#mp-sheet *{box-sizing:border-box;margin:0;padding:0}
+#mp-sheet button{font-family:inherit;background:none;border:0;cursor:pointer;color:inherit;font-size:inherit}
+#mp-sheet .serif{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+#mp-sheet .mono{font-family:'JetBrains Mono',monospace}
+
+/* 预览铬 */
+#mp-sheet .pv{display:flex;gap:2px;align-items:baseline;margin-bottom:12px;flex-wrap:wrap}
+#mp-sheet .pv button{font-size:12px;color:var(--ink2);padding:4px 10px;border-bottom:2px solid transparent}
+#mp-sheet .pv button[aria-pressed="true"]{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+#mp-sheet .pv .note{margin-left:auto;font-size:11px;color:var(--ink3)}
+
+/* 窗口 */
+#mp-sheet .sheet{height:730px;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden;
+  background-image:linear-gradient(rgba(31,63,168,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(31,63,168,.045) 1px,transparent 1px);
+  background-size:32px 32px}
+#mp-sheet .bar{height:46px;display:flex;align-items:center;gap:18px;padding:0 20px;border-bottom:1px solid var(--rule)}
+#mp-sheet .logo{font:italic 500 19px 'Cormorant Garamond',Georgia,serif}
+#mp-sheet .logo em{font:500 9px 'JetBrains Mono';font-style:normal;letter-spacing:.18em;color:var(--ink3);margin-left:7px}
+#mp-sheet .bar .sp{flex:1}
+#mp-sheet .ava{width:24px;height:24px;border:1px solid var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';color:var(--blue)}
+
+/* 图纸头 */
+#mp-sheet .head{display:flex;align-items:baseline;padding:18px 26px 0}
+#mp-sheet .h1{font:italic 500 28px 'Cormorant Garamond',Georgia,serif}
+#mp-sheet .head .id{font:400 11px 'JetBrains Mono';color:var(--ink3);margin-left:12px}
+#mp-sheet .head .right{margin-left:auto;display:flex;gap:16px;align-items:baseline}
+#mp-sheet .big{font:500 26px 'Cormorant Garamond',Georgia,serif;color:var(--blue)}
+#mp-sheet .ag{font:500 9px 'JetBrains Mono';letter-spacing:.12em;color:var(--green);display:inline-flex;gap:6px;align-items:center}
+#mp-sheet .ag i{width:6px;height:6px;border-radius:50%;background:var(--green)}
+#mp-sheet .sub{padding:0 26px;color:var(--ink3);font-size:12px}
+
+/* 图纸区（SVG 绘制，行内样式驱动） */
+#mp-sheet .board{position:absolute;left:26px;right:26px;top:104px;bottom:64px;border:1px solid var(--rule);background:var(--paper)}
+#mp-sheet .titleblock{position:absolute;right:0;bottom:0;border-top:1px solid var(--rule);border-left:1px solid var(--rule);background:var(--paper);font:400 9.5px 'JetBrains Mono';color:var(--ink2);display:grid;grid-template-columns:auto auto;gap:2px 14px;padding:8px 12px}
+#mp-sheet .titleblock b{font-weight:500;color:var(--ink)}
+
+/* 楼层 hover 工具条 */
+#mp-sheet .floor-tip{position:absolute;left:26px;bottom:70px;font:400 11px 'Inter';color:var(--ink2);background:var(--paper);border:1px solid var(--rule);padding:6px 12px;max-width:520px}
+#mp-sheet .floor-tip b{color:var(--blue);font-weight:500}
+#mp-sheet [hidden]{display:none!important}
+</style>
+
+<div class="pv" role="toolbar" aria-label="原型控制">
+  <button type="button" data-v="section" aria-pressed="true">结构剖面图（推荐）</button>
+  <button type="button" data-v="pipeline" aria-pressed="false">流水线视图</button>
+  <span class="note">工程可视化 · 蓝图制图语言 · 零新操作（点击楼层看任务）</span>
+</div>
+
+<div class="sheet">
+  <div class="bar">
+    <span class="logo">Plane<em>MINI · SHEET A-01</em></span>
+    <span class="sp"></span>
+    <span class="mono" style="font-size:10px;color:var(--ink3);letter-spacing:.14em">✎ 记一笔 ⌘⇧L</span>
+    <span class="ava">北</span>
+  </div>
+  <div class="head">
+    <span class="h1">Mini Plane</span>
+    <span class="id">MP · 图纸 · 阶段 05 / 05</span>
+    <span class="right">
+      <span class="ag"><i></i>AGENT · RUNNING</span>
+      <span class="big">60<span style="font-size:14px">%</span></span>
+    </span>
+  </div>
+  <div class="sub">整栋完成度 = Σ(层高×填充)/Σ层高 —— 权重即层高，进度即剖面填充线；线粗分级（剖切粗/投影细），转角微出头：丁字尺时代的制图手感，几何不差分毫。</div>
+
+  <div class="board" id="board"></div>
+  <div class="floor-tip" id="tip">把鼠标移到任意楼层查看阶段目标；点击「当前层」展开它的任务。</div>
+  <div class="titleblock">
+    <span>PROJECT</span><b>MINI PLANE / MP</b>
+    <span>DRAWN</span><b>2026.10.25</b>
+    <span>SCALE</span><b>1 : PROGRESS</b>
+    <span>REV</span><b id="tb-rev">05</b>
+  </div>
+</div>
+
+<script>
+(function(){
+  const root = document.getElementById('mp-sheet');
+  const S = Object.assign({v:'section', openCurrent:true},
+    (()=>{try{return JSON.parse(window.zcode.widgetState?.modelContent||'{}')}catch(e){return{}}})());
+
+  // 真实形状的数据（与后端 plan/tasks/worklog 完全对应，无虚构字段）
+  const stages=[
+    {no:'01',name:'产品定位重构',w:1,p:100,goal:'把产品中心从任务移到工程：个人优先的信条、首页与领域模型。'},
+    {no:'02',name:'领域模型扩展',w:1,p:100,goal:'Project.owner / Task↔Stage / Worklog 证据链落地。'},
+    {no:'03',name:'API 与实时层',w:1,p:100,goal:'规范路由 + 双路由 WS + Agent 幂等闭环。'},
+    {no:'04',name:'个人版 UI',w:1,p:100,goal:'初见/我的工程/工程台/记一笔，按模板 v2 落地。'},
+    {no:'05',name:'收束与发布',w:3,p:60,goal:'桌面 404 热修、可视化图纸、v1.0.1 发布。',cur:true,
+      tasks:[{id:'MP-16',t:'Lighthouse 90',st:'todo',now:true},{id:'MP-15',t:'组件测试（Vitest）',st:'todo'},{id:'MP-14',t:'Markdown → Worklog 导入',st:'todo'},{id:'MP-12',t:'v1.0.0 隐私扫描与发布',st:'done'}],
+      logs:['10-23','10-22']},
+  ];
+  const W=stages.reduce((a,s)=>a+s.w,0), P=Math.round(stages.reduce((a,s)=>a+s.w*s.p,0)/W);
+
+  const board=document.getElementById('board'), tip=document.getElementById('tip');
+
+  function hatch(id,pct){ // 剖面填充线 pattern（建筑制图的断面线）
+    return `<pattern id="${id}" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="7" stroke="#1F3FA8" stroke-width="1" opacity=".55"/></pattern>`;
+  }
+
+  // 严谨制图线质（用户定向：不做 Excalidraw 式抖动，走建筑手绘的工程伦理——
+  // 几何精确 + 两处人味：线粗分级、转角微出头[运笔过交点 1-2px，是丁字尺时代的手的痕迹]）
+  function drect(x,y,w,h,color,sw,o=3){
+    return `<g stroke="${color}" stroke-width="${sw}" fill="none" shape-rendering="crispEdges">
+      <line x1="${x-o}" y1="${y}" x2="${x+w+o}" y2="${y}"/>
+      <line x1="${x}" y1="${y-o}" x2="${x}" y2="${y+h+o}"/>
+      <line x1="${x-o}" y1="${y+h}" x2="${x+w+o}" y2="${y+h}"/>
+      <line x1="${x+w}" y1="${y-o}" x2="${x+w}" y2="${y+h+o}"/>
+    </g>`;
+  }
+
+  // 证据格数据（借 GitHub 贡献格：人类最熟悉的进度视觉；Worklog=证据）
+  const evidence=[0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0];
+
+  function render(){
+    document.querySelectorAll('.pv button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===S.v)));
+    const Wpx=board.clientWidth||980, Hpx=board.clientHeight||540;
+    const L=64, R=Wpx-56, top=26, bottom=Hpx-30;
+    const totalH=bottom-top-20, sumW=stages.reduce((a,s)=>a+s.w,0);
+
+    if(S.v==='section'){
+      // 剖面：自下而上叠层；层高∝权重；填充高∝进度；标高符号在左；证据戳在右
+      let y=bottom; let rows='';
+      for(const s of stages){
+        const h=Math.max(34, totalH*s.w/sumW);
+        const yTop=y-h;
+        const fillH=h*s.p/100;
+        rows+=`
+        <g class="fl" data-k="${s.no}" style="cursor:pointer">
+          <g transform="translate(6,-4)" opacity=".38">${/* 轴测深度线（借 Skyline 系楼栋隐喻，纯线稿不渲染 3D） */
+            drect(L,yTop,R-L,h,'#8F8B80',.7,2)}</g>
+          ${drect(L,yTop,R-L,h, s.cur?'#1F3FA8':'#8F8B80', s.cur?1.4:.9, s.cur?4:3)}
+          <rect x="${L+1}" y="${y-fillH+1}" width="${R-L-2}" height="${fillH-2||0}" fill="url(#hx)" ${s.p===0?'opacity="0"':''}/>
+          <text x="${L+12}" y="${yTop+18}" font-family="JetBrains Mono" font-size="11" fill="${s.cur?'#1F3FA8':'#8F8B80'}">${s.no}</text>
+          <text x="${L+40}" y="${yTop+19}" font-family="Cormorant Garamond" font-style="italic" font-size="16" fill="${s.cur?'#1F3FA8':'#1B1A17'}">${s.name}${s.cur?' · 当前':''}</text>
+          <text x="${R-14}" y="${yTop+18}" text-anchor="end" font-family="JetBrains Mono" font-size="10.5" fill="${s.p===100?'#1D7A5F':'#5A5851'}">${s.p}% · w${s.w}</text>
+          ${s.logs? s.logs.map((d,i)=>`<text x="${R+16}" y="${yTop+18+i*13}" font-family="JetBrains Mono" font-size="9" fill="#8F8B80">├${d}</text>`).join(''):''}
+          ${s.cur?`<text x="${L+40}" y="${yTop+33}" font-family="Inter" font-size="10" fill="#1D7A5F">▲ 脚手架 · NOW：${s.tasks[0].t}</text>`:''}
+        </g>`;
+        y=yTop-8;
+      }
+      // 标高符号（左侧▽）
+      const marks=stages.map((s,i)=>{
+        const h=Math.max(34,totalH*s.w/sumW);
+        return {y: bottom - stages.slice(0,i).reduce((a,x)=>a+x.w,0)*totalH/sumW - i*8 - h};
+      });
+      const elev=`
+        <g font-family="JetBrains Mono" font-size="9" fill="#8F8B80">
+          <text x="10" y="${top-8}">▽ 100</text>
+          <line x1="6" x2="30" y1="${top-14}" y2="${top-14}" stroke="#8F8B80"/>
+          <text x="10" y="${bottom+4}">▽ 0</text>
+          <line x1="6" x2="30" y1="${bottom-2}" y2="${bottom-2}" stroke="#8F8B80"/>
+        </g>`;
+      board.innerHTML=`<svg width="${Wpx}" height="${Hpx}" role="img" aria-label="工程结构剖面图">
+        <defs>${hatch('hx',0)}</defs>
+        <line x1="${L-6}" y1="${bottom+6}" x2="${R+6}" y2="${bottom+6}" stroke="#1B1A17" stroke-width="1.6"/>
+        ${marks.map((m,i)=>`<line x1="${L}" x2="${L}" y1="${m.y}" y2="${bottom}" stroke="#CFCAB9" stroke-dasharray="2 4"/>`).join('')}
+        ${rows}${elev}
+        <text x="${R-8}" y="${bottom+20}" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#8F8B80">SECTION A-A · 证据列（工程日志）→</text>
+        ${/* 证据格（借 GitHub 贡献格）：底部一条 Worklog 密度带，0=空 1=手动 2=Agent */
+          `<g transform="translate(${L},${bottom+26})">${evidence.map((v,i)=>
+            `<rect x="${i*13}" y="0" width="10" height="10" fill="${v===0?'none':v===1?'#1F3FA8':'#1D7A5F'}" fill-opacity="${v?'.75':'.06'}" stroke="#CFCAB9" stroke-width=".8"/>`).join('')}
+            <text x="${evidence.length*13+10}" y="9" font-family="JetBrains Mono" font-size="9" fill="#8F8B80">证据 · 近12周（蓝=手动 绿=Agent）</text></g>`}
+      </svg>`;
+    } else {
+      // 流水线：横向工位；宽∝权重；NOW 任务在当前工位下方展开
+      const gap=10, usable=R-L-gap*(stages.length-1);
+      let x=L, rows='';
+      for(const s of stages){
+        const w=usable*s.w/sumW, h=64, y=top+40;
+        rows+=`
+        <g class="fl" data-k="${s.no}" style="cursor:pointer">
+          <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${s.cur?'#1F3FA8':'#8F8B80'}" stroke-width="${s.cur?1.5:1}"/>
+          <rect x="${x+1}" y="${y+1}" width="${(w-2)*s.p/100}" height="${h-2}" fill="url(#hx)" ${s.p===0?'opacity="0"':''}/>
+          <text x="${x+10}" y="${y-8}" font-family="JetBrains Mono" font-size="10" fill="${s.cur?'#1F3FA8':'#8F8B80'}">${s.no} ${s.name}</text>
+          <text x="${x+10}" y="${y+h/2+4}" font-family="JetBrains Mono" font-size="11" fill="#1B1A17">${s.p}%</text>
+          ${s.cur&&S.openCurrent? s.tasks.slice(0,3).map((t,i)=>`
+            <g>
+              <rect x="${x+8}" y="${y+h+14+i*26}" width="${Math.min(w-16,300)}" height="22" fill="none" stroke="${t.now?'#1F3FA8':'#CFCAB9'}"/>
+              ${t.now?`<rect x="${x+8}" y="${y+h+14+i*26}" width="3" height="22" fill="#1F3FA8"/>`:''}
+              <text x="${x+18}" y="${y+h+29+i*26}" font-family="Inter" font-size="11" fill="${t.st==='done'?'#8F8B80':'#1B1A17'}" ${t.st==='done'?'text-decoration="line-through"':''}>${t.id} ${t.t}</text>
+            </g>`).join(''):''}
+        </g>`;
+        x+=w+gap;
+      }
+      board.innerHTML=`<svg width="${Wpx}" height="${Hpx}" role="img" aria-label="工程流水线图">
+        <defs>${hatch('hx',0)}</defs>
+        <line x1="${L}" y1="${top+40+32}" x2="${R}" y2="${top+40+32}" stroke="#CFCAB9" stroke-dasharray="3 4"/>
+        <text x="${L}" y="${top+16}" font-family="JetBrains Mono" font-size="9" fill="#8F8B80">ASSEMBLY LINE · 工位宽 ∝ 权重 · 填充 ∝ 进度</text>
+        ${rows}
+      </svg>`;
+    }
+
+    // 交互：hover 目标 / 点击当前层开合任务（剖面视图）
+    board.querySelectorAll('.fl').forEach(g=>{
+      const s=stages.find(x=>x.no===g.dataset.k);
+      g.addEventListener('mouseenter',()=>{ tip.innerHTML=`<b>${s.no} ${s.name}</b> · 目标：${s.goal} <span style="color:var(--ink3)">（权重 ${s.w} · ${s.p}%）</span>`; });
+      g.addEventListener('click',()=>{ if(s.cur){S.openCurrent=!S.openCurrent; render();} });
+    });
+    document.getElementById('tb-rev').textContent=stages[stages.length-1].no;
+    try{window.zcode.setWidgetState({modelContent:JSON.stringify(S)}).catch(()=>{})}catch(e){}
+  }
+  document.querySelector('.pv').addEventListener('click',e=>{const b=e.target.closest('button[data-v]'); if(b){S.v=b.dataset.v; render();}});
+  try{document.addEventListener('zcode:set_globals',ev=>{const g=ev.detail?.globals?.widgetState; if(g){try{Object.assign(S,JSON.parse(g.modelContent||'{}'));render()}catch(e){}}});}catch(e){}
+  render();
+})();
+</script>

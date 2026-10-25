@@ -6,8 +6,8 @@ from apps.workspaces import views
 
 urlpatterns = [
     path("workspaces/", views.workspace_list_create),
-    path("workspaces/<slug:workspace_slug>/", views.workspace_detail),
-    path("workspaces/<slug:workspace_slug>/members/", views.member_list_create),
-    path("workspaces/<slug:workspace_slug>/members/<uuid:member_id>/", views.member_detail),
-    path("workspaces/<slug:workspace_slug>/projects/", include("apps.projects.urls")),
+    path("workspaces/<str:workspace_slug>/", views.workspace_detail),
+    path("workspaces/<str:workspace_slug>/members/", views.member_list_create),
+    path("workspaces/<str:workspace_slug>/members/<uuid:member_id>/", views.member_detail),
+    path("workspaces/<str:workspace_slug>/projects/", include("apps.projects.urls")),
 ]

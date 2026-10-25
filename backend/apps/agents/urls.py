@@ -31,12 +31,12 @@ urlpatterns = [
     ),
     # 工程动作——兼容路由（含 workspace slug，deprecated）
     path(
-        "projects/<slug:workspace_slug>/<uuid:project_id>/",
+        "projects/<str:workspace_slug>/<uuid:project_id>/",
         views.agent_project_get,
         name="agent-project-get",
     ),
     path(
-        "projects/<slug:workspace_slug>/<uuid:project_id>/progress/",
+        "projects/<str:workspace_slug>/<uuid:project_id>/progress/",
         views.agent_progress_update,
         name="agent-progress-update",
     ),
@@ -46,7 +46,7 @@ urlpatterns = [
     path("worklogs/", views.agent_worklog_create, name="agent-worklog-create"),
     # Sprint 13：Agent Session
     path(
-        "projects/<slug:workspace_slug>/<uuid:project_id>/sessions/",
+        "projects/<str:workspace_slug>/<uuid:project_id>/sessions/",
         views.agent_session_list,
         name="agent-session-list",
     ),
