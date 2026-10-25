@@ -6,6 +6,7 @@ import { AppShell } from "@/components/shell/AppShell";
 import { BulkActionBar } from "@/components/issue/BulkActionBar";
 import { IssueDrawer, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
 import { DimProgress, SectionHead } from "@/components/ui/v2";
+import { AnatomyPlate } from "@/components/anatomy/AnatomyPlate";
 import { useIslandHotkey } from "@/features/engineering-island";
 import {
   useAddStage,
@@ -72,6 +73,7 @@ function WorkbenchRoute() {
 
   const issueId = searchParams.get("issue");
   const tab = (searchParams.get("tab") ?? "activity") as IssueDrawerTab;
+  const view = searchParams.get("view") === "plate" ? "plate" : "bench";
 
   /** URL 即状态：抽屉与 tab 参数写回地址栏（可分享、可后退）。 */
   function handleParam(key: string, value: string | null) {
@@ -120,6 +122,8 @@ function WorkbenchRoute() {
         members={members?.results ?? []}
         tasks={taskPage?.results ?? []}
         agentRunning={mine?.find((p) => p.id === pid)?.agent_running ?? false}
+        view={view}
+        onView={(v) => handleParam("view", v === "bench" ? null : v)}
         drawerIssueId={issueId}
         drawerTab={tab}
         onParam={handleParam}
@@ -138,6 +142,8 @@ function Workbench({
   members,
   tasks,
   agentRunning,
+  view,
+  onView,
   drawerIssueId,
   drawerTab,
   onParam,
@@ -151,6 +157,8 @@ function Workbench({
   members: ProjectMember[];
   tasks: Issue[];
   agentRunning: boolean;
+  view: "bench" | "plate";
+  onView: (v: "bench" | "plate") => void;
   drawerIssueId: string | null;
   drawerTab: IssueDrawerTab;
   onParam: (key: string, value: string | null) => void;
@@ -214,19 +222,34 @@ function Workbench({
           {identifier} · {tasks.length} 任务
         </span>
         <span className="ml-auto flex gap-4">
-          <a
-            href="#wb-logs"
-            className="text-[11.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-accent)]"
-          >
-            日志
-          </a>
           <button
             type="button"
-            className="text-[11.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-accent)]"
-            onClick={() => setSettingsOpen((v) => !v)}
+            onClick={() => onView("bench")}
+            className={view === "bench" ? "text-[11.5px] text-[color:var(--color-accent)]" : "text-[11.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-accent)]"}
           >
-            设置
+            工作台
           </button>
+          <button
+            type="button"
+            onClick={() => onView("plate")}
+            className={view === "plate" ? "text-[11.5px] text-[color:var(--color-accent)]" : "text-[11.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-accent)]"}
+          >
+            图纸
+          </button>
+          {view === "bench" && (
+            <a href="#wb-logs" className="text-[11.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-accent)]">
+              日志
+            </a>
+          )}
+          {view === "bench" && (
+            <button
+              type="button"
+              className="text-[11.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-accent)]"
+              onClick={() => setSettingsOpen((v) => !v)}
+            >
+              设置
+            </button>
+          )}
         </span>
       </div>
 
@@ -259,6 +282,21 @@ function Workbench({
         </span>
       </div>
 
+      {view === "plate" ? (
+        <div className="mt-4">
+          <AnatomyPlate
+            identifier={identifier}
+            stages={plan?.stages ?? []}
+            tasks={tasks}
+            logs={logPage?.results ?? []}
+            states={states}
+            agentRunning={agentRunning}
+            nextStageName={plan?.next_stage?.name ?? null}
+            onOpenTask={(id) => onParam("issue", id)}
+          />
+        </div>
+      ) : (
+      <>
       {/* 任务 */}
       <SectionHead t="任务" n={tasks.length} />
       <div className="flex flex-wrap items-baseline gap-4">
@@ -481,7 +519,10 @@ function Workbench({
         </button>
       </div>
 
-      {/* 日志：页缘笔记 */}
+      </>
+      )}
+
+      {/* 日志：页缘笔记（两视图共用） */}
       <div id="wb-logs">
         <SectionHead t="日志" n={logs.length} />
         {logs.length === 0 && (
