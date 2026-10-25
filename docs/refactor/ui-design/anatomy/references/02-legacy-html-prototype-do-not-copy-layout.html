@@ -1,0 +1,288 @@
+<div id="mp-anatomy"></div>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+#mp-anatomy{
+  --paper:#F4F1EA; --paper2:#ECE8DE; --ink:#1B1A17; --ink2:#5A5851; --ink3:#8F8B80;
+  --rule:#CFCAB9; --blue:#1F3FA8; --soft:#E4E8F3; --green:#1D7A5F; --red:#B4321F; --orange:#E8912D;
+  font-family:'Inter',system-ui,sans-serif; color:var(--ink); font-size:13px;
+}
+#mp-anatomy *{box-sizing:border-box;margin:0;padding:0}
+#mp-anatomy button{font-family:inherit;background:none;border:0;cursor:pointer;color:inherit;font-size:inherit}
+#mp-anatomy .serif{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+#mp-anatomy .mono{font-family:'JetBrains Mono',monospace}
+
+#mp-anatomy .pv{display:flex;gap:2px;align-items:baseline;margin-bottom:10px;flex-wrap:wrap}
+#mp-anatomy .pv button{font-size:12px;color:var(--ink2);padding:4px 10px;border-bottom:2px solid transparent}
+#mp-anatomy .pv button[aria-pressed="true"]{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+#mp-anatomy .pv .note{margin-left:auto;font-size:11px;color:var(--ink3)}
+
+#mp-anatomy .sheet{height:760px;background:var(--paper);border:1px solid var(--rule);position:relative;overflow:hidden;
+  background-image:linear-gradient(rgba(31,63,168,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(31,63,168,.04) 1px,transparent 1px);
+  background-size:32px 32px}
+#mp-anatomy .bar{height:44px;display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid var(--rule)}
+#mp-anatomy .logo{font:italic 500 18px 'Cormorant Garamond',Georgia,serif}
+#mp-anatomy .logo em{font:500 9px 'JetBrains Mono';font-style:normal;letter-spacing:.18em;color:var(--ink3);margin-left:7px}
+#mp-anatomy .bar .sp{flex:1}
+#mp-anatomy .ava{width:22px;height:22px;border:1px solid var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font:500 10px 'Inter';color:var(--blue)}
+
+#mp-anatomy .head{display:flex;align-items:baseline;padding:12px 22px 0}
+#mp-anatomy .h1{font:italic 500 24px 'Cormorant Garamond',Georgia,serif}
+#mp-anatomy .head .id{font:400 10.5px 'JetBrains Mono';color:var(--ink3);margin-left:10px}
+#mp-anatomy .head .inst{margin-left:auto;display:flex;gap:16px;align-items:baseline;font-size:11px;color:var(--ink2)}
+#mp-anatomy .head .inst b{font:500 9px 'Inter';letter-spacing:.16em;color:var(--ink3);margin-right:5px}
+#mp-anatomy .head .big{font:500 22px 'Cormorant Garamond',Georgia,serif;color:var(--blue)}
+#mp-anatomy .ag{font:500 9px 'JetBrains Mono';letter-spacing:.12em;color:var(--green);display:inline-flex;gap:5px;align-items:center}
+#mp-anatomy .ag i{width:5px;height:5px;border-radius:50%;background:var(--green)}
+
+#mp-anatomy .board{position:absolute;left:22px;right:22px;top:92px;bottom:46px;border:1px solid var(--rule);background:var(--paper);overflow:hidden}
+#mp-anatomy .tb{position:absolute;right:0;bottom:0;border-top:1px solid var(--rule);border-left:1px solid var(--rule);background:var(--paper);font:400 9px 'JetBrains Mono';color:var(--ink2);display:grid;grid-template-columns:auto auto;gap:2px 12px;padding:7px 11px;z-index:6}
+#mp-anatomy .tb b{font-weight:500;color:var(--ink)}
+
+#mp-anatomy .detail{position:absolute;right:14px;top:14px;width:250px;background:var(--paper);border:1px solid var(--ink);box-shadow:4px 4px 0 rgba(27,26,23,.07);z-index:8;padding:11px 13px}
+#mp-anatomy .detail .dr{display:flex;gap:9px;padding:3.5px 0;font-size:11.5px;border-bottom:1px dashed var(--rule)}
+#mp-anatomy .detail .dr:last-child{border-bottom:0}
+#mp-anatomy .detail .dr b{font:500 8.5px 'Inter';letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);width:56px;flex:none;padding-top:2px}
+#mp-anatomy .detail .open{margin-top:7px;font-size:11px;color:var(--blue)}
+#mp-anatomy .detail .x{position:absolute;right:9px;top:7px;color:var(--ink3)}
+#mp-anatomy .reset{position:absolute;left:14px;top:14px;z-index:7}
+
+#mp-anatomy [hidden]{display:none!important}
+</style>
+
+<div class="pv" role="toolbar" aria-label="构图切换">
+  <button type="button" data-v="A" aria-pressed="true">A · 爆炸轴测</button>
+  <button type="button" data-v="B" aria-pressed="false">B · 剖面式</button>
+  <span class="note">同一真实领域数据 · 零依赖线（模型中不存在 Task↔Task 关系）· 点击阶段聚焦 / 点击任务看详情</span>
+</div>
+
+<div class="sheet">
+  <div class="bar">
+    <span class="logo">Plane<em>MINI · PLATE 01</em></span>
+    <span class="sp"></span>
+    <span class="mono" style="font-size:9.5px;color:var(--ink3);letter-spacing:.12em">✎ 记一笔</span>
+    <span class="ava">北</span>
+  </div>
+  <div class="head">
+    <span class="h1">Mini Plane</span><span class="id">MP · 解剖图 · 阶段 05/05</span>
+    <span class="inst">
+      <span><b>NOW</b><span class="mono" style="font-size:10.5px">MP-16 Lighthouse 90</span></span>
+      <span><b>NEXT</b>05 联调收尾</span>
+      <span class="ag"><i></i>AGENT·RUNNING</span>
+      <span class="big">60<span style="font-size:13px">%</span></span>
+    </span>
+  </div>
+  <div class="board" id="board"></div>
+  <div class="tb"><span>PROJECT</span><b>MINI PLANE / MP</b><span>PLATE</span><b id="tb-n">01</b><span>DRAWN</span><b>2026.10.25</b></div>
+</div>
+
+<script>
+(function(){
+  const root=document.getElementById('mp-anatomy');
+  const S=Object.assign({v:'A',focus:-1,sel:null},(()=>{try{return JSON.parse(window.zcode.widgetState?.modelContent||'{}')}catch(e){return{}}})());
+
+  // 真实领域形状（Task.stage / Worklog.stage 可空 → 散件区；无任何 Task↔Task 关系）
+  const stages=[
+    {no:'01',name:'产品定位重构',w:1,p:100,goal:'产品中心从任务移到工程：个人优先信条与首页信息架构。',
+     tasks:[{id:'MP-01',t:'产品立场冻结',st:'done',pr:'high'},{id:'MP-02',t:'首页信息架构',st:'done',pr:'medium'}]},
+    {no:'02',name:'领域模型扩展',w:1,p:100,goal:'Project.owner、Task↔Stage、Worklog 证据链。',
+     tasks:[{id:'MP-03',t:'Project.owner 迁移',st:'done',pr:'high'},{id:'MP-04',t:'Task↔Stage 关联',st:'done',pr:'high'},{id:'MP-05',t:'条件唯一约束',st:'done',pr:'medium'}]},
+    {no:'03',name:'API 与实时层',w:1,p:100,goal:'规范路由、WS 双路由、Agent 幂等闭环。',
+     tasks:[{id:'MP-06',t:'规范路由 /projects/{pid}',st:'done',pr:'high'},{id:'MP-07',t:'WS 双路由',st:'done',pr:'medium'},{id:'MP-08',t:'session.end 幂等补齐',st:'done',pr:'medium'}]},
+    {no:'04',name:'个人版 UI',w:1,p:100,goal:'初见 / 我的工程 / 工程台 / 记一笔。',
+     tasks:[{id:'MP-09',t:'个人⇄团队导航',st:'done',pr:'medium'},{id:'MP-10',t:'登录页「直接进入」',st:'done',pr:'low'},{id:'MP-11',t:'README 对外重写',st:'done',pr:'medium'}]},
+    {no:'05',name:'收束与发布',w:3,p:60,cur:true,goal:'桌面热修、解剖图、v1.0.1 发布。',
+     tasks:[{id:'MP-12',t:'v1.0.0 隐私扫描与发布',st:'done',pr:'high'},{id:'MP-13',t:'桌面版关窗后进程残留',st:'todo',pr:'urgent'},{id:'MP-14',t:'Markdown→Worklog 导入',st:'todo',pr:'medium'},{id:'MP-15',t:'组件测试（Vitest）',st:'todo',pr:'medium'},{id:'MP-16',t:'Lighthouse 90',st:'started',pr:'low',now:true}]},
+  ];
+  const loose=[{id:'MP-17',t:'Lighthouse 复测',st:'todo',pr:'none'},{id:'MP-18',t:'打包缓存清理自动化',st:'todo',pr:'none'}];
+  const wlogs=[{d:'10-23',t:'v1.0.0 收束',st:4},{d:'10-22',t:'Island 落地',st:4},{d:'10-20',t:'Agent 闭环跑通',st:2},{d:'10-18',t:'整理运行时目录',st:null}];
+
+  const board=document.getElementById('board');
+  const stateName={done:'已完成',todo:'待办',started:'进行中',cancelled:'已取消',backlog:'待规划'};
+
+  function stageOf(i){return stages[i];}
+  function taskById(id){for(const s of stages)for(const t of s.tasks)if(t.id===id)return{t,s};for(const t of loose)if(t.id===id)return{t,s:null};return null;}
+
+  function chip(x,y,t,dark){
+    const f=t.st==='done'?'url(#hx)':t.st==='started'?'#1F3FA8':'none';
+    const st=t.st==='started'?'#1F3FA8':t.st==='done'?'#1D7A5F':'#8F8B80';
+    return `<rect x="${x}" y="${y}" width="26" height="15" fill="${f}" ${t.st==='todo'||t.st==='started'?'':`fill-opacity=".5"`} stroke="${dark?'#1F3FA8':st}" stroke-width="${t.now?1.6:1}"/>`
+      + (t.now?`<text x="${x+31}" y="${y+11}" font-family="JetBrains Mono" font-size="8" fill="#1F3FA8">NOW</text>`:'');
+  }
+
+  function render(){
+    document.querySelectorAll('.pv button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===S.v)));
+    const W=board.clientWidth||960,H=board.clientHeight||560;
+    const L=54,R=W-150,top=16,bot=H-56;
+    let svg='';
+
+    if(S.v==='A'){
+      const focused=S.focus>=0;
+      const plates=stages.map((s,i)=>{
+        if(focused&&i!==S.focus){ // 压扁成薄板
+          return {i,s,h:20,y:0,thin:true};
+        }
+        return {i,s,h:0,y:0,thin:false};
+      });
+      // 自下而上布局：薄板 20px、聚焦板 205px、常规板 62px；爆炸间距 22
+      let y=bot; const laid=[];
+      for(let i=stages.length-1;i>=0;i--){
+        const thin=focused&&i!==S.focus;
+        const h=focused?(i===S.focus?208:20):64;
+        y-=h; laid.push({i,y,h,thin}); y-=22; // 爆炸间距
+      }
+      const dx=16,dy=-9;
+      svg+=`<defs><pattern id="hx" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="#1F3FA8" stroke-width="1" opacity=".5"/></pattern></defs>`;
+      for(const {i,s,h,y:y0,thin} of laid){
+        const cur=!!s.cur, x=L, w=R-L;
+        if(thin){
+          svg+=`<g class="fl" data-i="${i}" style="cursor:pointer">
+            <line x1="${x}" y1="${y0}" x2="${x+w}" y2="${y0}" stroke="#8F8B80"/>
+            <line x1="${x}" y1="${y0+h}" x2="${x+w}" y2="${y0+h}" stroke="#8F8B80"/>
+            <text x="${x+6}" y="${y0+14}" font-family="JetBrains Mono" font-size="10" fill="#8F8B80">${s.no} ${s.name}</text>
+            <text x="${x+w-6}" y="${y0+14}" text-anchor="end" font-family="JetBrains Mono" font-size="10" fill="#5A5851">${s.p}%</text>
+          </g>`;
+          continue;
+        }
+        // 2.5D 顶面+前立面（线粗分级：聚焦/当前 1.4）
+        const sw=cur?1.4:(focused?1:0.9);
+        const topFace=`<polygon points="${x},${y0} ${x+w},${y0} ${x+w-dx},${y0+dy} ${x-dx},${y0+dy}" fill="${cur?'#EDF0F8':'none'}" stroke="${cur?'#1F3FA8':'#8F8B80'}" stroke-width="${sw}"/>`;
+        const front=`<rect x="${x}" y="${y0}" width="${w}" height="${h}" fill="none" stroke="${cur?'#1F3FA8':'#1B1A17'}" stroke-width="${sw}"/>`;
+        // 构件块（≤4，其余折叠计数）
+        const shown=s.tasks.slice(0,4);
+        let blocks=''; shown.forEach((t,k)=>{ blocks+=chip(x+12+k*44, y0+h-24, t, cur); });
+        const fold=s.tasks.length>4?`<text x="${x+w-58}" y="${y0+h-12}" font-family="JetBrains Mono" font-size="9.5" fill="#5A5851">＋${s.tasks.length-4}</text>`:'';
+        const rows= focused ? s.tasks.map((t,k)=>`
+          <g class="tk" data-id="${t.id}" style="cursor:pointer">
+            <rect x="${x+8}" y="${y0+34+k*26}" width="${w-16}" height="22" fill="${t.now?'#EDF0F8':'none'}" stroke="${t.now?'#1F3FA8':'#CFCAB9'}"/>
+            ${t.now?`<rect x="${x+8}" y="${y0+34+k*26}" width="3" height="22" fill="#1F3FA8"/>`:''}
+            <text x="${x+18}" y="${y0+49+k*26}" font-family="JetBrains Mono" font-size="10" fill="#8F8B80">${t.id}</text>
+            <text x="${x+78}" y="${y0+49+k*26}" font-family="Inter" font-size="11.5" fill="${t.st==='done'?'#8F8B80':'#1B1A17'}" ${t.st==='done'?'text-decoration="line-through"':''}>${t.t}</text>
+            <text x="${x+w-14}" y="${y0+49+k*26}" text-anchor="end" font-family="Inter" font-size="9" letter-spacing="1" fill="#8F8B80">${(t.pr==='none'?'':t.pr.toUpperCase())}</text>
+          </g>`).join(''):'';
+        const goal=focused?`<text x="${x+8}" y="${y0+22}" font-family="Inter" font-size="10" fill="#5A5851">目标：${s.goal}</text>`:'';
+        svg+=`<g class="fl" data-i="${i}" style="cursor:pointer">${topFace}${front}
+          <text x="${x+8}" y="${y0+h-28}" font-family="JetBrains Mono" font-size="10.5" fill="${cur?'#1F3FA8':'#8F8B80'}">${s.no}</text>
+          <text x="${x+34}" y="${y0+h-27}" font-family="Cormorant Garamond" font-style="italic" font-size="14.5" fill="${cur?'#1F3FA8':'#1B1A17'}">${s.name}${cur?' · 当前':''}</text>
+          <text x="${x+w-8}" y="${y0+h-27}" text-anchor="end" font-family="JetBrains Mono" font-size="10" fill="${s.p===100?'#1D7A5F':'#5A5851'}">${s.p}% · w${s.w}</text>
+          ${blocks}${fold}${goal}${rows}</g>`;
+      }
+      // 投影虚线 + 右缘标尺
+      let ruler=`<g font-family="JetBrains Mono" font-size="8.5" fill="#8F8B80"><line x1="${R+34}" y1="${top+6}" x2="${R+34}" y2="${bot-30}" stroke="#CFCAB9"/>`;
+      [0,25,50,75,100].forEach(v=>{ const yy=bot-30-(bot-36-top)*v/100; ruler+=`<line x1="${R+31}" x2="${R+37}" y1="${yy}" y2="${yy}" stroke="#8F8B80"/><text x="${R+41}" y="${yy+3}">${v}</text>`;});
+      const py=bot-30-(bot-36-top)*60/100; ruler+=`<circle cx="${R+34}" cy="${py}" r="3" fill="#1F3FA8"/></g>`;
+      // 散件托盘
+      let tray=`<g><rect x="${L}" y="${bot-8}" width="${R-L}" height="34" fill="none" stroke="#8F8B80" stroke-dasharray="3 4"/><text x="${L+8}" y="${bot+14}" font-family="Inter" font-size="10" fill="#8F8B80">散件 · 未归属阶段（诚实可见）</text>`;
+      loose.forEach((t,k)=>{ tray+=`<g class="tk" data-id="${t.id}" style="cursor:pointer"><rect x="${L+210+k*200}" y="${bot+2}" width="188" height="20" fill="none" stroke="#CFCAB9"/><text x="${L+218+k*200}" y="${bot+16}" font-family="Inter" font-size="10.5" fill="#5A5851">${t.id} ${t.t}</text></g>`;});
+      tray+='</g>';
+      // Worklog 引线批注（右缘，指向所属阶段板）
+      let wl=`<g font-family="JetBrains Mono" font-size="9" fill="#8F8B80">`;
+      wlogs.forEach((wg,k)=>{ const li=wg.st; let yy;
+        if(li==null){ yy=top+2; }
+        else { const laidRow=laid.find(r=>r.i===li); yy=laidRow? laidRow.y+laidRow.h/2 : top+20; }
+        const x0=R+60, x1=R+78;
+        wl+=`<line x1="${x0}" y1="${yy}" x2="${x1}" y2="${yy}" stroke="#CFCAB9"/><circle cx="${x0}" cy="${yy}" r="2" fill="#8F8B80"/><text x="${x1+4}" y="${yy+3}">├ ${wg.d} ${wg.t}</text>`;});
+      wl+='</g>';
+      const reset=S.focus>=0?`<g class="rs" style="cursor:pointer"><rect x="14" y="14" width="76" height="24" fill="none" stroke="#1F3FA8"/><text x="24" y="30" font-family="Inter" font-size="11" fill="#1F3FA8">◂ 整体</text></g>`:'';
+      board.innerHTML=`<svg width="${W}" height="${H}" role="img" aria-label="爆炸轴测解剖图">${svg}${ruler}${tray}${wl}${reset}</svg>`;
+      document.getElementById('tb-n').textContent='0'+(S.focus>=0?(S.focus+1):'1')+' · EXPLODED';
+    } else {
+      // ── B 剖面式 v4：构件进层 + 聚焦放大 + 散件架 ──
+      const focused=S.focus>=0;
+      const total=stages.length;
+      let rows='', y=bot;
+      const layout=stages.map((s,i)=>{
+        const thin=focused&&i!==S.focus;
+        let h; if(!focused) h=Math.max(38, (bot-top-40)*s.w/stages.reduce((a,x)=>a+x.w,0));
+        else h=(i===S.focus? 210:20);
+        return {i,s,h,thin,y:0};
+      });
+      let yy=bot;
+      for(let i=0;i<total;i++){ const r=layout[i]; r.y=yy-r.h; yy=r.y-6; }
+      for(const {i,s,h,y:y0,thin} of layout){
+        const cur=!!s.cur;
+        if(thin){
+          rows+=`<g class="fl" data-i="${i}" style="cursor:pointer">
+            <line x1="${L}" y1="${y0}" x2="${R}" y2="${y0}" stroke="#8F8B80"/>
+            <line x1="${L}" y1="${y0+h}" x2="${R}" y2="${y0+h}" stroke="#8F8B80"/>
+            <text x="${L+8}" y="${y0+14}" font-family="JetBrains Mono" font-size="10" fill="#8F8B80">${s.no} ${s.name}</text>
+            <text x="${R-8}" y="${y0+14}" text-anchor="end" font-family="JetBrains Mono" font-size="10" fill="#5A5851">${s.p}%</text></g>`;
+          continue;
+        }
+        const fillH=h*s.p/100;
+        const rooms= focused ? s.tasks.map((t,k)=>`
+          <g class="tk" data-id="${t.id}" style="cursor:pointer">
+            <rect x="${L+10}" y="${y0+30+k*26}" width="${R-L-20}" height="22" fill="${t.now?'#EDF0F8':'none'}" stroke="${t.now?'#1F3FA8':'#CFCAB9'}"/>
+            ${t.now?`<rect x="${L+10}" y="${y0+30+k*26}" width="3" height="22" fill="#1F3FA8"/>`:''}
+            <text x="${L+20}" y="${y0+45+k*26}" font-family="JetBrains Mono" font-size="10" fill="#8F8B80">${t.id}</text>
+            <text x="${L+80}" y="${y0+45+k*26}" font-family="Inter" font-size="11.5" fill="${t.st==='done'?'#8F8B80':'#1B1A17'}" ${t.st==='done'?'text-decoration="line-through"':''}>${t.t}</text>
+            <text x="${R-12}" y="${y0+45+k*26}" text-anchor="end" font-family="Inter" font-size="9" letter-spacing="1" fill="#8F8B80">${stateName[t.st]}${t.pr!=='none'?' · '+t.pr.toUpperCase():''}</text>
+          </g>`).join('') : (()=>{ // 未聚焦：房间隔断
+            const n=s.tasks.length; if(!n) return '';
+            const rw=(R-L-20)/n; let out='';
+            s.tasks.forEach((t,k)=>{ out+=`<rect x="${L+10+k*rw}" y="${y0+6}" width="${rw-2}" height="${h-12}" fill="${t.st==='done'?'url(#hx)':'none'}" stroke="#CFCAB9" stroke-width=".7"/>
+              ${t.now?`<rect x="${L+10+k*rw}" y="${y0+6}" width="${rw-2}" height="${h-12}" fill="none" stroke="#1F3FA8" stroke-width="1.4"/>`:''}`;
+            });
+            return out;})();
+        rows+=`<g class="fl" data-i="${i}" style="cursor:pointer">
+          <rect x="${L}" y="${y0}" width="${R-L}" height="${h}" fill="none" stroke="${cur?'#1F3FA8':'#1B1A17'}" stroke-width="${cur?1.4:.9}"/>
+          <rect x="${L+1}" y="${y0+h-fillH+1}" width="${R-L-2}" height="${Math.max(0,fillH-2)}" fill="url(#hx)"/>
+          <text x="${L+8}" y="${y0+18}" font-family="JetBrains Mono" font-size="10" fill="${cur?'#1F3FA8':'#8F8B80'}">${s.no}</text>
+          <text x="${L+34}" y="${y0+19}" font-family="Cormorant Garamond" font-style="italic" font-size="14" fill="${cur?'#1F3FA8':'#1B1A17'}">${s.name}${cur?' · 当前':''}</text>
+          ${focused?'':`<text x="${R-8}" y="${y0+19}" text-anchor="end" font-family="JetBrains Mono" font-size="10" fill="${s.p===100?'#1D7A5F':'#5A5851'}">${s.p}% · ${s.tasks.length} 构件</text>`}
+          ${rooms}</g>`;
+      }
+      // 散件架（左）+ 证据格（底）
+      const rack=`<g><rect x="8" y="${top+10}" width="34" height="${bot-top-70}" fill="none" stroke="#8F8B80" stroke-dasharray="3 4"/>
+        <text x="10" y="${top+24}" font-family="Inter" font-size="9" fill="#8F8B80" transform="rotate(90 14 ${top+26})">散件 · 未归属</text>
+        ${loose.map((t,k)=>`<g class="tk" data-id="${t.id}" style="cursor:pointer"><rect x="12" y="${top+40+k*46}" width="26" height="15" fill="none" stroke="#CFCAB9"/><text x="12" y="${top+70+k*46}" font-family="JetBrains Mono" font-size="7.5" fill="#8F8B80">${t.id}</text></g>`).join('')}</g>`;
+      const ev=`<g transform="translate(${L+44},${bot-26})">${[0,0,1,0,0,2,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0].map((v,i)=>`<rect x="${i*13}" y="0" width="10" height="10" fill="${v===0?'none':v===1?'#1F3FA8':'#1D7A5F'}" fill-opacity="${v?'.75':'.06'}" stroke="#CFCAB9" stroke-width=".8"/>`).join('')}
+        <text x="336" y="9" font-family="JetBrains Mono" font-size="8.5" fill="#8F8B80">证据（蓝=手动 绿=Agent）</text></g>`;
+      const reset=S.focus>=0?`<g class="rs" style="cursor:pointer"><rect x="${L+60}" y="${top-2}" width="76" height="24" fill="none" stroke="#1F3FA8"/><text x="${L+70}" y="${top+14}" font-family="Inter" font-size="11" fill="#1F3FA8">◂ 整体</text></g>`:'';
+      board.innerHTML=`<svg width="${W}" height="${H}" role="img" aria-label="剖面式解剖图">
+        <defs><pattern id="hx" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="#1F3FA8" stroke-width="1" opacity=".5"/></pattern></defs>
+        <line x1="${L-6}" y1="${bot+2}" x2="${R+6}" y2="${bot+2}" stroke="#1B1A17" stroke-width="1.6"/>
+        ${rack}${rows}${ev}${reset}</svg>`;
+      document.getElementById('tb-n').textContent='0'+(S.focus>=0?(S.focus+1):'1')+' · SECTION';
+    }
+
+    // 交互：阶段聚焦 / 任务详情 / 恢复
+    board.querySelectorAll('.fl').forEach(g=>{
+      g.addEventListener('click',e=>{
+        if(e.target.closest('.tk')) return;
+        const i=+g.dataset.i;
+        S.focus = (S.focus===i? -1 : i); S.sel=null; render();
+      });
+    });
+    board.querySelectorAll('.tk').forEach(g=>{
+      g.addEventListener('click',e=>{
+        e.stopPropagation();
+        S.sel=g.dataset.id; render(); showDetail(g.dataset.id);
+      });
+    });
+    board.querySelectorAll('.rs').forEach(g=>g.addEventListener('click',()=>{S.focus=-1;S.sel=null;render();}));
+    document.getElementById('tb-n').textContent=document.getElementById('tb-n').textContent;
+    try{window.zcode.setWidgetState({modelContent:JSON.stringify(S)}).catch(()=>{})}catch(e){}
+  }
+
+  function showDetail(id){
+    const f=taskById(id); if(!f) return;
+    const {t,s}=f;
+    const old=document.querySelector('#mp-anatomy .detail'); if(old) old.remove();
+    const d=document.createElement('div'); d.className='detail';
+    d.innerHTML=`<button class="x" aria-label="关闭">✕</button>
+      <div class="serif" style="font-size:15px;margin-bottom:5px">${t.id} ${t.t}</div>
+      <div class="dr"><b>状态</b><span>${stateName[t.st]}${t.now?' · NOW':''}</span></div>
+      <div class="dr"><b>优先级</b><span>${t.pr==='none'?'未设':t.pr}</span></div>
+      <div class="dr"><b>阶段</b><span>${s? s.no+' '+s.name : '未归属（散件）'}</span></div>
+      <div class="dr"><b>依赖</b><span style="color:var(--ink3)">模型中无 Task↔Task 依赖——相邻仅代表同阶段</span></div>
+      <button class="open">在工程台打开任务抽屉 →</button>`;
+    d.querySelector('.x').onclick=()=>{d.remove();S.sel=null;};
+    root.querySelector('.board').appendChild(d);
+  }
+
+  document.querySelector('.pv').addEventListener('click',e=>{const b=e.target.closest('button[data-v]'); if(b){S.v=b.dataset.v;S.focus=-1;S.sel=null;render();}});
+  try{document.addEventListener('zcode:set_globals',ev=>{const g=ev.detail?.globals?.widgetState; if(g){try{Object.assign(S,JSON.parse(g.modelContent||'{}'));render()}catch(e){}}});}catch(e){}
+  render();
+})();
+</script>
