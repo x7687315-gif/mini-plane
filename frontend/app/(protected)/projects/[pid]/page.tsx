@@ -23,11 +23,14 @@ import {
   useWorklogs,
 } from "@/features/project";
 import { useCreateIssue, useIssues, useLabels } from "@/features/task";
+import { useProjectActivities } from "@/features/activity";
 import { useProjectRealtime } from "@/features/realtime";
+import { spatialStateFromQuery, spatialStateToQuery, type SpatialState } from "@/features/anatomy";
 import { useChrome } from "@/stores/chrome";
 import { useQuickLogStore } from "@/stores/quicklog";
 import type { IssueState, ProjectMember, Worklog } from "@/types/project";
 import type { Issue, Label } from "@/types/issue";
+import type { Activity } from "@/types/activity";
 
 /**
  * 工程台 —— 个人/团队工程统一工作页（Phase 5，/projects/{pid} 规范路由）。
@@ -88,6 +91,18 @@ function WorkbenchRoute() {
   const issueId = searchParams.get("issue");
   const tab = normalizeDrawerTab(searchParams.get("tab"));
   const view = searchParams.get("view") === "plate" ? "plate" : "bench";
+  const initialSpatial = spatialStateFromQuery(searchParams.get("stage"), searchParams.get("expand"));
+
+  function handleSpatialChange(state: SpatialState) {
+    const sp = new URLSearchParams(searchParams.toString());
+    const query = spatialStateToQuery(state);
+    if (query.stage) sp.set("stage", query.stage);
+    else sp.delete("stage");
+    if (query.expand) sp.set("expand", query.expand);
+    else sp.delete("expand");
+    const qs = sp.toString();
+    router.replace(`/projects/${pid}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
 
   /** 关闭抽屉时连同 tab 一起清掉；URL 里不留下任何抽屉残影。 */
   function closeDrawer() {
@@ -116,6 +131,7 @@ function WorkbenchRoute() {
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
   const { data: taskPage } = useIssues("", pid, { per_page: 100, page });
   const { data: mine } = useMyProjects();
+  const { data: activityPage } = useProjectActivities("", pid);
 
   // 规范路由只凭 pid：私人工程也能建立项目级实时通道（Phase 5 双路由）
   useProjectRealtime("", pid);
@@ -147,6 +163,7 @@ function WorkbenchRoute() {
         labels={labels?.results ?? []}
         members={members?.results ?? []}
         tasks={taskPage?.results ?? []}
+        activities={activityPage?.results ?? []}
         taskCount={taskPage?.count ?? 0}
         hasNext={Boolean(taskPage?.next)}
         hasPrev={Boolean(taskPage?.previous)}
@@ -154,6 +171,9 @@ function WorkbenchRoute() {
         status={parseStateFilter(searchParams.get("status"))}
         search={searchParams.get("search") ?? ""}
         agentRunning={mine?.find((p) => p.id === pid)?.agent_running ?? false}
+        nowTaskId={mine?.find((p) => p.id === pid)?.now_task_id ?? null}
+        projectProgress={mine?.find((p) => p.id === pid)?.progress ?? null}
+        progressSource={mine?.find((p) => p.id === pid)?.progress_source ?? null}
         view={view}
         onView={(v) => handleParam("view", v === "bench" ? null : v)}
         drawerIssueId={issueId}
@@ -161,6 +181,8 @@ function WorkbenchRoute() {
         onParam={handleParam}
         onFilterParam={(key, value) => handleParam(key, value, true)}
         onCloseDrawer={closeDrawer}
+        initialSpatial={initialSpatial}
+        onSpatialChange={handleSpatialChange}
       />
     </>
   );
@@ -175,6 +197,7 @@ function Workbench({
   labels,
   members,
   tasks,
+  activities,
   taskCount,
   hasNext,
   hasPrev,
@@ -182,6 +205,9 @@ function Workbench({
   status,
   search,
   agentRunning,
+  nowTaskId,
+  projectProgress,
+  progressSource,
   view,
   onView,
   drawerIssueId,
@@ -189,6 +215,8 @@ function Workbench({
   onParam,
   onFilterParam,
   onCloseDrawer,
+  initialSpatial,
+  onSpatialChange,
 }: {
   pid: string;
   identifier: string;
@@ -198,6 +226,7 @@ function Workbench({
   labels: Label[];
   members: ProjectMember[];
   tasks: Issue[];
+  activities: Activity[];
   taskCount: number;
   hasNext: boolean;
   hasPrev: boolean;
@@ -205,6 +234,9 @@ function Workbench({
   status: StateFilter;
   search: string;
   agentRunning: boolean;
+  nowTaskId: string | null;
+  projectProgress: number | null;
+  progressSource: "plan" | "tasks" | null;
   view: "bench" | "plate";
   onView: (v: "bench" | "plate") => void;
   drawerIssueId: string | null;
@@ -212,6 +244,8 @@ function Workbench({
   onParam: (key: string, value: string | null) => void;
   onFilterParam: (key: string, value: string | null) => void;
   onCloseDrawer: () => void;
+  initialSpatial: SpatialState;
+  onSpatialChange: (state: SpatialState) => void;
 }) {
   const router = useRouter();
   const openQuickLog = useQuickLogStore((s) => s.openWith);
@@ -262,7 +296,7 @@ function Workbench({
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className={view === "plate" ? "max-w-6xl" : "max-w-4xl"}>
       {/* 头：serif 名 + 安静链接 */}
       <div className="flex items-baseline">
         <h1 className="font-serif italic text-[28px] text-[color:var(--color-ink)]">
@@ -336,12 +370,19 @@ function Workbench({
         <div className="mt-4">
           <AnatomyPlate
             identifier={identifier}
+            projectName={projectName}
             stages={plan?.stages ?? []}
             tasks={tasks}
-            logs={logPage?.results ?? []}
-            states={states}
+            activities={activities}
+            worklogs={logs}
+            plan={plan ?? null}
+            nowTaskId={nowTaskId}
             agentRunning={agentRunning}
-            nextStageName={plan?.next_stage?.name ?? null}
+            projectProgress={projectProgress}
+            progressSource={progressSource}
+            initialSpatial={initialSpatial}
+            onSpatialChange={onSpatialChange}
+            escapeEnabled={!drawerIssueId}
             onOpenTask={(id) => onParam("issue", id)}
           />
         </div>

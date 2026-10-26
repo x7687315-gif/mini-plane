@@ -15,7 +15,11 @@ import path from "node:path";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const API = process.env.E2E_API_BASE ?? "http://localhost:8000";
-const OUT = path.resolve(process.cwd(), "../docs/refactor/ui-design/anatomy/v2/baseline");
+const OUT = path.resolve(
+  process.cwd(),
+  "../docs/refactor/ui-design/anatomy/v2",
+  process.env.CAPTURE_OUT ?? "baseline",
+);
 const STORAGE = ".auth/user.json";
 
 async function resolveProject() {
@@ -56,7 +60,7 @@ const main = async () => {
 
   await page.goto(`${BASE}/projects/${project.id}?view=plate`, { waitUntil: "domcontentloaded" });
   if (/\/login/.test(page.url())) throw new Error(`会话失效，被重定向到 ${page.url()}`);
-  await page.getByRole("img", { name: /项目解剖图/ }).waitFor({ timeout: 30_000 });
+  await page.getByRole("group", { name: /项目解剖图/ }).waitFor({ timeout: 30_000 });
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(OUT, "overview.png"), fullPage: true });
 

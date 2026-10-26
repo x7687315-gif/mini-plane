@@ -13,7 +13,7 @@
  * the `test` script, so it cannot affect the app bundle.
  */
 
-import { existsSync } from "node:fs";
+import { statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /** Repo-relative root: this file lives in `frontend/tests/`. */
@@ -22,13 +22,26 @@ const ROOT = new URL("../", import.meta.url);
 const EXTENSIONS = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"];
 
 export async function resolve(specifier, context, nextResolve) {
-  if (!specifier.startsWith("@/")) return nextResolve(specifier, context);
-
-  const base = new URL(specifier.slice(2), ROOT);
+  // 同时支持 `@/x` 与相对扩展名省略（Node 原生 TS 只解析显式扩展名）。
+  // 应用代码按 Next/TS 习惯写 `./layout`，测试运行时需要在这里补齐。
+  let base;
+  if (specifier.startsWith("@/")) {
+    base = new URL(specifier.slice(2), ROOT);
+  } else if (specifier.startsWith(".") && context.parentURL) {
+    base = new URL(specifier, context.parentURL);
+  } else {
+    return nextResolve(specifier, context);
+  }
   for (const ext of EXTENSIONS) {
     const candidate = new URL(base.href + ext);
-    if (existsSync(fileURLToPath(candidate))) {
-      return { url: candidate.href, shortCircuit: true };
+    try {
+      // 只接受文件：`@/features/anatomy` 同时存在同名目录与 index.ts，
+      // 直接 existsSync 会把目录交给 Node，触发 EISDIR。
+      if (statSync(fileURLToPath(candidate)).isFile()) {
+        return { url: candidate.href, shortCircuit: true };
+      }
+    } catch {
+      // 继续尝试下一个扩展名
     }
   }
 
