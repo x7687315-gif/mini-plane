@@ -96,9 +96,17 @@ async function main() {
   let project;
   const browser = await chromium.launch({ channel: "chrome" });
   const captureChange = process.env.CAPTURE_CHANGE === "1";
+  const captureRecords = process.env.CAPTURE_RECORDS === "1";
   try {
     const seeded = await seed(api);
     project = seeded.project;
+    if (captureRecords) {
+      await api.write("POST", `/api/v1/projects/${project.id}/worklogs/`, {
+        title: "补记：实现记录浏览器",
+        summary: "Worklog 与 Activity 分栏只读浏览；没有快照，不重建旧结构。",
+        date: "2026-10-01",
+      });
+    }
     const context = await browser.newContext({
       storageState: STORAGE,
       viewport: { width: 1440, height: 900 },
@@ -112,6 +120,12 @@ async function main() {
     await page.getByRole("group", { name: /项目解剖图/ }).waitFor({ timeout: 30_000 });
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(OUT, "overview-demo.png"), fullPage: true });
+
+    if (captureRecords) {
+      await page.getByRole("button", { name: /记录 ·/ }).click();
+      await page.getByText("Records · 只读", { exact: true }).waitFor({ timeout: 10_000 });
+      await page.screenshot({ path: path.join(OUT, "records-demo.png"), fullPage: true });
+    }
 
     if (captureChange) {
       const title = "刚新增的真实构件";

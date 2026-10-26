@@ -11,7 +11,7 @@
 | 1 | 安全稳定的静态 React SVG 对象 | ✅ 2026-10-26 | [PHASE1_REPORT.md](PHASE1_REPORT.md) |
 | 2 | 空间交互（focus/exploded/restore）+ CSS/Motion 决策 | ✅ 2026-10-26 | [PHASE2_REPORT.md](PHASE2_REPORT.md) · [MOTION_SPIKE.md](MOTION_SPIKE.md) |
 | 3 | 真实新增/状态变化的演进痕迹 | ✅ 2026-10-26 | [PHASE3_REPORT.md](PHASE3_REPORT.md) |
-| 4 | 事件时间线 / 历史快照决策 | ⏳ | 待写 |
+| 4 | 事件时间线 / 历史快照决策 | ✅ 2026-10-26 | [PHASE4_REPORT.md](PHASE4_REPORT.md) |
 | 5 | 构型扩展与性能验证 | ⏳ | 待写 |
 
 ## 硬约束（每阶段复查）

@@ -4,7 +4,7 @@
 > personal-first Phase 0–5、Island V3、项目解剖图与 Phase 5.5 稳定化均已完成。
 > 下文 §7「未完成 Sprint 14–17」与旧测试数字是**历史记录，勿再按它排期**。
 > 当前事实源：`README.md`、`docs/PRODUCT_PRINCIPLES.md`、`docs/DOMAIN_MODEL.md`；
-> 当前门禁：后端 **387** / 前端 **163** / E2E **38**，CI 三个 job。
+> 当前门禁：后端 **387** / 前端 **168** / E2E **39**，CI 三个 job。
 
 > 生成日期：2026-10-02 · 交接基线 commit：`110e9d5`（远端 `origin/main` 已同步，工作树干净，CI 双绿）
 > 仓库：`git@github.com:x7687315-gif/mini-plane.git` · 本地路径：`C:\palne`
@@ -207,7 +207,7 @@ WS `ws://127.0.0.1:8001/ws/...`。注意 `NEXT_PUBLIC_*` 是**构建期**常量�
 **Sprint 13 收尾验证（交接时点全绿）：**
 
 - 后端 `Ran 387 tests OK`；ruff check/format、`spectacular --validate --fail-on-warn` rc0；openapi 快照已重生成；迁移双库（PG + SQLite）。
-- 前端 tsc / eslint / 单测 **163** / 生产构建全绿；Playwright **E2E 38 passed**。
+- 前端 tsc / eslint / 单测 **168** / 生产构建全绿；Playwright **E2E 39 passed**。
 - 桌面版 `scripts/package.py` 重建 dist 成功（Next 生产构建 compiled，包组装 rc0）。
 - 远端 CI：`e537fa2`、`110e9d5` 两次推送，backend / frontend 两 job 均 `success`；HEAD == origin/main == `110e9d5`。
 
@@ -220,8 +220,8 @@ WS `ws://127.0.0.1:8001/ws/...`。注意 `NEXT_PUBLIC_*` 是**构建期**常量�
 | 类别 | 数量 | 命令 |
 |------|------|------|
 | 后端 | **387** | `cd backend && .venv/Scripts/python.exe manage.py test --noinput --settings=config.settings.test` |
-| 前端单测 | **163** | `cd frontend && pnpm test`（node --test，零依赖） |
-| 浏览器 E2E | **38** | `scripts/dev.cmd e2e`（起栈后跑 Playwright，真实 Chrome） |
+| 前端单测 | **168** | `cd frontend && pnpm test`（node --test，零依赖） |
+| 浏览器 E2E | **39** | `scripts/dev.cmd e2e`（起栈后跑 Playwright，真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，push main / PR 触发，三个 job 全绿才可 merge）：
 
@@ -311,7 +311,7 @@ v1.0.0 Personal Engineering Mgmt Platform→ Sprint 16–17 ⏳
 
 ## 9. 已知问题与文档漂移
 
-- **测试数字已更新**：2026-10-26 为后端 **387** / 前端 **163** / E2E **38**。
+- **测试数字已更新**：2026-10-26 为后端 **387** / 前端 **168** / E2E **39**。
 - **`docs/devlog/README.md` 索引**：新增 devlog 时记得登记（若尚未自动化）。
 - E2E 里 **Ctrl+K 在真实 Chrome 中被浏览器拦截**，命令面板用例改为点 TopBar「搜索」按钮触发；桌面 WebView2 无浏览器 chrome，`Ctrl+K` 在桌面版可正常工作（此为环境差异，非缺陷）。
 - 提供的 **PAT 已过期（401，凭据值不记录在案）**；推送走 **SSH**（`git@github.com`）正常。公共仓库 CI 状态可免鉴权读 `api.github.com/.../check-runs`。
@@ -381,7 +381,7 @@ curl -s -H "Accept: application/vnd.github+json" \
 3. 配 `.env`（`cp .env.example .env`，填 SECRET_KEY / DATABASE_URL）。
 4. `python manage.py migrate`（开发用 PostgreSQL；桌面版首跑自动建 SQLite）。
 5. 前端 `pnpm install`（Node 20+ / pnpm 11.25.0）。
-6. 跑一遍全量验证，确认与本文一致：后端 387 / 前端单测 163 / `scripts\dev.cmd e2e` 38。
+6. 跑一遍全量验证，确认与本文一致：后端 387 / 前端单测 168 / `scripts\dev.cmd e2e` 39。
 7. 通读 `docs/PRODUCT_REFACTOR_PLAN.md`（产品事实源）+ `docs/devlog/sprint-13-agent-session.md`（最新进度）。
 8. 从 **Sprint 14 — Engineering Island MVP** 开始推进，遵守 §7 的验收与 Blueprint Editorial 约束、§8 的轻量约束、§11 的提交规范。
 

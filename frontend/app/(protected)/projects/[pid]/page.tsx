@@ -374,6 +374,7 @@ function Workbench({
             stages={plan?.stages ?? []}
             tasks={tasks}
             activities={activities}
+            worklogs={logs}
             plan={plan ?? null}
             nowTaskId={nowTaskId}
             agentRunning={agentRunning}

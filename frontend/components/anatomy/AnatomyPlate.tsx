@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Activity } from "@/types/activity";
 import type { Issue } from "@/types/issue";
-import type { ProjectPlan, ProjectStage } from "@/types/project";
+import type { ProjectPlan, ProjectStage, Worklog } from "@/types/project";
 import {
   changeMarkerMap,
   computeAnatomyLayout,
@@ -20,6 +20,7 @@ import {
   type SpatialAction,
   type SpatialState,
 } from "@/features/anatomy";
+import { AnatomyHistory } from "./AnatomyHistory";
 import { AnatomyScene } from "./AnatomyScene";
 
 export interface AnatomyPlateProps {
@@ -28,6 +29,7 @@ export interface AnatomyPlateProps {
   stages: ProjectStage[];
   tasks: Issue[];
   activities: Activity[];
+  worklogs: Worklog[];
   plan: ProjectPlan | null;
   nowTaskId: string | null;
   agentRunning: boolean;
@@ -51,6 +53,7 @@ export function AnatomyPlate({
   stages,
   tasks,
   activities,
+  worklogs,
   plan,
   nowTaskId,
   agentRunning,
@@ -63,6 +66,7 @@ export function AnatomyPlate({
 }: AnatomyPlateProps) {
   const [spatial, setSpatial] = useState<SpatialState>(initialSpatial);
   // 页面挂载时刻：早于它的事件只作为历史，不标“刚刚新增”。
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const [mountedAt] = useState(() => Date.now());
   const changes = useMemo(
     () => deriveAnatomyChanges(activities, mountedAt, tasks),
@@ -300,6 +304,17 @@ export function AnatomyPlate({
                 </div>
               </div>
             )}
+
+            <button
+              type="button"
+              className="v2-ia mt-2"
+              aria-expanded={recordsOpen}
+              onClick={() => setRecordsOpen((value) => !value)}
+            >
+              <span className="mk" aria-hidden>▸</span>
+              记录 · {worklogs.length + activities.length}
+            </button>
+            {recordsOpen && <AnatomyHistory worklogs={worklogs} activities={activities} />}
           </aside>
         </div>
 

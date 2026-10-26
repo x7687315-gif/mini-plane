@@ -16,6 +16,13 @@ export {
   type AnatomyChangeKind,
 } from "./changes";
 export {
+  selectAnatomyHistory,
+  utcMinute,
+  type AnatomyActivityRecord,
+  type AnatomyHistory,
+  type AnatomyWorklogRecord,
+} from "./history";
+export {
   focusedStageId,
   isExploded,
   normalizeSpatialState,

@@ -114,6 +114,47 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
     }
   });
 
+  test("记录浏览：Worklog 与 Activity 分栏，来源/时间语义清楚，不假装历史回放", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    const api = await apiClient();
+    const project = await createProject(api, "records");
+    try {
+      const stage = await createStage(api, project.id, "记录阶段");
+      const task = await createTask(api, project.id, stage.id, "记录任务");
+      const log = await api.write("POST", `/api/v1/projects/${project.id}/worklogs/`, {
+        title: "补记：实现记录浏览器",
+        summary: "只读展示 Worklog 与 Activity，不重建历史。",
+        date: "2026-10-01",
+      });
+      await expectWriteOk(log, "创建 Worklog");
+
+      await page.goto(`/projects/${project.id}?view=plate`, { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      await page.getByRole("button", { name: /记录 ·/ }).click();
+      const aside = page.locator("aside");
+      await expect(aside.getByText("Records · 只读", { exact: true })).toBeVisible();
+
+      await expect(aside.getByText("补记：实现记录浏览器", { exact: true })).toBeVisible();
+      await expect(aside.getByText("2026-10-01", { exact: true })).toBeVisible();
+      await expect(aside.getByText("人工", { exact: true })).toBeVisible();
+      await expect(aside.getByText(/日期是业务归属日/)).toBeVisible();
+
+      await page.getByRole("button", { name: /审计事件/ }).click();
+      await expect(aside.getByText(/创建了任务/).first()).toBeVisible();
+      await expect(aside.getByText(/不是完整历史/)).toBeVisible();
+      await expect(aside.getByText(/不提供旧结构回放/)).toBeVisible();
+      // task 变量用于确认造数成功，Activity 文案本身不重复标题
+      expect(task.title).toBeTruthy();
+    } finally {
+      await api.write("DELETE", `/api/v1/projects/${project.id}/`);
+      await api.dispose();
+    }
+  });
+
   test("真实 Activity：页面挂载后新建/推进 Task → 图纸出现 NEW/UPD 痕迹", async ({ page }) => {
     test.setTimeout(90_000);
     const api = await apiClient();

@@ -276,7 +276,7 @@ jobs:
           echo "--- frontend ---"; tail -120 /tmp/frontend-e2e.log
           exit 1
 
-      - name: Playwright E2E（38 用例）
+      - name: Playwright E2E（39 用例）
         working-directory: frontend
         env:
           CI: "true"

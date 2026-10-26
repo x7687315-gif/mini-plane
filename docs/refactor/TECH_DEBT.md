@@ -11,7 +11,7 @@ Island 空态用例在同一上下文注册新账户；Django `login()` 发现�
 
 **修复**：`frontend/tests/e2e/helpers.ts` 的 API 客户端显式使用空 cookie 罐
 `storageState: { cookies: [], origins: [] }`；API 客户端自己 `ensureAccount`。
-**证据**：完整套件 38/38 通过（setup 另计），后端 387 绿。
+**证据**：完整套件 39/39 通过（setup 另计），后端 387 绿。
 
 ## TD-02 · Workspace 删除守卫引发的 E2E 工作区堆积（清理逻辑已修，存量待清）
 
@@ -54,7 +54,7 @@ Island 空态用例在同一上下文注册新账户；Django `login()` 发现�
 - filter-bulk：搜索/状态筛选已改为 URL 状态；行内补状态名与标签；行定位 helper 改为
   `getByRole("button", name=/^select E2E-n\b/)`，不再依赖 xpath DOM 深度。
 - 分页：工程台使用 `per_page=100` + `page` URL 参数，超过一页显示上一页/下一页。
-- 新 E2E：完整 38 条已全绿（新增 Anatomy V2 2 条）；「初见上手屏」独立用例仍未单独覆盖。
+- 新 E2E：完整 39 条已全绿（新增 Anatomy V2 2 条）；「初见上手屏」独立用例仍未单独覆盖。
 
 ## TD-11 · 后端一致性/安全余项（Phase 7）
 
