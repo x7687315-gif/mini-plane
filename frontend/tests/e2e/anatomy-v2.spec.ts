@@ -114,6 +114,48 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
     }
   });
 
+  test("真实 Activity：页面挂载后新建/推进 Task → 图纸出现 NEW/UPD 痕迹", async ({ page }) => {
+    test.setTimeout(90_000);
+    const api = await apiClient();
+    const project = await createProject(api, "change");
+    try {
+      const stage = await createStage(api, project.id, "变化痕迹阶段");
+      await page.goto(`/projects/${project.id}?view=plate`, { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByRole("banner")).toContainText(/已连接/, { timeout: 20_000 });
+      await expect(page.getByText("Recent · Activity", { exact: true })).toHaveCount(0);
+
+      const title = `变化任务 ${Date.now().toString(36)}`;
+      const created = await api.write("POST", `/api/v1/projects/${project.id}/tasks/`, {
+        title,
+        stage_id: stage.id,
+      });
+      await expectWriteOk(created, "创建变化任务");
+      const task = (await created.json()) as { id: string };
+
+      const states = await api.get<{ results: { id: string; group: string }[] }>(
+        `/api/v1/projects/${project.id}/states/`,
+      );
+      const started = states.body!.results.find((state) => state.group === "started")!;
+      const updated = await api.write("PATCH", `/api/v1/projects/${project.id}/tasks/${task.id}/`, {
+        state_id: started.id,
+      });
+      await expectWriteOk(updated, "推进变化任务");
+
+      const aside = page.locator("aside");
+      await expect(aside.getByText("Recent · Activity", { exact: true })).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(aside.getByText("NEW", { exact: true }).first()).toBeVisible();
+      await expect(aside.getByText(title, { exact: false }).first()).toBeVisible();
+    } finally {
+      await api.write("DELETE", `/api/v1/projects/${project.id}/`);
+      await api.dispose();
+    }
+  });
+
   test("长文本与 <>&\"' 不被当作 SVG/HTML markup 注入", async ({ page }) => {
     test.setTimeout(60_000);
     const api = await apiClient();

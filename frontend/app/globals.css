@@ -364,3 +364,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .an-stage, .an-cell { transition: none !important; }
 }
+
+/* Anatomy V2：真实新增/状态变化的微小标记（只做一次淡入，不重复播放） */
+.an-change { animation: an-change-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes an-change-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .an-change { animation: none !important; }
+}

@@ -23,12 +23,14 @@ import {
   useWorklogs,
 } from "@/features/project";
 import { useCreateIssue, useIssues, useLabels } from "@/features/task";
+import { useProjectActivities } from "@/features/activity";
 import { useProjectRealtime } from "@/features/realtime";
 import { spatialStateFromQuery, spatialStateToQuery, type SpatialState } from "@/features/anatomy";
 import { useChrome } from "@/stores/chrome";
 import { useQuickLogStore } from "@/stores/quicklog";
 import type { IssueState, ProjectMember, Worklog } from "@/types/project";
 import type { Issue, Label } from "@/types/issue";
+import type { Activity } from "@/types/activity";
 
 /**
  * 工程台 —— 个人/团队工程统一工作页（Phase 5，/projects/{pid} 规范路由）。
@@ -129,6 +131,7 @@ function WorkbenchRoute() {
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
   const { data: taskPage } = useIssues("", pid, { per_page: 100, page });
   const { data: mine } = useMyProjects();
+  const { data: activityPage } = useProjectActivities("", pid);
 
   // 规范路由只凭 pid：私人工程也能建立项目级实时通道（Phase 5 双路由）
   useProjectRealtime("", pid);
@@ -160,6 +163,7 @@ function WorkbenchRoute() {
         labels={labels?.results ?? []}
         members={members?.results ?? []}
         tasks={taskPage?.results ?? []}
+        activities={activityPage?.results ?? []}
         taskCount={taskPage?.count ?? 0}
         hasNext={Boolean(taskPage?.next)}
         hasPrev={Boolean(taskPage?.previous)}
@@ -193,6 +197,7 @@ function Workbench({
   labels,
   members,
   tasks,
+  activities,
   taskCount,
   hasNext,
   hasPrev,
@@ -221,6 +226,7 @@ function Workbench({
   labels: Label[];
   members: ProjectMember[];
   tasks: Issue[];
+  activities: Activity[];
   taskCount: number;
   hasNext: boolean;
   hasPrev: boolean;
@@ -367,6 +373,7 @@ function Workbench({
             projectName={projectName}
             stages={plan?.stages ?? []}
             tasks={tasks}
+            activities={activities}
             plan={plan ?? null}
             nowTaskId={nowTaskId}
             agentRunning={agentRunning}

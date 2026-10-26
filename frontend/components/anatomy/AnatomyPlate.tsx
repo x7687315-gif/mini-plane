@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import type { Activity } from "@/types/activity";
 import type { Issue } from "@/types/issue";
 import type { ProjectPlan, ProjectStage } from "@/types/project";
 import {
+  changeMarkerMap,
   computeAnatomyLayout,
+  deriveAnatomyChanges,
   focusedStageId,
   isExploded,
   normalizeSpatialState,
@@ -24,6 +27,7 @@ export interface AnatomyPlateProps {
   projectName?: string;
   stages: ProjectStage[];
   tasks: Issue[];
+  activities: Activity[];
   plan: ProjectPlan | null;
   nowTaskId: string | null;
   agentRunning: boolean;
@@ -46,6 +50,7 @@ export function AnatomyPlate({
   projectName,
   stages,
   tasks,
+  activities,
   plan,
   nowTaskId,
   agentRunning,
@@ -57,6 +62,13 @@ export function AnatomyPlate({
   onOpenTask,
 }: AnatomyPlateProps) {
   const [spatial, setSpatial] = useState<SpatialState>(initialSpatial);
+  // 页面挂载时刻：早于它的事件只作为历史，不标“刚刚新增”。
+  const [mountedAt] = useState(() => Date.now());
+  const changes = useMemo(
+    () => deriveAnatomyChanges(activities, mountedAt, tasks),
+    [activities, mountedAt, tasks],
+  );
+  const markers = useMemo(() => changeMarkerMap(changes), [changes]);
 
   const viewModel = useMemo(
     () =>
@@ -124,6 +136,7 @@ export function AnatomyPlate({
               focusedStageId={activeFocusId}
               onFocusStage={(stageId) => applySpatial({ type: "TOGGLE_STAGE", stageId })}
               onFocusOverview={() => applySpatial({ type: "RESTORE_OVERVIEW" })}
+              changeMarkers={markers}
               onOpenTask={onOpenTask}
             />
             {viewModel.stages.length === 0 && (
@@ -239,11 +252,51 @@ export function AnatomyPlate({
                         {viewModel.identifier}-{task.sequenceId}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-[11.5px]">{task.title}</span>
+                      {markers.get(task.id) && (
+                        <span className="font-mono text-[8px] tracking-[0.1em] text-[color:var(--color-accent)]">
+                          {markers.get(task.id) === "created" ? "NEW" : "UPD"}
+                        </span>
+                      )}
                       <span className="font-mono text-[8.5px] uppercase text-[color:var(--color-ink-3)]">
                         {task.stateGroup}
                       </span>
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {changes.length > 0 && (
+              <div className="mt-3 border-t border-dashed border-[color:var(--color-rule)] pt-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[color:var(--color-ink-3)]">
+                    Recent · Activity
+                  </span>
+                  <span className="font-mono text-[9px] text-[color:var(--color-accent)]">{changes.length}</span>
+                </div>
+                <div className="mt-1">
+                  {changes.map((change) => (
+                    <button
+                      key={change.id}
+                      type="button"
+                      onClick={() => onOpenTask(change.taskId)}
+                      className="flex w-full items-baseline gap-1.5 border-b border-dashed border-[color:var(--color-rule)] py-1 text-left hover:bg-[color:var(--color-accent-soft)]"
+                    >
+                      <span className="font-mono text-[8px] tracking-[0.08em] text-[color:var(--color-accent)]">
+                        {change.kind === "created" ? "NEW" : "UPD"}
+                      </span>
+                      <span className="font-mono text-[9px] text-[color:var(--color-ink-3)]">
+                        {viewModel.identifier}-{change.sequenceId}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[10.5px]">{change.title}</span>
+                      <span className="font-mono text-[8px] text-[color:var(--color-ink-3)]">
+                        {change.recordedAt.slice(11, 16)}Z
+                      </span>
+                    </button>
+                  ))}
+                  <p className="pt-1 font-mono text-[8px] text-[color:var(--color-ink-3)]">
+                    来源：Activity · 仅显示挂载后的真实事件；不是历史回放
+                  </p>
                 </div>
               </div>
             )}

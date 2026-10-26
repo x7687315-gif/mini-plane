@@ -6,6 +6,7 @@ import {
   boxFaces,
   pointsAttr,
   project,
+  type AnatomyChangeKind,
   type LooseTrayLayout,
   type StageLayout,
   type TaskCellLayout,
@@ -16,6 +17,7 @@ interface AnatomySceneProps {
   layout: AnatomyLayout;
   identifier: string;
   focusedStageId: string | null;
+  changeMarkers?: ReadonlyMap<string, AnatomyChangeKind>;
   onFocusStage: (stageId: string) => void;
   onFocusOverview: () => void;
   onOpenTask: (taskId: string) => void;
@@ -60,11 +62,13 @@ function TaskCell({
   cell,
   origin,
   identifier,
+  changeKind,
   onOpenTask,
 }: {
   cell: TaskCellLayout;
   origin: { x: number; y: number };
   identifier: string;
+  changeKind?: AnatomyChangeKind;
   onOpenTask: (taskId: string) => void;
 }) {
   const faces = boxFaces(origin, cell.x, cell.y, cell.z, cell.size, cell.size, cell.size * 0.72);
@@ -75,6 +79,9 @@ function TaskCell({
         from: project(origin, cell.anchor.x, cell.anchor.y, cell.anchor.z),
         to: project(origin, cell.x + cell.size / 2, cell.y + cell.size / 2, cell.z),
       }
+    : null;
+  const marker = changeKind
+    ? project(origin, cell.x + cell.size / 2, cell.y + cell.size / 2, cell.z + cell.size * 0.72 + 7)
     : null;
   const open = (event: MouseEvent<SVGGElement>) => {
     event.stopPropagation();
@@ -135,6 +142,23 @@ function TaskCell({
           pointerEvents="none"
         />
       )}
+      {marker && (
+        <g className="an-change" pointerEvents="none">
+          {changeKind === "created" ? (
+            <circle cx={marker.x} cy={marker.y} r={3.2} fill="var(--color-accent)" />
+          ) : (
+            <polygon
+              points={pointsAttr([
+                { x: marker.x, y: marker.y - 3.5 },
+                { x: marker.x + 3.5, y: marker.y },
+                { x: marker.x, y: marker.y + 3.5 },
+                { x: marker.x - 3.5, y: marker.y },
+              ])}
+              fill="var(--color-warning)"
+            />
+          )}
+        </g>
+      )}
     </g>
   );
 }
@@ -143,12 +167,14 @@ function StageModule({
   layout,
   identifier,
   focused,
+  changeMarkers,
   onFocus,
   onOpenTask,
 }: {
   layout: StageLayout;
   identifier: string;
   focused: boolean;
+  changeMarkers?: ReadonlyMap<string, AnatomyChangeKind>;
   onFocus: (stageId: string) => void;
   onOpenTask: (taskId: string) => void;
 }) {
@@ -207,6 +233,7 @@ function StageModule({
           cell={cell}
           origin={local}
           identifier={identifier}
+          changeKind={changeMarkers?.get(cell.taskId)}
           onOpenTask={onOpenTask}
         />
       ))}
@@ -243,10 +270,12 @@ function StageModule({
 function LooseTray({
   layout,
   identifier,
+  changeMarkers,
   onOpenTask,
 }: {
   layout: LooseTrayLayout;
   identifier: string;
+  changeMarkers?: ReadonlyMap<string, AnatomyChangeKind>;
   onOpenTask: (taskId: string) => void;
 }) {
   const faces = boxFaces(layout.origin, -layout.w / 2, -layout.d / 2, 0, layout.w, layout.d, layout.h);
@@ -265,6 +294,7 @@ function LooseTray({
           cell={cell}
           origin={layout.origin}
           identifier={identifier}
+          changeKind={changeMarkers?.get(cell.taskId)}
           onOpenTask={onOpenTask}
         />
       ))}
@@ -286,6 +316,7 @@ export function AnatomyScene({
   layout,
   identifier,
   focusedStageId,
+  changeMarkers,
   onFocusStage,
   onFocusOverview,
   onOpenTask,
@@ -331,11 +362,19 @@ export function AnatomyScene({
           layout={stage}
           identifier={identifier}
           focused={focusedStageId === stage.stageId}
+          changeMarkers={changeMarkers}
           onFocus={(id) => (focusedStageId === id ? onFocusOverview() : onFocusStage(id))}
           onOpenTask={onOpenTask}
         />
       ))}
-      {layout.loose && <LooseTray layout={layout.loose} identifier={identifier} onOpenTask={onOpenTask} />}
+      {layout.loose && (
+        <LooseTray
+          layout={layout.loose}
+          identifier={identifier}
+          changeMarkers={changeMarkers}
+          onOpenTask={onOpenTask}
+        />
+      )}
     </svg>
   );
 }

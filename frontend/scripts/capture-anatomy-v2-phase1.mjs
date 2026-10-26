@@ -87,7 +87,7 @@ async function seed(api) {
       priority: ["high", "medium", "low", "none"][index % 4],
     });
   }
-  return project;
+  return { project, stages, states, byGroup };
 }
 
 async function main() {
@@ -95,8 +95,10 @@ async function main() {
   const api = await makeApi();
   let project;
   const browser = await chromium.launch({ channel: "chrome" });
+  const captureChange = process.env.CAPTURE_CHANGE === "1";
   try {
-    project = await seed(api);
+    const seeded = await seed(api);
+    project = seeded.project;
     const context = await browser.newContext({
       storageState: STORAGE,
       viewport: { width: 1440, height: 900 },
@@ -110,6 +112,20 @@ async function main() {
     await page.getByRole("group", { name: /项目解剖图/ }).waitFor({ timeout: 30_000 });
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(OUT, "overview-demo.png"), fullPage: true });
+
+    if (captureChange) {
+      const title = "刚新增的真实构件";
+      const task = await api.write("POST", `/api/v1/projects/${project.id}/tasks/`, {
+        title,
+        stage_id: seeded.stages[1].id,
+      });
+      await api.write("PATCH", `/api/v1/projects/${project.id}/tasks/${task.id}/`, {
+        state_id: seeded.byGroup.started,
+      });
+      await page.getByText("Recent · Activity", { exact: true }).waitFor({ timeout: 20_000 });
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: path.join(OUT, "changes-demo.png"), fullPage: true });
+    }
 
     await page.getByRole("button", { name: /^聚焦阶段 构建与联调/ }).click();
     await page.waitForTimeout(300);

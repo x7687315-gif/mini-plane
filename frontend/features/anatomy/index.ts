@@ -10,6 +10,12 @@ export {
   type TaskCellLayout,
 } from "./layout";
 export {
+  changeMarkerMap,
+  deriveAnatomyChanges,
+  type AnatomyChange,
+  type AnatomyChangeKind,
+} from "./changes";
+export {
   focusedStageId,
   isExploded,
   normalizeSpatialState,
