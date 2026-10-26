@@ -427,6 +427,7 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
 | **产品原则**（唯一事实源） | [`docs/PRODUCT_PRINCIPLES.md`](docs/PRODUCT_PRINCIPLES.md) · 领域模型 [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md) |
 | **个人优先重构**（Phase 0–5 + 稳定化已完成，Phase 6–9 待排期） | [`docs/refactor/`](docs/refactor/) · 决策记录 [`docs/decisions/`](docs/decisions/) |
 | **项目解剖图 V2**（Phase 0–5 完成：React SVG 对象 / 空间交互 / 演进痕迹 / 记录浏览 / 性能基线） | [`docs/refactor/ui-design/anatomy/v2/README.md`](docs/refactor/ui-design/anatomy/v2/README.md) |
+| 原始计划 / 设计输入（只作溯源，非事实源） | [`docs/refactor/inputs/`](docs/refactor/inputs/) |
 | 产品重构计划（历史档案，Sprint 09–17 已完成） | [`docs/PRODUCT_REFACTOR_PLAN.md`](docs/PRODUCT_REFACTOR_PLAN.md) |
 | **Engineering Island V3 规格**（单窗两态 / 工程浮页，窗口模型唯一事实源） | [`docs/ISLAND_V3_SPEC.md`](docs/ISLAND_V3_SPEC.md) |
 | **Engineering Island V2 规格**（信息设计 / 实时方案；窗口模型部分已被 V3 取代） | [`docs/ISLAND_V2_SPEC.md`](docs/ISLAND_V2_SPEC.md) |
