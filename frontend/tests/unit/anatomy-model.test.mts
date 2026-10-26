@@ -114,6 +114,7 @@ test("Stage 数量 0/1/3/8/16 均生成稳定布局并在 viewBox 内", () => {
     anatomyFixtures.small,
     anatomyFixtures.dense,
     anatomyFixtures.large,
+    anatomyFixtures.stress,
   ];
   for (const fixture of cases) {
     const vm = view(fixture);
@@ -132,6 +133,16 @@ test("Stage 数量 0/1/3/8/16 均生成稳定布局并在 viewBox 内", () => {
       assert.equal(isInside(layout.emptyBase.bounds, layout.viewBox), true, `${fixture.name} empty`);
     }
   }
+});
+
+test("300 Task 不丢数据：每个 Task 都映射为构件", () => {
+  const fixture = anatomyFixtures.stress;
+  const vm = view(fixture);
+  const layout = computeAnatomyLayout(vm);
+  const cells = layout.stages.flatMap((stage) => stage.tasks);
+  assert.equal(cells.length, fixture.tasks.length);
+  assert.equal(new Set(cells.map((cell) => cell.taskId)).size, fixture.tasks.length);
+  assert.equal(cells.every((cell) => cell.size >= 3), true);
 });
 
 test("Stage 包围盒互不重叠（overview）", () => {

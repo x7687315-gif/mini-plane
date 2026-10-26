@@ -13,7 +13,7 @@
 
 <p align="center">
   <b>Python 3.12</b> · <b>Django 5.2 LTS</b> · <b>Next.js 16</b> · <b>React 19</b> · <b>TypeScript</b> · <b>Tailwind v4</b> · <b>Channels/WebSocket</b> · <b>pywebview</b><br>
-  <b>后端 387</b> 用例 · <b>前端 168</b> 单测 · <b>39</b> 个浏览器 E2E · <b>CI 三 job</b>
+  <b>后端 387</b> 用例 · <b>前端 169</b> 单测 · <b>39</b> 个浏览器 E2E · <b>CI 三 job</b>
 </p>
 
 ---
@@ -365,7 +365,7 @@ mini-plane/
 | 类别 | 数量 | 命令 |
 |------|------|------|
 | 后端 | **387** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
-| 前端单测 | **168** | `cd frontend && pnpm test`（`node --test`，零依赖） |
+| 前端单测 | **169** | `cd frontend && pnpm test`（`node --test`，零依赖） |
 | 浏览器 E2E | **39** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，三个 job 全绿才可合并）：
@@ -410,8 +410,8 @@ v0.9.0 Engineering Island Desktop        ✅ Sprint 15
 v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
       Island V3 单窗两态（壳层）            ✅ 2026-10-21
       Phase 5.5 稳定化（回归/E2E/安全）      ✅ 2026-10-25
-      Anatomy V2 Phase 0–4（对象/空间交互）  ✅ 2026-10-26
-      ── 下一周期：Anatomy Phase 5 + Phase 6–9 重构收尾 + Blueprint Dock
+      Anatomy V2 Phase 0–5（对象/空间交互）  ✅ 2026-10-26
+      ── 下一周期：Phase 6–9 重构收尾 + Blueprint Dock + Anatomy 后续演进
       ── 可选：组件测试（Vitest）· Lighthouse 90 · Markdown → Worklog 导入
          Blocker 独立实体 · MCP 包装层 · 任务截止日期与逾期
 ```
@@ -425,7 +425,9 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
 | 你想知道 | 看这里 |
 |---------|--------|
 | **产品原则**（唯一事实源） | [`docs/PRODUCT_PRINCIPLES.md`](docs/PRODUCT_PRINCIPLES.md) · 领域模型 [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md) |
-| **个人优先重构**（进行中，Phase 0–9） | [`docs/refactor/`](docs/refactor/) · 决策记录 [`docs/decisions/`](docs/decisions/) |
+| **个人优先重构**（Phase 0–5 + 稳定化已完成，Phase 6–9 待排期） | [`docs/refactor/`](docs/refactor/) · 决策记录 [`docs/decisions/`](docs/decisions/) |
+| **项目解剖图 V2**（Phase 0–5 完成：React SVG 对象 / 空间交互 / 演进痕迹 / 记录浏览 / 性能基线） | [`docs/refactor/ui-design/anatomy/v2/README.md`](docs/refactor/ui-design/anatomy/v2/README.md) |
+| 原始计划 / 设计输入（只作溯源，非事实源） | [`docs/refactor/inputs/`](docs/refactor/inputs/) |
 | 产品重构计划（历史档案，Sprint 09–17 已完成） | [`docs/PRODUCT_REFACTOR_PLAN.md`](docs/PRODUCT_REFACTOR_PLAN.md) |
 | **Engineering Island V3 规格**（单窗两态 / 工程浮页，窗口模型唯一事实源） | [`docs/ISLAND_V3_SPEC.md`](docs/ISLAND_V3_SPEC.md) |
 | **Engineering Island V2 规格**（信息设计 / 实时方案；窗口模型部分已被 V3 取代） | [`docs/ISLAND_V2_SPEC.md`](docs/ISLAND_V2_SPEC.md) |
