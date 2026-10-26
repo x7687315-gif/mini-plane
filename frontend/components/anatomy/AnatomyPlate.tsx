@@ -1,15 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { Issue } from "@/types/issue";
 import type { ProjectPlan, ProjectStage } from "@/types/project";
 import {
   computeAnatomyLayout,
+  focusedStageId,
+  isExploded,
+  normalizeSpatialState,
   nowTaskOf,
   selectAnatomyViewModel,
   stageById,
+  transitionSpatialState,
   type AnatomyProgressSource,
+  type SpatialAction,
+  type SpatialState,
 } from "@/features/anatomy";
 import { AnatomyScene } from "./AnatomyScene";
 
@@ -23,6 +29,10 @@ export interface AnatomyPlateProps {
   agentRunning: boolean;
   projectProgress: number | null;
   progressSource: AnatomyProgressSource | null;
+  initialSpatial?: SpatialState;
+  onSpatialChange?: (state: SpatialState) => void;
+  /** 抽屉打开/输入框聚焦时不要让 Esc 收起图纸。 */
+  escapeEnabled?: boolean;
   onOpenTask: (issueId: string) => void;
 }
 
@@ -41,9 +51,12 @@ export function AnatomyPlate({
   agentRunning,
   projectProgress,
   progressSource,
+  initialSpatial = { mode: "overview" },
+  onSpatialChange,
+  escapeEnabled = true,
   onOpenTask,
 }: AnatomyPlateProps) {
-  const [focusId, setFocusId] = useState<string | null>(null);
+  const [spatial, setSpatial] = useState<SpatialState>(initialSpatial);
 
   const viewModel = useMemo(
     () =>
@@ -61,20 +74,44 @@ export function AnatomyPlate({
     [projectName, identifier, stages, tasks, plan, nowTaskId, agentRunning, projectProgress, progressSource],
   );
 
-  // 阶段删除后，旧的 focus id 自动退化；不需要在 effect 里 setState。
-  const activeFocusId =
-    focusId && viewModel.stages.some((stage) => stage.id === focusId) ? focusId : null;
-  const layout = useMemo(
-    () =>
-      computeAnatomyLayout(
-        viewModel,
-        activeFocusId ? { mode: "focus", stageId: activeFocusId } : { mode: "overview" },
-      ),
-    [viewModel, activeFocusId],
-  );
+  // 阶段删除后，旧的 focus/exploded 自动退化为 overview。
+  const stageIds = useMemo(() => viewModel.stages.map((stage) => stage.id), [viewModel.stages]);
+  const spatialState = normalizeSpatialState(spatial, stageIds);
+  const activeFocusId = focusedStageId(spatialState);
+  const exploded = isExploded(spatialState);
+  const layout = computeAnatomyLayout(viewModel, spatialState);
   const focusedStage = stageById(viewModel, activeFocusId);
   const nowTask = nowTaskOf(viewModel);
   const projectPct = viewModel.projectProgress;
+
+  const applySpatial = (action: SpatialAction) => {
+    const next = transitionSpatialState(spatialState, action, stageIds);
+    setSpatial(next);
+    onSpatialChange?.(next);
+  };
+
+  useEffect(() => {
+    if (!escapeEnabled || spatialState.mode === "overview") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      const next = transitionSpatialState(spatialState, { type: "RESTORE_OVERVIEW" }, stageIds);
+      setSpatial(next);
+      onSpatialChange?.(next);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [escapeEnabled, spatialState, stageIds, onSpatialChange]);
 
   return (
     <div className="relative">
@@ -85,8 +122,8 @@ export function AnatomyPlate({
               layout={layout}
               identifier={viewModel.identifier}
               focusedStageId={activeFocusId}
-              onFocusStage={setFocusId}
-              onFocusOverview={() => setFocusId(null)}
+              onFocusStage={(stageId) => applySpatial({ type: "TOGGLE_STAGE", stageId })}
+              onFocusOverview={() => applySpatial({ type: "RESTORE_OVERVIEW" })}
               onOpenTask={onOpenTask}
             />
             {viewModel.stages.length === 0 && (
@@ -117,7 +154,7 @@ export function AnatomyPlate({
                   type="button"
                   aria-pressed={activeFocusId === stage.id}
                   aria-label={`聚焦阶段 ${stage.name}`}
-                  onClick={() => setFocusId(activeFocusId === stage.id ? null : stage.id)}
+                  onClick={() => applySpatial({ type: "TOGGLE_STAGE", stageId: stage.id })}
                   className="grid w-full grid-cols-[24px_minmax(0,1fr)_28px_34px] items-baseline gap-1 border-b border-dashed border-[color:var(--color-rule)] py-1.5 text-left hover:bg-[color:var(--color-accent-soft)]"
                 >
                   <span className="font-mono text-[10px] text-[color:var(--color-ink-3)]">
@@ -157,13 +194,28 @@ export function AnatomyPlate({
                   <span className="font-medium text-[9.5px] uppercase tracking-[0.14em] text-[color:var(--color-ink-3)]">
                     Stage {String(focusedStage.order).padStart(2, "0")} 构件
                   </span>
-                  <button
-                    type="button"
-                    className="text-[10.5px] text-[color:var(--color-accent)]"
-                    onClick={() => setFocusId(null)}
-                  >
-                    ◂ 整体
-                  </button>
+                  <span className="flex items-baseline gap-2">
+                    <button
+                      type="button"
+                      className="text-[10.5px] text-[color:var(--color-accent)]"
+                      onClick={() =>
+                        applySpatial(
+                          exploded
+                            ? { type: "COLLAPSE_STAGE" }
+                            : { type: "EXPLODE_STAGE", stageId: focusedStage.id },
+                        )
+                      }
+                    >
+                      {exploded ? "收拢" : "展开"}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[10.5px] text-[color:var(--color-accent)]"
+                      onClick={() => applySpatial({ type: "RESTORE_OVERVIEW" })}
+                    >
+                      ◂ 整体
+                    </button>
+                  </span>
                 </div>
                 <p className="mt-1.5 text-[11px] leading-[1.5] text-[color:var(--color-ink-2)]">
                   {focusedStage.goal || "（未填写阶段目标）"}

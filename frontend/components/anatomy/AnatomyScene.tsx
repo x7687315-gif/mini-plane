@@ -5,6 +5,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import {
   boxFaces,
   pointsAttr,
+  project,
   type LooseTrayLayout,
   type StageLayout,
   type TaskCellLayout,
@@ -69,6 +70,12 @@ function TaskCell({
   const faces = boxFaces(origin, cell.x, cell.y, cell.z, cell.size, cell.size, cell.size * 0.72);
   const palette = cellPalette(cell);
   const dash = palette.dashed ? "3 2" : undefined;
+  const anchor = cell.exploded && cell.anchor
+    ? {
+        from: project(origin, cell.anchor.x, cell.anchor.y, cell.anchor.z),
+        to: project(origin, cell.x + cell.size / 2, cell.y + cell.size / 2, cell.z),
+      }
+    : null;
   const open = (event: MouseEvent<SVGGElement>) => {
     event.stopPropagation();
     onOpenTask(cell.taskId);
@@ -86,11 +93,23 @@ function TaskCell({
       role="button"
       tabIndex={0}
       aria-label={`任务 ${identifier}-${cell.sequenceId}：${cell.title}`}
-      className="cursor-pointer focus:outline-none"
+      className="an-cell cursor-pointer focus:outline-none"
       onClick={open}
       onKeyDown={key}
     >
       <title>{`${identifier}-${cell.sequenceId} · ${cell.title}`}</title>
+      {anchor && (
+        <line
+          x1={anchor.from.x}
+          y1={anchor.from.y}
+          x2={anchor.to.x}
+          y2={anchor.to.y}
+          stroke="var(--color-rule)"
+          strokeWidth={0.7}
+          strokeDasharray="2 3"
+          pointerEvents="none"
+        />
+      )}
       {cell.flat ? (
         <polygon
           points={pointsAttr(faces.top)}
@@ -134,10 +153,13 @@ function StageModule({
   onOpenTask: (taskId: string) => void;
 }) {
   const { stage, origin, w, d, h, opacity, thin } = layout;
-  const faces = boxFaces(origin, -w / 2, -d / 2, 0, w, d, h);
+  // 渲染使用局部坐标 + CSS transform，这样形态切换时位置可以由 CSS 过渡；
+  // layout 返回的绝对坐标只用于包围盒/测试。
+  const local = { x: 0, y: 0 };
+  const faces = boxFaces(local, -w / 2, -d / 2, 0, w, d, h);
   const stroke = thin ? "var(--color-rule)" : stage.isCurrent ? "var(--color-accent)" : "var(--color-ink-2)";
   const strokeWidth = thin ? 0.6 : stage.isCurrent || focused ? 1.35 : 0.85;
-  const emptyOutline = boxFaces(origin, -w * 0.34, -d * 0.34, h, w * 0.68, d * 0.68, 0.1);
+  const emptyOutline = boxFaces(local, -w * 0.34, -d * 0.34, h, w * 0.68, d * 0.68, 0.1);
   const focus = (event: MouseEvent<SVGGElement> | KeyboardEvent<SVGGElement>) => {
     event.stopPropagation();
     onFocus(stage.id);
@@ -155,9 +177,13 @@ function StageModule({
       tabIndex={thin ? undefined : 0}
       aria-label={thin ? undefined : `阶段 ${stage.order}：${stage.name}`}
       aria-pressed={thin ? undefined : focused}
-      opacity={opacity}
       pointerEvents={thin ? "none" : undefined}
-      className={thin ? undefined : "cursor-pointer focus:outline-none"}
+      className={thin ? undefined : "an-stage cursor-pointer focus:outline-none"}
+      style={{
+        opacity,
+        transform: `translate(${origin.x}px, ${origin.y}px)`,
+        transition: "transform 250ms cubic-bezier(0.2,0.8,0.2,1), opacity 200ms cubic-bezier(0.2,0.8,0.2,1)",
+      }}
       onClick={thin ? undefined : focus}
       onKeyDown={thin ? undefined : key}
     >
@@ -179,7 +205,7 @@ function StageModule({
         <TaskCell
           key={cell.taskId}
           cell={cell}
-          origin={origin}
+          origin={local}
           identifier={identifier}
           onOpenTask={onOpenTask}
         />
@@ -187,8 +213,8 @@ function StageModule({
       {!thin && (
         <g pointerEvents="none">
           <text
-            x={layout.label.x}
-            y={layout.label.y}
+            x={layout.label.x - origin.x}
+            y={layout.label.y - origin.y}
             textAnchor="middle"
             fontFamily="Cormorant Garamond, Georgia, serif"
             fontStyle="italic"
@@ -198,8 +224,8 @@ function StageModule({
             {layout.label.text}
           </text>
           <text
-            x={layout.label.x}
-            y={layout.label.y + 15}
+            x={layout.label.x - origin.x}
+            y={layout.label.y - origin.y + 15}
             textAnchor="middle"
             fontFamily="JetBrains Mono, monospace"
             fontSize={11}

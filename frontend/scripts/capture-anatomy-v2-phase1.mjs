@@ -12,7 +12,11 @@ import path from "node:path";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const API = process.env.E2E_API_BASE ?? "http://localhost:8000";
-const OUT = path.resolve(process.cwd(), "../docs/refactor/ui-design/anatomy/v2/phase1");
+const OUT = path.resolve(
+  process.cwd(),
+  "../docs/refactor/ui-design/anatomy/v2",
+  process.env.CAPTURE_OUT ?? "phase1",
+);
 const STORAGE = ".auth/user.json";
 
 async function makeApi() {
@@ -110,6 +114,10 @@ async function main() {
     await page.getByRole("button", { name: /^聚焦阶段 构建与联调/ }).click();
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(OUT, "focus-demo.png"), fullPage: true });
+
+    await page.getByRole("button", { name: "展开", exact: true }).click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(OUT, "exploded-demo.png"), fullPage: true });
     await context.close();
     console.log(`phase1 screenshots -> ${OUT}`);
   } finally {

@@ -24,6 +24,7 @@ import {
 } from "@/features/project";
 import { useCreateIssue, useIssues, useLabels } from "@/features/task";
 import { useProjectRealtime } from "@/features/realtime";
+import { spatialStateFromQuery, spatialStateToQuery, type SpatialState } from "@/features/anatomy";
 import { useChrome } from "@/stores/chrome";
 import { useQuickLogStore } from "@/stores/quicklog";
 import type { IssueState, ProjectMember, Worklog } from "@/types/project";
@@ -88,6 +89,18 @@ function WorkbenchRoute() {
   const issueId = searchParams.get("issue");
   const tab = normalizeDrawerTab(searchParams.get("tab"));
   const view = searchParams.get("view") === "plate" ? "plate" : "bench";
+  const initialSpatial = spatialStateFromQuery(searchParams.get("stage"), searchParams.get("expand"));
+
+  function handleSpatialChange(state: SpatialState) {
+    const sp = new URLSearchParams(searchParams.toString());
+    const query = spatialStateToQuery(state);
+    if (query.stage) sp.set("stage", query.stage);
+    else sp.delete("stage");
+    if (query.expand) sp.set("expand", query.expand);
+    else sp.delete("expand");
+    const qs = sp.toString();
+    router.replace(`/projects/${pid}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
 
   /** 关闭抽屉时连同 tab 一起清掉；URL 里不留下任何抽屉残影。 */
   function closeDrawer() {
@@ -164,6 +177,8 @@ function WorkbenchRoute() {
         onParam={handleParam}
         onFilterParam={(key, value) => handleParam(key, value, true)}
         onCloseDrawer={closeDrawer}
+        initialSpatial={initialSpatial}
+        onSpatialChange={handleSpatialChange}
       />
     </>
   );
@@ -195,6 +210,8 @@ function Workbench({
   onParam,
   onFilterParam,
   onCloseDrawer,
+  initialSpatial,
+  onSpatialChange,
 }: {
   pid: string;
   identifier: string;
@@ -221,6 +238,8 @@ function Workbench({
   onParam: (key: string, value: string | null) => void;
   onFilterParam: (key: string, value: string | null) => void;
   onCloseDrawer: () => void;
+  initialSpatial: SpatialState;
+  onSpatialChange: (state: SpatialState) => void;
 }) {
   const router = useRouter();
   const openQuickLog = useQuickLogStore((s) => s.openWith);
@@ -353,6 +372,9 @@ function Workbench({
             agentRunning={agentRunning}
             projectProgress={projectProgress}
             progressSource={progressSource}
+            initialSpatial={initialSpatial}
+            onSpatialChange={onSpatialChange}
+            escapeEnabled={!drawerIssueId}
             onOpenTask={(id) => onParam("issue", id)}
           />
         </div>

@@ -6,6 +6,7 @@
  */
 
 import type { AnatomyStage, AnatomyTask, AnatomyViewModel } from "./model";
+import type { SpatialState } from "./state";
 import {
   boundsOf,
   boxFaces,
@@ -19,9 +20,7 @@ import {
   type Rect,
 } from "./geometry";
 
-export type SpatialState =
-  | { mode: "overview" }
-  | { mode: "focus"; stageId: string };
+export type { SpatialState } from "./state";
 
 export interface TaskCellLayout {
   taskId: string;
@@ -36,6 +35,9 @@ export interface TaskCellLayout {
   /** 太小的时候用平面方块，避免 cube 面线糊成一团。 */
   flat: boolean;
   isNow: boolean;
+  /** 展开态：从 top face 的锚点抬升；Scene 用它画虚线投影。 */
+  exploded: boolean;
+  anchor: { x: number; y: number; z: number } | null;
   bounds: Rect;
 }
 
@@ -58,6 +60,7 @@ export interface StageLayout {
   h: number;
   opacity: number;
   thin: boolean;
+  exploded: boolean;
   label: StageLabelLayout;
   tasks: TaskCellLayout[];
   bounds: Rect;
@@ -122,6 +125,7 @@ function taskCells(
   tasks: readonly AnatomyTask[],
   nowTaskId: string | null,
   scale = 1,
+  exploded = false,
 ): TaskCellLayout[] {
   const n = tasks.length;
   if (!n) return [];
@@ -129,7 +133,8 @@ function taskCells(
   const rows = Math.ceil(n / cols);
   const stepU = (w * 0.78) / cols;
   const stepV = (d * 0.72) / rows;
-  const size = Math.max(3, Math.min(14 * scale, stepU * 0.58, stepV * 0.64));
+  const size = Math.max(3, Math.min((exploded ? 18 : 14) * scale, stepU * 0.58, stepV * 0.64));
+  const lift = exploded ? Math.max(56, size * 2.2) : 0;
 
   return tasks.map((task, index) => {
     const col = index % cols;
@@ -138,7 +143,8 @@ function taskCells(
     const v = (row - (rows - 1) / 2) * stepV;
     const x = u - size / 2;
     const y = v - size / 2;
-    const faces = boxFaces(origin, x, y, h, size, size, size * 0.72);
+    const z = h + lift;
+    const faces = boxFaces(origin, x, y, z, size, size, size * 0.72);
     const bounds = boundsOf([...faces.top, ...faces.right, ...faces.front]);
     return {
       taskId: task.id,
@@ -147,10 +153,12 @@ function taskCells(
       tone: task.tone,
       x,
       y,
-      z: h,
+      z,
       size,
       flat: size < 6,
       isNow: task.id === nowTaskId,
+      exploded,
+      anchor: exploded ? { x: u, y: v, z: h } : null,
       bounds,
     };
   });
@@ -220,10 +228,10 @@ export function computeAnatomyLayout(
   const count = viewModel.stages.length;
   const hasLoose = viewModel.looseTasks.length > 0;
   const focusId =
-    spatial.mode === "focus" &&
-    viewModel.stages.some((stage) => stage.id === spatial.stageId)
+    spatial.mode !== "overview" && viewModel.stages.some((stage) => stage.id === spatial.stageId)
       ? spatial.stageId
       : null;
+  const exploded = spatial.mode === "exploded" && focusId !== null;
   const canvasW = count <= 1 ? 760 : count === 2 ? 900 : count === 3 ? 1000 : count <= 8 ? 1050 : CANVAS_W_MAX;
   const marginX = count <= 3 ? 40 : 70;
   const spec = gridSpec(count, canvasW, marginX);
@@ -250,9 +258,19 @@ export function computeAnatomyLayout(
     const maxLabelWidth = focused ? 360 : Math.min(320, spec.cellW - 18);
     const hasNow = stage.tasks.some((task) => task.id === viewModel.nowTaskId);
     const label = labelFor(stage, origin, d, h, ghost ? 0.16 : 1, maxLabelWidth, hasNow);
+    const stageExploded = focused && exploded;
     const tasks = ghost
       ? []
-      : taskCells(origin, w, d, h, stage.tasks, viewModel.nowTaskId, focused ? 1.25 : 1);
+      : taskCells(
+          origin,
+          w,
+          d,
+          h,
+          stage.tasks,
+          viewModel.nowTaskId,
+          focused ? 1.25 : 1,
+          stageExploded,
+        );
     return {
       stageId: stage.id,
       stage,
@@ -262,6 +280,7 @@ export function computeAnatomyLayout(
       h,
       opacity,
       thin: ghost,
+      exploded: stageExploded,
       label,
       tasks,
       bounds: stageBounds(origin, w, d, h, label, tasks),

@@ -64,13 +64,50 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
       });
       await expect(page.getByText("Stage Index", { exact: false })).toBeVisible();
 
-      await page.getByRole("button", { name: /^聚焦阶段 阶段聚焦验收/ }).click();
+      // 视觉 Stage 本身可点击（不是只有索引表可点）
+      await page.getByRole("button", { name: /^阶段 1：阶段聚焦验收/ }).click();
       await expect(page.getByText("Stage 01 构件", { exact: true })).toBeVisible();
 
+      // focus → exploded → focus → overview；空间状态写进 URL
+      await page.getByRole("button", { name: "展开", exact: true }).click();
+      await expect(page).toHaveURL(/expand=1/);
+      await expect(page.getByRole("button", { name: "收拢", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "收拢", exact: true }).click();
+      await expect(page).not.toHaveURL(/expand=1/);
+      await expect(page).toHaveURL(/stage=/);
+
+      await page.keyboard.press("Escape");
+      await expect(page).not.toHaveURL(/stage=/);
+      await expect(page.getByText("Stage 01 构件", { exact: true })).toHaveCount(0);
+
+      // 重新聚焦并打开任务抽屉（URL ?issue=，既有组件）
+      await page.getByRole("button", { name: /^聚焦阶段 阶段聚焦验收/ }).click();
       const aside = page.locator("aside");
       await aside.getByRole("button", { name: new RegExp(task.title) }).click();
       await expect(page).toHaveURL(/issue=/);
       await expect(page.getByRole("dialog")).toBeVisible({ timeout: 15_000 });
+    } finally {
+      await api.write("DELETE", `/api/v1/projects/${project.id}/`);
+      await api.dispose();
+    }
+  });
+
+  test("减少动态效果：聚焦/展开仍完成，信息不丢失", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const api = await apiClient();
+    const project = await createProject(api, "reduce");
+    try {
+      const stage = await createStage(api, project.id, "减少动效阶段");
+      await createTask(api, project.id, stage.id, "减少动效任务");
+      await page.goto(`/projects/${project.id}?view=plate`, { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      await page.getByRole("button", { name: /^聚焦阶段 减少动效阶段/ }).click();
+      await expect(page.getByText("Stage 01 构件", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "展开", exact: true }).click();
+      await expect(page.getByRole("button", { name: "收拢", exact: true })).toBeVisible();
     } finally {
       await api.write("DELETE", `/api/v1/projects/${project.id}/`);
       await api.dispose();

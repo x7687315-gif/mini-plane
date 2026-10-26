@@ -356,3 +356,11 @@ body {
 .v2-fchip b { font: 400 10px 'JetBrains Mono', monospace; margin-left: 4px; }
 .v2-fchip:hover { color: var(--color-ink); }
 .v2-fchip[aria-pressed="true"] { color: var(--color-ink); border-bottom-color: var(--color-accent); font-weight: 500; }
+
+/* Anatomy V2：空间切换只动 transform / opacity；减少动效时瞬时完成 */
+.an-stage { transition: transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1),
+  opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.an-cell { transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .an-stage, .an-cell { transition: none !important; }
+}

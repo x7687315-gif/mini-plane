@@ -6,10 +6,20 @@ export {
   type AnatomyLayout,
   type EmptyBaseLayout,
   type LooseTrayLayout,
-  type SpatialState,
   type StageLayout,
   type TaskCellLayout,
 } from "./layout";
+export {
+  focusedStageId,
+  isExploded,
+  normalizeSpatialState,
+  spatialStateFromQuery,
+  spatialStateToQuery,
+  transitionSpatialState,
+  type SpatialAction,
+  type SpatialState,
+  type TemporalState,
+} from "./state";
 export {
   nowTaskOf,
   selectAnatomyViewModel,
