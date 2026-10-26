@@ -1,10 +1,11 @@
 # Mini Plane 工作交接文档（HANDOVER）
 
-> **2026-10-25 更新（必读）**：本文写于 2026-10-02，是历史交接快照。Sprint 14–17、
-> personal-first Phase 0–5、Island V3、项目解剖图与 Phase 5.5 稳定化均已完成。
+> **2026-10-27 更新（必读）**：本文写于 2026-10-02，是历史交接快照。Sprint 14–17、
+> personal-first Phase 0–5、Island V3、项目解剖图 V2 Phase 0–5 与 Phase 5.5 稳定化均已完成。
 > 下文 §7「未完成 Sprint 14–17」与旧测试数字是**历史记录，勿再按它排期**。
 > 当前事实源：`README.md`、`docs/PRODUCT_PRINCIPLES.md`、`docs/DOMAIN_MODEL.md`；
 > 当前门禁：后端 **387** / 前端 **169** / E2E **39**，CI 三个 job。
+> 解剖图阶段记录：[`docs/refactor/ui-design/anatomy/v2/README.md`](refactor/ui-design/anatomy/v2/README.md)。
 
 > 生成日期：2026-10-02 · 交接基线 commit：`110e9d5`（远端 `origin/main` 已同步，工作树干净，CI 双绿）
 > 仓库：`git@github.com:x7687315-gif/mini-plane.git` · 本地路径：`C:\palne`

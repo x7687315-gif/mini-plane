@@ -60,7 +60,17 @@ node --import ./tests/register-loader.mjs scripts/benchmark-anatomy.mjs
 | Playwright 全量 | **39/39 pass**（+ setup = 40/40） |
 | 后端 | 未改后端；沿用 387 |
 
-## 5. 已知边界 / 下一轮可选
+## 5. 桌面产物冒烟（2026-10-27）
+
+- 前端单机包：`scripts/package.py` → `dist/mini-plane-1.0.0-local-20261026-172153`；
+- 便携目录：`desktop/build.py --portable` → `dist/MiniPlane/MiniPlane.exe`（含 `app/`、`backend/`、`runtime/`）；
+- 自检前确认 8000/3000 端口空闲、无残留 MiniPlane 进程；
+- 命令：`MINIPLANE_NO_WINDOW=1 ./dist/MiniPlane/MiniPlane.exe`；
+- 输出：`[selftest] stack ready at http://127.0.0.1:3000/ (window suppressed)` → `services stopped`（退出码 0）。
+
+**边界**：该自检验证打包后的 SQLite 迁移、后端健康检查与前端产物可启动；不替代原生窗口/WebView2 的视觉回归，也不验证登录后的交互路径。
+
+## 6. 已知边界 / 下一轮可选
 
 1. DOM/动画真实性能未测；需要在目标机器用真实项目采样后再决定是否虚拟化。
 2. 16+ Stage 时画布纵向变长；没有实现缩放/密度模式切换（未达到需要）。
