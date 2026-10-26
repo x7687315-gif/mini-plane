@@ -210,6 +210,8 @@ export const anatomyFixtures = {
   /** F4/F5：密集与大规模（生成） */
   dense: generated(8, 8),
   large: generated(16, 13),
+  /** F5 upper bound：16 Stage / 304 Task，用于密度与性能回归 */
+  stress: generated(16, 19),
 
   /** F6：长文本 + 特殊字符（JSX 必须安全呈现） */
   longLabels: base({

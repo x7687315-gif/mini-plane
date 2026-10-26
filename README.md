@@ -13,7 +13,7 @@
 
 <p align="center">
   <b>Python 3.12</b> · <b>Django 5.2 LTS</b> · <b>Next.js 16</b> · <b>React 19</b> · <b>TypeScript</b> · <b>Tailwind v4</b> · <b>Channels/WebSocket</b> · <b>pywebview</b><br>
-  <b>后端 387</b> 用例 · <b>前端 168</b> 单测 · <b>39</b> 个浏览器 E2E · <b>CI 三 job</b>
+  <b>后端 387</b> 用例 · <b>前端 169</b> 单测 · <b>39</b> 个浏览器 E2E · <b>CI 三 job</b>
 </p>
 
 ---
@@ -365,7 +365,7 @@ mini-plane/
 | 类别 | 数量 | 命令 |
 |------|------|------|
 | 后端 | **387** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
-| 前端单测 | **168** | `cd frontend && pnpm test`（`node --test`，零依赖） |
+| 前端单测 | **169** | `cd frontend && pnpm test`（`node --test`，零依赖） |
 | 浏览器 E2E | **39** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，三个 job 全绿才可合并）：
@@ -410,8 +410,8 @@ v0.9.0 Engineering Island Desktop        ✅ Sprint 15
 v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
       Island V3 单窗两态（壳层）            ✅ 2026-10-21
       Phase 5.5 稳定化（回归/E2E/安全）      ✅ 2026-10-25
-      Anatomy V2 Phase 0–4（对象/空间交互）  ✅ 2026-10-26
-      ── 下一周期：Anatomy Phase 5 + Phase 6–9 重构收尾 + Blueprint Dock
+      Anatomy V2 Phase 0–5（对象/空间交互）  ✅ 2026-10-26
+      ── 下一周期：Phase 6–9 重构收尾 + Blueprint Dock + Anatomy 后续演进
       ── 可选：组件测试（Vitest）· Lighthouse 90 · Markdown → Worklog 导入
          Blocker 独立实体 · MCP 包装层 · 任务截止日期与逾期
 ```
