@@ -1,72 +1,79 @@
-# 技术债登记簿（UI 重构前挂起项）
+# 技术债登记簿
 
-> 建立：2026-10-24 · 全局检查批次结束时。
-> 处置策略：**UI 重构期间不处理**；UI 重构完成、形成整体后回头集中分析修复，再跑全量验证并推送。
-> 本文件是挂起项的唯一登记处；新债随发现随登记，避免散落在对话里。
+> 建立：2026-10-24 · 最后更新：2026-10-25（Phase 5.5 稳定化后）
+> 处置策略：稳定化批次先清“会让门禁失真/用户可见”的项；其余按 Phase 6–9 排期。
 
-## TD-01 · E2E 共享会话在完整套件运行中途失效（挂起·最高优先）
+## TD-01 · E2E 共享会话在完整套件中途失效（✅ 已修复 2026-10-25）
 
-**现象（已复现 3 次，确定性）**：
-- 全量 Playwright（34 用例）固定 **26 过 / 8 失败**，失败集中在套件**尾部的 4 个文件**（issue-thread / mode-switch / realtime / agent-island-loop）；
-- 失败页快照全部显示**会话丢失被打回 /login**（顶栏变登录页、`polling` 态）；
-- 隔离运行（setup + 任意单个 spec 组合）**全部通过**；
-- 串行（--workers=1）**同样 26/34**——排除并行资源竞争，是**确定性的顺序型破坏**。
+**根因**：`apiClient()` 用 `request.newContext()` 时继承了测试的 `storageState`（共享登录态）。
+Island 空态用例在同一上下文注册新账户；Django `login()` 发现当前会话已登录的是另一个用户，
+按安全语义 `flush()` 旧会话，删掉了 `.auth/user.json` 指向的共享 session。后续所有 UI 用例被打回 `/login`。
 
-**已查明的硬事实**：
-1. 全量跑完后，`.auth/user.json` 里的 `sessionid` 在 Postgres `django_session` 中**行已消失**（`SELECT … WHERE session_key = %s` 返回空）——会话行是被**服务端 logout 主动删除**的，不是过期/篡改；
-2. demo 用户 `e2e_owner_e2e-2026-09` 带密码（pbkdf2），setup 每轮重建；
-3. `auth.spec.ts` 显式 `test.use({ storageState: { cookies: [], origins: [] } })` 且登出的是自建账户；`island.spec.ts` 空态用例用自建账户独立 context（注释自述曾出过同类事故）；
-4. 二分组合（auth+issue-thread / features+issue-thread / filter-bulk+issue-thread / island+issue-thread / setup+前三者）**两两全过**——失败需要「前序累积」条件，不是单一 spec 的简单副作用；
-5. dev 栈日志无 Python 异常（曾出现的 `no such column: U0.current_step` 是**迁移前的旧日志**，迁移后已消除）。
+**修复**：`frontend/tests/e2e/helpers.ts` 的 API 客户端显式使用空 cookie 罐
+`storageState: { cookies: [], origins: [] }`；API 客户端自己 `ensureAccount`。
+**证据**：完整套件 34/34 通过（setup 另计），后端 387 绿。
 
-**嫌疑（未证实，按可能性排序）**：
-- S1：某用例在**共享登录态的 context** 里触达了 AvatarMenu → 退出登录（或未来 IsLand/快捷键路径误触等价动作）；
-- S2：Django 会话轮换语义 + 多 worker 共享 cookie jar 的交互（某请求触发 `update_session_auth_hash`/session rotate，旧 sessionid 被删）——注意 demo 用户**带密码**，若某用例走了改密/bind 路径会轮换会话；
-- S3：Phase 4 新增的 `primeCsrf()`（QueryProvider 挂载播种）或 R-16 CSRF 收窄改变了 403 时序（低嫌疑：二者均不触碰 session 行）。
+## TD-02 · Workspace 删除守卫引发的 E2E 工作区堆积（清理逻辑已修，存量待清）
 
-**排查路径建议（回头做）**：
-1. 在 `users.views.logout_view` / `login_view` 临时加日志（或用 django-debug 记 session_key），全量跑一次抓「谁删了这行」；
-2. 或在 `global.setup` 保存 storageState **前后 + 每个测试文件 afterAll** 各探一次 `/auth/me/`，把死亡时刻定位到具体 spec 文件；
-3. 定位后按根因修（隔离登录态 / 改用独立账户 / 修前端误触）。
+`helpers.ts` 已改为“先删工程再删工作区”；dev Postgres 里历史 `e2e-workspace-e2e-2026-09-{2..5}`
+仍建议一次性清理（数据运维动作，不进代码提交）。
 
-**波及**：E2E 门禁当前不可作为全量验收信号；后端 377 + 前端 143 单测不受影响。
+## TD-03 · smoke 数据污染真实运行库（Phase 0 R-08）
 
-## TD-02 · Workspace 删除守卫引发的 E2E 工作区堆积（已修清理逻辑，存量待清）
+`runtime/miniplane.sqlite3` 内混入 `smoke_*` 用户与 `smoke-ws` 工作区。处置：备份 → 删除。
 
-Phase 2 的删除守卫（有工程 → 400）使旧版 `purgeE2EWorkspaces` 只删工作区必 400，残留工作区靠 slug 后缀无限堆积（实测已到 `-5`）。`helpers.ts` 已改为「先删工程再删工作区」；**dev Postgres 里已堆积的 `e2e-workspace-e2e-2026-09-{2..5}` 工作区待一次性清理**（可手动或下次 setup 顺带）。
+## TD-04 · 兼容路由退役（Phase 9）
 
-## TD-03 · smoke 数据污染真实运行库（Phase 0 R-08，沿用）
-
-`runtime/miniplane.sqlite3` 内混入 2 个 `smoke_*` 用户与 `smoke-ws` 工作区。处置：备份 → 删除（数据运维动作，不进代码提交）。
-
-## TD-04 · 兼容路由退役清单（Phase 9）
-
-- 前端已零调用兼容路由（`/workspaces/{ws}/projects/{pid}/…` 业务路径与 `/issues/` 命名）；
-- 外部 Agent 消费者已确认不存在（Phase 0）；
-- 退役动作：删各 views 的兼容壳 + `apps/projects/urls.py` 的业务段（保留 workspace 列表页所需的 `GET /workspaces/{ws}/projects/`）+ 契约迁移表更新。
+前端已零调用兼容业务路由；外部 Agent 消费者已确认不存在。退役动作：
+删各 views 的兼容壳 + `apps/projects/urls.py` 的业务段（保留工作区列表所需端点）+ 契约迁移表更新。
 
 ## TD-05 · 旧契约文档 deprecated 横幅（Phase 9）
 
-`docs/api/03–07` 未逐文件加 deprecated 横幅（索引层已在 `docs/API.md` 标注，10 号契约为当前事实源）。
+`docs/api/03–07` 尚未逐文件加 deprecated 横幅；索引层与 10 号契约已标注。
 
 ## TD-06 · 预留 hooks 复查（Phase 9）
 
-`createLabel/updateLabel/deleteLabel`、项目成员管理三件套、`useProjectActivities`、`updateWorklog` 至今无 UI 消费者（契约 10 号已声明）。UI 重构落地后复查：接线（项目设置页/标签管理）或裁剪。
+`createLabel/updateLabel/deleteLabel`、项目成员写、`useProjectActivities`、`updateWorklog`
+仍无 UI 消费者。UI 重构已落地，复查后接线或裁剪。
 
-## TD-07 · 组件级 Issue→Task 语义更名（随 UI 重构顺路做）
+## TD-07 · 组件级 Issue→Task 语义更名（未完成）
 
-`useIssues/useIssue/CreateIssueModal/IssueRow/IssueDrawer` 等导出名与组件名仍用历史名 `Issue`；类型层已有 `Task` 别名。UI 重构动到这些组件时一并更名，避免专门返工。
+`useIssues/useIssue/IssueDrawer` 等导出名与组件名仍用历史名；类型层已有 `Task` 别名。
 
 ## TD-08 · 私人工程独立路由（✅ 已解决，Phase 5 C3）
 
-`/projects/[pid]` 规范工程台已上线，旧 `/w/{slug}/projects/{pid}` 为服务端重定向；首页与「我的工作」全部改指新路由。WS 项目通道同步补了 pid-only 路由（私人工程此前没有项目级实时通道的缺口）。
+`/projects/[pid]` 工程台已上线，旧 `/w/{slug}/projects/[pid]` 为服务端重定向。
 
-## TD-09 · 任务抽屉完整 v2 化（UI 重构余项）
+## TD-09 · 任务抽屉完整 v2 化（UI 余项）
 
-Phase 5 只做了抽屉的第一步（META 与删除收进「详情」折叠）。字段区仍是 EditableField 盒装样式，与模板的「手写横线行」不一致。余项：把 状态/优先级/阶段/指派/标签 改为 dfield 行样式（乐观更新逻辑保持不动）。
+字段区仍是 `EditableField` 盒装样式，与模板的“手写横线行”不一致。
+余项：状态/优先级/阶段/指派/标签改为 dfield 行样式（乐观更新逻辑保持不动）。
 
-## TD-10 · E2E 适配清单（Phase 5 后的专项批次）
+## TD-10 · E2E 适配清单（✅ 主体完成 2026-10-25）
 
-- **已适配**：helpers.projectUrl、mode-switch ×4、issue-thread 建任务流程、features 计划/日志两条。
-- **未适配**：filter-bulk.spec（旧 FilterBar 断言——新工程台是文字过滤+搜索，无优先级/标签下拉与 ?ordering= 参数）。
-- **前置**：全量回归依赖 TD-01（共享会话失效）修复后统一执行；届时一并补「初见上手屏」与「记一笔弹层」的新 E2E。
+- filter-bulk：搜索/状态筛选已改为 URL 状态；行内补状态名与标签；行定位 helper 改为
+  `getByRole("button", name=/^select E2E-n\b/)`，不再依赖 xpath DOM 深度。
+- 分页：工程台使用 `per_page=100` + `page` URL 参数，超过一页显示上一页/下一页。
+- 新 E2E：完整 34 条已全绿；「初见上手屏」独立用例仍未单独覆盖（现有首页用例覆盖主路径）。
+
+## TD-11 · 后端一致性/安全余项（Phase 7）
+
+已在本轮修复：Agent 写端点补角色 ≥ Member；session.progress 部分更新不再清空兄弟字段；
+canonical 列表 WS Admin 角色；Agent 无 slug；非法 `workspace_id` 400；Workspace 角色变更广播。
+
+仍开放（按优先级）：
+1. Agent 幂等 `_replay`/`_remember` 非原子（并发同 key 可执行两次）；`IdempotencyRecord` 无 TTL。
+2. `AgentSession` 可同时存在多个 running；`session.end` 重复结束会刷新 `ended_at`。
+3. `ActivityLog.project=CASCADE`：删工程会丢审计；Worklog 变更不写审计/广播；
+   团队工程任意 Member 可改删他人 Worklog。
+4. `/projects/mine/` 不分页；`_recent_done_titles`/`_latest_logs` 全量拉回 Python 再截断；
+   Issue 缺 assignee/created_by 索引；`AgentToken.touch()` 每请求一写。
+5. `AgentScopes.READ_TASK` 未被任何端点使用。
+6. `add_stage` max(order)+1 并发冲突未转 400。
+
+## TD-12 · 桌面产物与源码漂移（交付纪律）
+
+`dist/MiniPlane/MiniPlane.exe` 曾是 2026-10-17 的 V2 双窗壳层，而 `dist/MiniPlane/app` 已是新前端。
+已在 2026-10-26 稳定化批次重建：`package.py` → `build.py --portable`（exe 09:00 后时间戳），
+并用 `MINIPLANE_NO_WINDOW=1 MiniPlane.exe` 完成 SQLite 栈自检（ready + services stopped）。
+纪律不变：**改前端后必须 `python scripts/package.py` + `desktop/build.py --portable`**。

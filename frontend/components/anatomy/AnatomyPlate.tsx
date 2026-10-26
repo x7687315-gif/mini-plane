@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import type { IssueState, ProjectMember, ProjectStage, Worklog } from "@/types/project";
 import type { Issue, Label } from "@/types/issue";
 
@@ -57,6 +57,16 @@ function iso(ox: number, oy: number, s: number) {
 
 const f = (a: [number, number][]) => a.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 
+/** 用户可控文本进入 SVG 字符串前必须转义（阶段名/目标来自接口，不是常量）。 */
+function esc(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function box(
   P: (x: number, y: number, z: number) => [number, number],
   x: number, y: number, z: number, a: number, b: number, h: number,
@@ -112,6 +122,10 @@ export function AnatomyPlate({
   agentRunning, nextStageName, onOpenTask,
 }: AnatomyPlateProps) {
   const [focus, setFocus] = useState(-1);
+  // 阶段数量会变化（删除阶段）；越界的 focus 必须退化为全景，否则
+  // layout[i] / stages[focus] 会读到 undefined。
+  const focusIndex = focus >= 0 && focus < stages.length ? focus : -1;
+  const focusedStage = focusIndex >= 0 ? stages[focusIndex] : null;
 
   // ── View model（数据适配层）──
   const groups = useMemo(
@@ -130,11 +144,9 @@ export function AnatomyPlate({
 
   // ── 布局模型（展示计算，不写入数据库）──
   const layout = useMemo(() => {
-    const n = stages.length;
-    void n;
     return stages.map((_, i) => {
-      if (focus >= 0) {
-        if (i === focus) return { ox: 430, oy: 330, s: 1.35, thin: false };
+      if (focusIndex >= 0) {
+        if (i === focusIndex) return { ox: 430, oy: 330, s: 1.35, thin: false };
         return { ox: 60, oy: 150 + i * 34, s: 0.75, thin: true };
       }
       return {
@@ -144,7 +156,7 @@ export function AnatomyPlate({
         thin: false,
       };
     });
-  }, [stages, focus]);
+  }, [stages, focusIndex]);
 
   // ── SVG 渲染层 ──
   const svg = useMemo(() => {
@@ -162,7 +174,7 @@ export function AnatomyPlate({
 
       if (thin) {
         g += `<line x1="${P(0, 0, 0)[0]}" y1="${P(0, 0, 0)[1]}" x2="${P(70, 40, 0)[0]}" y2="${P(70, 40, 0)[1]}" stroke="var(--color-ink-3)" stroke-width=".8"/>`;
-        g += `<text x="${P(0, 0, 0)[0] + 4}" y="${P(0, 0, 0)[1] - 4}" font-family="JetBrains Mono" font-size="10" fill="var(--color-ink-3)">${String(s.order).padStart(2, "0")} ${s.name} · ${s.progress}%</text>`;
+        g += `<text x="${P(0, 0, 0)[0] + 4}" y="${P(0, 0, 0)[1] - 4}" font-family="JetBrains Mono" font-size="10" fill="var(--color-ink-3)">${String(s.order).padStart(2, "0")} ${esc(s.name)} · ${s.progress}%</text>`;
         g += "</g>";
         parts.push(g);
         return;
@@ -195,10 +207,10 @@ export function AnatomyPlate({
       // 标注：编号 + 名称 + 进度（聚焦态加 goal）
       const nameY = P(0, 0, 0)[1] + 14;
       g += `<text x="${P(0, 0, 0)[0]}" y="${nameY}" font-family="JetBrains Mono" font-size="10.5" fill="var(--color-ink-3)">${String(s.order).padStart(2, "0")}</text>`;
-      g += `<text x="${P(0, 0, 0)[0] + 22}" y="${nameY}" font-family="Cormorant Garamond, Georgia, serif" font-style="italic" font-size="15" fill="${cur ? "var(--color-accent)" : "var(--color-ink)"}">${s.name}${cur ? " · 当前" : ""}</text>`;
+      g += `<text x="${P(0, 0, 0)[0] + 22}" y="${nameY}" font-family="Cormorant Garamond, Georgia, serif" font-style="italic" font-size="15" fill="${cur ? "var(--color-accent)" : "var(--color-ink)"}">${esc(s.name)}${cur ? " · 当前" : ""}</text>`;
       g += `<text x="${P(64, 40, 0)[0]}" y="${nameY}" text-anchor="end" font-family="JetBrains Mono" font-size="10.5" fill="${s.progress === 100 ? "var(--color-success)" : "var(--color-ink-2)"}">${s.progress}% · w${s.weight}</text>`;
-      if (focus === i) {
-        g += `<text x="${P(0, 0, 0)[0]}" y="${nameY + 15}" font-family="Inter" font-size="10.5" fill="var(--color-ink-2)">目标：${s.goal || "（未填写阶段目标）"}</text>`;
+      if (focusIndex === i) {
+        g += `<text x="${P(0, 0, 0)[0]}" y="${nameY + 15}" font-family="Inter" font-size="10.5" fill="var(--color-ink-2)">目标：${esc(s.goal || "（未填写阶段目标）")}</text>`;
         g += `<text x="${P(0, 0, 0)[0]}" y="${nameY + 30}" font-family="JetBrains Mono" font-size="9.5" fill="var(--color-ink-3)">构件 ${group.tasks.length} · 已完成 ${group.tasks.filter((t) => t.state.group === "done").length} · 进行中 ${group.tasks.filter((t) => t.state.group === "started").length}</text>`;
       }
       g += "</g>";
@@ -208,17 +220,17 @@ export function AnatomyPlate({
     // NOW 引线（指向真实 started 任务的构件）
     if (nowTask && nowTask.stage) {
       const gi = stages.findIndex((s) => s.id === nowTask.stage?.id);
-      if (gi >= 0 && focus !== gi) {
+      if (gi >= 0 && focusIndex !== gi) {
         const { ox, oy, s: scale } = layout[gi];
         const P = iso(ox, oy, scale);
         const anchor = P(60, 40, 30);
-        parts.push(`<line x1="${anchor[0].toFixed(1)}" y1="${anchor[1].toFixed(1)}" x2="${anchor[0] + 56}" y2="${anchor[1] - 30}" stroke="var(--color-ink-3)" stroke-width=".7"/><text x="${anchor[0] + 60}" y="${anchor[1] - 32}" font-family="Inter" font-size="10.5" fill="var(--color-accent)">NOW · ${identifier}-${nowTask.sequence_id}</text>`);
+        parts.push(`<line x1="${anchor[0].toFixed(1)}" y1="${anchor[1].toFixed(1)}" x2="${anchor[0] + 56}" y2="${anchor[1] - 30}" stroke="var(--color-ink-3)" stroke-width=".7"/><text x="${anchor[0] + 60}" y="${anchor[1] - 32}" font-family="Inter" font-size="10.5" fill="var(--color-accent)">NOW · ${esc(identifier)}-${nowTask.sequence_id}</text>`);
       }
     }
 
     // 散件托盘（stage=null 的任务，中性可见）
     if (loose.length > 0) {
-      const P = iso(focus >= 0 ? 760 : 880, focus >= 0 ? 500 : 530, focus >= 0 ? 1 : 1.1);
+      const P = iso(focusIndex >= 0 ? 760 : 880, focusIndex >= 0 ? 500 : 530, focusIndex >= 0 ? 1 : 1.1);
       let tray = `<g>`;
       tray += box(P, 0, 0, 0, 96, 40, 2, { top: "none", xf: "none", yf: "none", st: "var(--color-ink-3)", sw: 0.8, dash: true });
       loose.slice(0, 12).forEach((t, k) => {
@@ -234,7 +246,7 @@ export function AnatomyPlate({
     }
 
     // 投影辅助线（对齐用，非依赖——低对比点线）
-    if (focus < 0 && stages.length > 1) {
+    if (focusIndex < 0 && stages.length > 1) {
       const first = layout[0], last = layout[stages.length - 1];
       const P1 = iso(first.ox, first.oy, first.s), P2 = iso(last.ox, last.oy, last.s);
       parts.push(`<line x1="${P1(0, 0, 0)[0].toFixed(1)}" y1="${(P1(0, 0, 0)[1] + 40).toFixed(1)}" x2="${P2(0, 0, 0)[0].toFixed(1)}" y2="${(P2(0, 0, 0)[1] + 40).toFixed(1)}" stroke="var(--color-rule)" stroke-width=".6" stroke-dasharray="2 5" opacity=".8"/>`);
@@ -251,16 +263,41 @@ export function AnatomyPlate({
     </g>`);
 
     return parts.join("");
-  }, [stages, groups, loose, nowTask, layout, focus, identifier]);
+  }, [stages, groups, loose, nowTask, layout, focusIndex, identifier]);
 
   // 聚焦阶段的任务行（HTML 层，聚焦时叠加在 SVG 右侧）
-  const focusRows = focus >= 0 ? tasks.filter((t) => t.stage?.id === stages[focus]?.id) : [];
+  const focusRows = focusedStage
+    ? tasks.filter((t) => t.stage?.id === focusedStage.id)
+    : [];
   const looseCount = tasks.filter((t) => !t.stage).length;
+
+  function handleSvgClick(event: MouseEvent<SVGSVGElement>) {
+    const target = event.target as Element;
+    const task = target.closest("[data-id]");
+    if (task) {
+      const id = task.getAttribute("data-id");
+      if (id) onOpenTask(id);
+      return;
+    }
+    const stage = target.closest("[data-i]");
+    if (stage) {
+      const index = Number(stage.getAttribute("data-i"));
+      if (Number.isInteger(index) && index >= 0 && index < stages.length) {
+        setFocus(focusIndex === index ? -1 : index);
+      }
+    }
+  }
 
   return (
     <div className="relative">
       <div className="relative border border-[color:var(--color-rule)] bg-[color:var(--color-paper)]" style={{ minHeight: 560 }}>
-        <svg viewBox={`0 0 ${VB.w} ${VB.h}`} style={{ width: "100%", height: "auto", display: "block" }} role="img" aria-label="项目解剖图：阶段构件与任务的空间构成">
+        <svg
+          viewBox={`0 0 ${VB.w} ${VB.h}`}
+          style={{ width: "100%", height: "auto", display: "block" }}
+          role="img"
+          aria-label="项目解剖图：阶段构件与任务的空间构成"
+          onClick={handleSvgClick}
+        >
           {svg ? <g dangerouslySetInnerHTML={{ __html: svg }} /> : null}
         </svg>
 
@@ -272,7 +309,20 @@ export function AnatomyPlate({
               {stages.map((s, i) => {
                 const n = tasks.filter((t) => t.stage?.id === s.id).length;
                 return (
-                  <tr key={s.id} className="cursor-pointer border-b border-dashed border-[color:var(--color-rule)]" onClick={() => setFocus(focus === i ? -1 : i)}>
+                  <tr
+                    key={s.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`聚焦阶段 ${s.name}`}
+                    className="cursor-pointer border-b border-dashed border-[color:var(--color-rule)]"
+                    onClick={() => setFocus(focusIndex === i ? -1 : i)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setFocus(focusIndex === i ? -1 : i);
+                      }
+                    }}
+                  >
                     <td className="py-1 font-mono text-[10px] text-[color:var(--color-ink-3)]">{String(s.order).padStart(2, "0")}</td>
                     <td className="py-1 text-[11.5px] text-[color:var(--color-ink)]">{s.name}{s.is_current ? " ·" : ""}</td>
                     <td className="py-1 text-right font-mono text-[10px] text-[color:var(--color-ink-2)]">{n}</td>
@@ -281,7 +331,18 @@ export function AnatomyPlate({
                 );
               })}
               {looseCount > 0 && (
-                <tr className="cursor-pointer" onClick={() => setFocus(-1)}>
+                <tr
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer"
+                  onClick={() => setFocus(-1)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setFocus(-1);
+                    }
+                  }}
+                >
                   <td className="py-1 font-mono text-[10px] text-[color:var(--color-ink-3)]">——</td>
                   <td className="py-1 text-[11.5px] text-[color:var(--color-ink-2)]">散件（未归属）</td>
                   <td className="py-1 text-right font-mono text-[10px]">{looseCount}</td>
@@ -297,11 +358,11 @@ export function AnatomyPlate({
         </div>
 
         {/* B 层：聚焦任务清单（右下面板，点击任务开抽屉） */}
-        {focus >= 0 && (
+        {focusedStage && (
           <div className="absolute bottom-3 right-3 w-[264px] border border-[color:var(--color-accent)] bg-[color:var(--color-paper)] p-3 max-lg:relative max-lg:bottom-0 max-lg:right-0 max-lg:mt-3 max-lg:w-full">
             <div className="flex items-baseline justify-between">
               <span className="font-medium text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-ink-3)]">
-                Stage {String(stages[focus].order).padStart(2, "0")} 构件
+                Stage {String(focusedStage.order).padStart(2, "0")} 构件
               </span>
               <button type="button" className="text-[10.5px] text-[color:var(--color-accent)]" onClick={() => setFocus(-1)}>
                 ◂ 整体

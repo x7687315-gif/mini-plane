@@ -169,8 +169,10 @@ class IssueWriteSerializer(serializers.Serializer):
                 user = User.objects.filter(id=assignee_id).first()
                 if user is None:
                     raise serializers.ValidationError({"assignee": ["所选用户不存在。"]})
-                # 04 契约：必须是 ProjectMember（只有 WS Admin 身份但未加入项目的人不可被指派）
-                if not ProjectMember.objects.filter(project=project, user=user).exists():
+                # 04 契约：必须是 ProjectMember；个人工程的 owner 是唯一隐式成员
+                # （DOMAIN_MODEL §4），因此 owner 恒可被指派。
+                is_member = ProjectMember.objects.filter(project=project, user=user).exists()
+                if not is_member and user.id != project.owner_id:
                     raise serializers.ValidationError({"assignee": ["所选用户不是该项目成员。"]})
                 attrs["assignee"] = user
 

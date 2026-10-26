@@ -3,7 +3,11 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { BulkActionBar } from "@/components/issue/BulkActionBar";
-import { IssueDrawer, type IssueDrawerTab } from "@/components/issue/IssueDrawer";
+import {
+  IssueDrawer,
+  normalizeDrawerTab,
+  type IssueDrawerTab,
+} from "@/components/issue/IssueDrawer";
 import { DimProgress, SectionHead } from "@/components/ui/v2";
 import { AnatomyPlate } from "@/components/anatomy/AnatomyPlate";
 import {
@@ -19,6 +23,7 @@ import {
   useWorklogs,
 } from "@/features/project";
 import { useCreateIssue, useIssues, useLabels } from "@/features/task";
+import { useProjectRealtime } from "@/features/realtime";
 import { useChrome } from "@/stores/chrome";
 import { useQuickLogStore } from "@/stores/quicklog";
 import type { IssueState, ProjectMember, Worklog } from "@/types/project";
@@ -37,6 +42,15 @@ import type { Issue, Label } from "@/types/issue";
 
 type StateFilter = "all" | "backlog" | "unstarted" | "started" | "completed" | "cancelled";
 
+const STATE_FILTERS: StateFilter[] = [
+  "all",
+  "backlog",
+  "unstarted",
+  "started",
+  "completed",
+  "cancelled",
+];
+
 const GROUP_LABEL: Record<StateFilter, string> = {
   all: "全部",
   backlog: "待规划",
@@ -45,6 +59,10 @@ const GROUP_LABEL: Record<StateFilter, string> = {
   completed: "已完成",
   cancelled: "已取消",
 };
+
+function parseStateFilter(raw: string | null): StateFilter {
+  return STATE_FILTERS.includes(raw as StateFilter) ? (raw as StateFilter) : "all";
+}
 
 export default function ProjectWorkbenchPage() {
   return (
@@ -68,14 +86,24 @@ function WorkbenchRoute() {
   const searchParams = useSearchParams();
 
   const issueId = searchParams.get("issue");
-  const tab = (searchParams.get("tab") ?? "activity") as IssueDrawerTab;
+  const tab = normalizeDrawerTab(searchParams.get("tab"));
   const view = searchParams.get("view") === "plate" ? "plate" : "bench";
 
-  /** URL 即状态：抽屉与 tab 参数写回地址栏（可分享、可后退）。 */
-  function handleParam(key: string, value: string | null) {
+  /** 关闭抽屉时连同 tab 一起清掉；URL 里不留下任何抽屉残影。 */
+  function closeDrawer() {
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.delete("issue");
+    sp.delete("tab");
+    const qs = sp.toString();
+    router.replace(`/projects/${pid}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
+
+  /** URL 即状态：抽屉、tab、筛选与页码都写回地址栏（可分享、可后退）。 */
+  function handleParam(key: string, value: string | null, resetPage = false) {
     const sp = new URLSearchParams(searchParams.toString());
     if (value) sp.set(key, value);
     else sp.delete(key);
+    if (resetPage) sp.delete("page");
     const qs = sp.toString();
     router.replace(`/projects/${pid}${qs ? `?${qs}` : ""}`, { scroll: false });
   }
@@ -84,8 +112,13 @@ function WorkbenchRoute() {
   const { data: states } = useProjectStates("", pid);
   const { data: members } = useProjectMembers("", pid);
   const { data: labels } = useLabels("", pid);
-  const { data: taskPage } = useIssues("", pid, {});
+  const rawPage = Number(searchParams.get("page"));
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
+  const { data: taskPage } = useIssues("", pid, { per_page: 100, page });
   const { data: mine } = useMyProjects();
+
+  // 规范路由只凭 pid：私人工程也能建立项目级实时通道（Phase 5 双路由）
+  useProjectRealtime("", pid);
 
   useChrome({
     topbar: {
@@ -114,12 +147,20 @@ function WorkbenchRoute() {
         labels={labels?.results ?? []}
         members={members?.results ?? []}
         tasks={taskPage?.results ?? []}
+        taskCount={taskPage?.count ?? 0}
+        hasNext={Boolean(taskPage?.next)}
+        hasPrev={Boolean(taskPage?.previous)}
+        page={page}
+        status={parseStateFilter(searchParams.get("status"))}
+        search={searchParams.get("search") ?? ""}
         agentRunning={mine?.find((p) => p.id === pid)?.agent_running ?? false}
         view={view}
         onView={(v) => handleParam("view", v === "bench" ? null : v)}
         drawerIssueId={issueId}
         drawerTab={tab}
         onParam={handleParam}
+        onFilterParam={(key, value) => handleParam(key, value, true)}
+        onCloseDrawer={closeDrawer}
       />
     </>
   );
@@ -134,12 +175,20 @@ function Workbench({
   labels,
   members,
   tasks,
+  taskCount,
+  hasNext,
+  hasPrev,
+  page,
+  status,
+  search,
   agentRunning,
   view,
   onView,
   drawerIssueId,
   drawerTab,
   onParam,
+  onFilterParam,
+  onCloseDrawer,
 }: {
   pid: string;
   identifier: string;
@@ -149,12 +198,20 @@ function Workbench({
   labels: Label[];
   members: ProjectMember[];
   tasks: Issue[];
+  taskCount: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+  page: number;
+  status: StateFilter;
+  search: string;
   agentRunning: boolean;
   view: "bench" | "plate";
   onView: (v: "bench" | "plate") => void;
   drawerIssueId: string | null;
   drawerTab: IssueDrawerTab;
   onParam: (key: string, value: string | null) => void;
+  onFilterParam: (key: string, value: string | null) => void;
+  onCloseDrawer: () => void;
 }) {
   const router = useRouter();
   const openQuickLog = useQuickLogStore((s) => s.openWith);
@@ -169,8 +226,8 @@ function Workbench({
 
   const logs: Worklog[] = logPage?.results ?? [];
 
-  const [filter, setFilter] = useState<StateFilter>("all");
-  const [q, setQ] = useState("");
+  const filter = status;
+  const q = search;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [planEditing, setPlanEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -212,7 +269,7 @@ function Workbench({
           {projectName || "…"}
         </h1>
         <span className="ml-3 font-mono text-[11px] text-[color:var(--color-ink-3)]">
-          {identifier} · {tasks.length} 任务
+          {identifier} · {taskCount} 任务
         </span>
         <span className="ml-auto flex gap-4">
           <button
@@ -291,40 +348,24 @@ function Workbench({
       ) : (
       <>
       {/* 任务 */}
-      <SectionHead t="任务" n={tasks.length} />
+      <SectionHead t="任务" n={taskCount} />
       <div className="flex flex-wrap items-baseline gap-4">
-        {(["all", "backlog", "unstarted", "started", "completed", "cancelled"] as StateFilter[]).map(
-          (f) => (
-            <button
-              key={f}
-              type="button"
-              className="v2-fchip"
-              aria-pressed={filter === f}
-              onClick={() => setFilter(f)}
-            >
-              {GROUP_LABEL[f]}
-              <b>{f === "all" ? tasks.length : (counts[f] ?? 0)}</b>
-            </button>
-          ),
-        )}
-        <span className="ml-auto flex items-center gap-3 text-[color:var(--color-ink-3)]">
+        {STATE_FILTERS.map((f) => (
           <button
+            key={f}
             type="button"
-            className="v2-ia"
-            onClick={() => {
-              setNewTaskOpen(true);
-              requestAnimationFrame(() =>
-                document
-                  .getElementById("wb-newtask-input")
-                  ?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-              );
-            }}
+            className="v2-fchip"
+            aria-pressed={filter === f}
+            onClick={() => onFilterParam("status", f === "all" ? null : f)}
           >
-            <span className="mk" aria-hidden>＋</span>新任务
+            {GROUP_LABEL[f]}
+            <b>{f === "all" ? taskCount : (counts[f] ?? 0)}</b>
           </button>
+        ))}
+        <span className="ml-auto flex items-center gap-3 text-[color:var(--color-ink-3)]">
           <input
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => onFilterParam("search", e.target.value || null)}
             placeholder="搜索任务"
             aria-label="搜索任务"
             className="w-32 border-0 border-b border-[color:var(--color-rule)] bg-transparent py-0.5 text-[12px] outline-none focus:border-[color:var(--color-accent)]"
@@ -359,7 +400,7 @@ function Workbench({
               checked={selected.has(t.id)}
               onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSel(t.id)}
-              aria-label={`选择 ${t.title}`}
+              aria-label={`select ${identifier}-${t.sequence_id}`}
             />
             <span className="id">
               {identifier}-{t.sequence_id}
@@ -370,6 +411,17 @@ function Workbench({
                 · {t.stage.name}
               </span>
             )}
+            <span className="font-medium text-[9px] uppercase tracking-[0.14em] text-[color:var(--color-ink-2)]">
+              {t.state.name}
+            </span>
+            {t.labels.map((label) => (
+              <span
+                key={label.id}
+                className="border border-[color:var(--color-rule)] px-1 py-0.5 text-[9px] text-[color:var(--color-ink-2)]"
+              >
+                {label.name}
+              </span>
+            ))}
             <span className="ml-auto font-medium text-[9px] uppercase tracking-[0.14em] text-[color:var(--color-ink-3)]">
               {t.priority === "none" ? "" : t.priority}
             </span>
@@ -384,6 +436,30 @@ function Workbench({
           </p>
         )}
       </div>
+
+      {(hasPrev || hasNext) && (
+        <div className="flex items-center gap-3 px-2.5 py-2 font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
+          <button
+            type="button"
+            className="v2-ia disabled:opacity-30"
+            disabled={!hasPrev}
+            onClick={() => onParam("page", page > 2 ? String(page - 1) : null)}
+          >
+            ◂ 上一页
+          </button>
+          <span>
+            第 {page} 页 · 共 {taskCount} 条
+          </span>
+          <button
+            type="button"
+            className="v2-ia disabled:opacity-30"
+            disabled={!hasNext}
+            onClick={() => onParam("page", String(page + 1))}
+          >
+            下一页 ▸
+          </button>
+        </div>
+      )}
 
       {newTaskOpen ? (
         <div className="v2-inline-form mt-1">
@@ -608,7 +684,7 @@ function Workbench({
       {/* 任务抽屉（URL 语义 ?issue= / ?tab=） */}
       <IssueDrawer
         open={Boolean(drawerIssueId)}
-        onClose={() => onParam("issue", null)}
+        onClose={onCloseDrawer}
         slug=""
         projectId={pid}
         identifier={identifier}

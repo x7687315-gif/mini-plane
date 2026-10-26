@@ -12,6 +12,7 @@
 import json
 
 from django.core.serializers.json import DjangoJSONEncoder
+from django.http import Http404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -46,14 +47,32 @@ from apps.agents.serializers import (
 from apps.issues.models import Issue, StateGroups
 from apps.issues.serializers import IssueSerializer
 from apps.issues.services import create_issue, update_issue
-from apps.projects.models import ProjectStage
+from apps.projects.models import ProjectRoles, ProjectStage
 from apps.projects.serializers import ProjectPlanSerializer, ProjectSerializer
 from apps.projects.services import get_or_create_plan, update_stage
 from apps.worklogs.models import Worklog, WorklogSource
 from apps.worklogs.serializers import WorklogSerializer
-from core.permissions import accessible_project_ids, resolve_project, resolve_project_by_id
+from core.permissions import (
+    accessible_project_ids,
+    get_effective_project_role,
+    resolve_project,
+    resolve_project_by_id,
+)
 
 IDEM_HEADER = "HTTP_IDEMPOTENCY_KEY"
+
+
+def require_write_role(project, user) -> None:
+    """Agent 写动作必须遵守与用户 API 相同的「角色 ≥ Member」门槛。
+
+    只校验 scope + 可见性是不够的：团队工程的 WS Viewer 也能看见项目，
+    但绝不能借 Agent Token 绕过 HTTP 权限矩阵写数据。
+    """
+    role = get_effective_project_role(user, project)
+    if role is None:
+        raise Http404
+    if role < ProjectRoles.MEMBER:
+        raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
 
 
 def require_scope(request, scope: str) -> None:
@@ -202,6 +221,8 @@ def agent_task_create(request):
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
     project, role = _resolve_agent_project(request.user, v)
+    if role < ProjectRoles.MEMBER:
+        raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
     kwargs = {"title": v["title"], "description": v.get("description", "")}
     if v.get("priority"):
         kwargs["priority"] = v["priority"]
@@ -223,6 +244,7 @@ def _transition(request, issue_id, group: str, action: str):
     )
     if issue is None:
         return Response({"detail": "未找到。"}, status=status.HTTP_404_NOT_FOUND)
+    require_write_role(issue.project, request.user)
     state = issue.project.states.filter(group=group).order_by("sort_order").first()
     if state is None:
         raise ValidationError({"detail": f"项目缺少 group={group} 的状态。"})
@@ -269,7 +291,9 @@ def agent_worklog_create(request):
     serializer = AgentWorklogCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
-    project, _ = _resolve_agent_project(request.user, v)
+    project, role = _resolve_agent_project(request.user, v)
+    if role < ProjectRoles.MEMBER:
+        raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
 
     stage = None
     if v.get("stage_id"):
@@ -293,6 +317,7 @@ def agent_worklog_create(request):
 
 def _agent_progress_update_impl(request, project):
     require_scope(request, AgentScopes.UPDATE_PROGRESS)
+    require_write_role(project, request.user)
     cached = _replay(request, "progress.update")
     if cached is not None:
         return cached
@@ -398,7 +423,9 @@ def agent_session_start(request):
     serializer = AgentSessionStartSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
-    project, _ = _resolve_agent_project(request.user, v)
+    project, role = _resolve_agent_project(request.user, v)
+    if role < ProjectRoles.MEMBER:
+        raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
     task = None
     if v.get("task_id"):
         task = get_object_or_404(Issue, id=v["task_id"], project=project)
@@ -427,8 +454,11 @@ def agent_session_end(request, session_id):
         return cached
 
     session = get_object_or_404(
-        AgentSession, id=session_id, project_id__in=accessible_project_ids(request.user)
+        AgentSession.objects.select_related("project"),
+        id=session_id,
+        project_id__in=accessible_project_ids(request.user),
     )
+    require_write_role(session.project, request.user)
     serializer = AgentSessionEndSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     v = serializer.validated_data
@@ -462,8 +492,11 @@ def agent_session_progress(request, session_id):
         return cached
 
     session = get_object_or_404(
-        AgentSession, id=session_id, project_id__in=accessible_project_ids(request.user)
+        AgentSession.objects.select_related("project"),
+        id=session_id,
+        project_id__in=accessible_project_ids(request.user),
     )
+    require_write_role(session.project, request.user)
     if session.status != AgentSessionStatus.RUNNING:
         return Response(
             {"detail": f"会话已结束（{session.get_status_display()}），不能更新执行进度。"},

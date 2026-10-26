@@ -93,6 +93,14 @@ jobs:
         working-directory: .
         run: ruff format --config backend/pyproject.toml --check scripts/
 
+      # 桌面状态机/配置是纯函数，不依赖 pywebview；用它们自己的 __main__ 跑，
+      # 避免为了两条测试在 CI 里安装一整套桌面 GUI 依赖。
+      - name: desktop 单元测试（零依赖）
+        working-directory: .
+        run: |
+          python desktop/tests/test_island_config.py
+          python desktop/tests/test_island_window_manager.py
+
       # 模型改了却没生成迁移 → 在这里红，而不是等同学 pull 代码后本地炸
       - name: 迁移无漂移（makemigrations --check）
         run: python manage.py makemigrations --check --settings=config.settings.test
@@ -169,3 +177,115 @@ jobs:
       # 而那个失败发生在 Docker 阶段（本 job 看不到）——所以提前在这里断言
       - name: 校验 standalone 产物存在
         run: test -f .next/standalone/server.js
+
+  # ── E2E（真实前后端 + Postgres）──────────────────────────────────
+  # 之前 E2E 只在本地跑，导致 Phase 5 之后的双壳/WS 失联等回归没有门禁。
+  # 这里跑的是与本地同一条 Playwright 套件（不 mock 后端）。
+  e2e:
+    name: e2e（Playwright · 真实栈）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: miniplane_test
+          POSTGRES_USER: miniplane
+          POSTGRES_PASSWORD: ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U miniplane -d miniplane_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      SECRET_KEY: ci-not-a-secret
+      DATABASE_URL: postgres://miniplane:ci-password@127.0.0.1:5432/miniplane_test
+      ALLOWED_HOSTS: "127.0.0.1,localhost"
+      CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+      CSRF_TRUSTED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements/*.txt
+
+      - name: 安装后端依赖
+        working-directory: backend
+        run: python -m pip install -r requirements/test.txt
+
+      - name: 迁移 E2E 运行库
+        working-directory: backend
+        run: python manage.py migrate --settings=config.settings.local --noinput
+
+      - name: 启动后端（daphne 接管 8000）
+        working-directory: backend
+        run: |
+          nohup python manage.py runserver 127.0.0.1:8000 --noreload \
+            --settings=config.settings.local > /tmp/backend-e2e.log 2>&1 &
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: 安装前端依赖（frozen lockfile）
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: 安装 Playwright Chromium
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: 启动前端
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE: http://localhost:8000
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: nohup pnpm dev > /tmp/frontend-e2e.log 2>&1 &
+
+      - name: 等待前后端就绪
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8000/api/v1/health/ >/dev/null \
+              && curl -fsS http://localhost:3000/login >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "--- backend ---"; tail -120 /tmp/backend-e2e.log
+          echo "--- frontend ---"; tail -120 /tmp/frontend-e2e.log
+          exit 1
+
+      - name: Playwright E2E（34 用例）
+        working-directory: frontend
+        env:
+          CI: "true"
+        run: pnpm exec playwright test
+
+      - name: 上传失败产物
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: frontend/test-results
+          retention-days: 7

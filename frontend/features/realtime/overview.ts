@@ -86,7 +86,9 @@ export function useEngineeringOverview(
         if (event === "ping" || event === "pong") return;
         if (event === "connected") {
           attempt = 0;
-          setLive(true);
+          // 注意：connected 只表示握手成功，此时 subscribe 可能还没被服务端处理。
+          // LIVE 必须等 subscriptions 回执——否则 UI 会先显示"实时"，紧接着
+          // 启动 Agent 时事件落在订阅生效前，界面永远不更新（E2E 实测）。
           return;
         }
         if (event === "subscriptions") {

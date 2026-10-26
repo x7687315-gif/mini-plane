@@ -49,7 +49,9 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 
   useEffect(() => {
     if (!isAnonymous) return;
-    const redirect = encodeURIComponent(pathname || "/");
+    // pathname 不含查询串；深链（?issue= / ?view=plate）必须在登录后回到原处。
+    const target = `${pathname || "/"}${window.location.search}`;
+    const redirect = encodeURIComponent(target);
     router.replace(`/login?redirect=${redirect}`);
   }, [isAnonymous, pathname, router]);
 

@@ -17,6 +17,12 @@
 | 7 | WebSocket Realtime | ✅ 已完成 | [sprint-7-backend.md](sprint-7-backend.md) | 本 Sprint 提交 |
 | 8 | Docker / CI / 收尾 | ✅ 已完成 | [sprint-8-backend.md](sprint-8-backend.md) | 本 Sprint 提交 |
 
+## Personal-first / 稳定化
+
+| 日期 | 主题 | 日志 |
+|------|------|------|
+| 2026-10-25 | Phase 5.5 稳定化：首页双壳、项目 WS、canonical 成员、批量轮询、Anatomy 安全、TD-01/TD-10、CI e2e | [2026-10-25-phase5-stabilization.md](2026-10-25-phase5-stabilization.md) |
+
 ## MVP 后加固（Hardening）
 
 | 篇 | 主题 | 日志 |
@@ -48,7 +54,8 @@
   [sprint-6-backend.md](sprint-6-backend.md) §2.1 与 [07 契约](../api/07-cache-and-tasks.md) §1.5；
   二期该缓存的是 Issue 列表的 `COUNT(*)` 与详情体统计聚合。
 - 通知只落库（`Notification` 表占位），邮件/推送二期；Label 变更暂不产生活动记录。
-- 实时推送只定义了 `issue.updated` / `comment.created` 两个事件（08 契约）；
+- 实时事件现为 `issue.updated` / `comment.created` / `agent.session` / `membership.changed`
+  （08 契约），项目通道新增 `/ws/projects/{pid}/`；
   Redis channel layer 未在本机实测（无 Docker），多进程部署前必须配 `CHANNEL_REDIS_URL`。
 - Dockerfile / compose 编排通过结构校验 + container 配置本机 daphne 实测，
   但**未在真实 Docker 里构建启动**（无 Docker）；有 Docker 的机器先跑

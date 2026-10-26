@@ -50,6 +50,11 @@ export async function apiClient(
   const ctx = await request.newContext({
     baseURL: API_BASE,
     extraHTTPHeaders: { Accept: "application/json", Origin: APP_ORIGIN },
+    // ⚠️ TD-01 根因：`request.newContext()` 会继承测试的 storageState。若这里带着
+    // 共享登录态，任何"注册另一个账户"的 API 调用都会让 Django login() 检测到用户
+    // 切换并 flush 掉共享 session，套件后段集体被打回 /login。API 客户端自己会
+    // ensureAccount 登录，不需要也不应该复用浏览器会话。
+    storageState: { cookies: [], origins: [] },
   });
 
   async function csrf(): Promise<string> {
@@ -253,10 +258,9 @@ export async function expectWriteOk(
 
 /** 某个 Issue 在表格里的行 —— 用选择框的无障碍名定位（不依赖样式类名）。 */
 export function issueRow(page: import("@playwright/test").Page, sequenceId: number) {
-  // exact: 不加的话 "select E2E-1" 会同时命中 "select E2E-10"（getByLabel 默认子串匹配）
-  return page
-    .getByLabel(`select E2E-${sequenceId}`, { exact: true })
-    .locator("xpath=../..");
+  // v2 行本身是 role=button，aria-label 以 "select E2E-3" 开头；用词边界避免
+  // E2E-1 命中 E2E-10。直接返回行按钮，不再靠 xpath 猜 DOM 深度。
+  return page.getByRole("button", { name: new RegExp(`^select E2E-${sequenceId}\\b`) });
 }
 
 /**

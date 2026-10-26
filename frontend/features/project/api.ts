@@ -128,43 +128,41 @@ export async function deleteProject(slug: string, projectId: string): Promise<vo
 /* ---- members ---- */
 
 export async function listProjectMembers(
-  slug: string,
+  _slug: string,
   projectId: string,
 ): Promise<Paginated<ProjectMember>> {
-  return api<Paginated<ProjectMember>>(
-    `/workspaces/${slug}/projects/${projectId}/members`,
-  );
+  return api<Paginated<ProjectMember>>(`/projects/${projectId}/members`);
 }
 
 export async function addProjectMember(
-  slug: string,
+  _slug: string,
   projectId: string,
   payload: AddProjectMemberPayload,
 ): Promise<ProjectMember> {
-  return api<ProjectMember>(`/workspaces/${slug}/projects/${projectId}/members`, {
+  return api<ProjectMember>(`/projects/${projectId}/members`, {
     method: "POST",
     json: payload,
   });
 }
 
 export async function updateProjectMemberRole(
-  slug: string,
+  _slug: string,
   projectId: string,
   memberId: string,
   payload: UpdateMemberRolePayload,
 ): Promise<ProjectMember> {
-  return api<ProjectMember>(
-    `/workspaces/${slug}/projects/${projectId}/members/${memberId}`,
-    { method: "PATCH", json: payload },
-  );
+  return api<ProjectMember>(`/projects/${projectId}/members/${memberId}`, {
+    method: "PATCH",
+    json: payload,
+  });
 }
 
 export async function removeProjectMember(
-  slug: string,
+  _slug: string,
   projectId: string,
   memberId: string,
 ): Promise<void> {
-  return api<void>(`/workspaces/${slug}/projects/${projectId}/members/${memberId}`, {
+  return api<void>(`/projects/${projectId}/members/${memberId}`, {
     method: "DELETE",
   });
 }

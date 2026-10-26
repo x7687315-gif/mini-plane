@@ -22,6 +22,17 @@ urlpatterns = [
     path("mine/", views.my_projects_summary, name="projects-mine"),
     # 详情 / 修改 / 删除
     path("<uuid:project_id>/", views.project_detail_canonical, name="project-detail-canonical"),
+    # 项目成员（团队工程管理；私人工程返回 owner 隐式成员，供指派使用）
+    path(
+        "<uuid:project_id>/members/",
+        views.project_member_list_create_canonical,
+        name="project-members-canonical",
+    ),
+    path(
+        "<uuid:project_id>/members/<uuid:member_id>/",
+        views.project_member_detail_canonical,
+        name="project-member-detail-canonical",
+    ),
     # 预置五态（只读）
     path("<uuid:project_id>/states/", views.state_list_canonical, name="state-list-canonical"),
     # Global Plan / Stage

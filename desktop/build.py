@@ -19,6 +19,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -126,8 +127,15 @@ def make_portable() -> None:
         }
         return {n for n in names if n in skip or n.endswith(".pyc")}
 
-    shutil.copytree(ROOT / "backend", OUT / "backend", ignore=ignore)
-    print(f"[portable] 后端源码 -> {OUT / 'backend'}")
+    # 目标目录可能已有上一代 backend（含旧迁移/旧代码）。不能直接 copytree
+    # （WinError 183），也不能覆盖后留下已删文件的残影——先改名备份，再整树拷入。
+    backend_dst = OUT / "backend"
+    if backend_dst.exists():
+        backup = OUT / f"backend.old-{time.strftime('%m%d-%H%M')}"
+        backend_dst.rename(backup)
+        print(f"[portable] 旧后端已备份 -> {backup.name}")
+    shutil.copytree(ROOT / "backend", backend_dst, ignore=ignore)
+    print(f"[portable] 后端源码 -> {backend_dst}")
     print(
         "[portable] 目标机首次：装 Node20+ → cd backend && python -m venv .venv && "
         ".venv\\Scripts\\python -m pip install -r requirements/local.txt "

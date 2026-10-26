@@ -13,7 +13,7 @@
 
 <p align="center">
   <b>Python 3.12</b> · <b>Django 5.2 LTS</b> · <b>Next.js 16</b> · <b>React 19</b> · <b>TypeScript</b> · <b>Tailwind v4</b> · <b>Channels/WebSocket</b> · <b>pywebview</b><br>
-  <b>后端 334</b> 用例 · <b>前端 143</b> 单测 · <b>34</b> 个浏览器 E2E · <b>CI 双 job</b>
+  <b>后端 387</b> 用例 · <b>前端 143</b> 单测 · <b>34</b> 个浏览器 E2E · <b>CI 三 job</b>
 </p>
 
 ---
@@ -228,7 +228,7 @@
 | **Agent Local API** | Token（只显示一次明文）· scope 白名单 · 幂等键 · Session 与实时投影 | ✅ |
 | **个人 ⇄ 团队切换** | 顶栏 ⇄ 按钮 · URL 即状态 · 记住上次团队位置 | ✅ |
 | **桌面 App** | pywebview 原生窗口 · 内嵌 SQLite · 会话持久化 · 关窗停服 · PyInstaller 单文件 exe | ✅ |
-| **工程化** | GitHub Actions 双 job · 契约 00–09 + OpenAPI 快照 · ruff 全目录 · Playwright E2E | ✅ |
+| **工程化** | GitHub Actions 三 job（backend / frontend / e2e）· 契约 + OpenAPI 快照 · ruff 全目录 · Playwright E2E | ✅ |
 | Markdown → Worklog 自动导入 | 解析 `docs/devlog/*.md` 写入 Worklog | ⏳ 二期 |
 | Blocker 独立实体 | 目前是 Worklog 的字段，尚未升为一级概念 | ⏳ 待定 |
 | MCP 包装层 | 等 REST API 稳定后再做 | ⏳ 二期 |
@@ -364,14 +364,15 @@ mini-plane/
 
 | 类别 | 数量 | 命令 |
 |------|------|------|
-| 后端 | **334** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
+| 后端 | **387** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
 | 前端单测 | **143** | `cd frontend && pnpm test`（`node --test`，零依赖） |
 | 浏览器 E2E | **34** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
-CI（`.github/workflows/ci.yml`，两个 job 全绿才可合并）：
+CI（`.github/workflows/ci.yml`，三个 job 全绿才可合并）：
 
-- **backend**：`ruff check` / `ruff format --check`（覆盖 `backend/`、`desktop/`、`scripts/`）→ `makemigrations --check` → `spectacular --validate --fail-on-warn` → 与 `docs/api/openapi.yaml` 快照 diff → 全量测试 → Redis 缓存后端实测
+- **backend**：`ruff check` / `ruff format --check`（覆盖 `backend/`、`desktop/`、`scripts/`）→ desktop 状态机单测 → `makemigrations --check` → `spectacular --validate --fail-on-warn` → 与 `docs/api/openapi.yaml` 快照 diff → 全量测试 → Redis 缓存后端实测
 - **frontend**：`pnpm install --frozen-lockfile` → `lint` → `typecheck` → `test` → `build` → 断言 standalone 产物存在
+- **e2e**：起 Postgres + 真实后端 + Next dev，安装 Chromium，跑完整 34 条 Playwright（不 mock 后端）
 
 > 设计原则：**先跑最便宜最能拦的**（lint / 类型 / 迁移漂移 / schema diff），最后才跑慢的（测试 / build）。
 > 单测刻意只覆盖"算错了但界面看着还挺正常"的地方（进度量纲、翻页边界、计时进位、脏数据、URL 形态）。
@@ -408,7 +409,8 @@ v0.9.0 Engineering Island Desktop        ✅ Sprint 15
       Island Polish                       ✅ Sprint 16
 v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
       Island V3 单窗两态（壳层）            ✅ 2026-10-21
-      ── 下一周期：Blueprint Dock 视觉重排（信息三层 / Mono 仪表层）
+      Phase 5.5 稳定化（回归/E2E/安全）      ✅ 2026-10-25
+      ── 下一周期：Phase 6–9 重构收尾 + Blueprint Dock 视觉重排
       ── 可选：组件测试（Vitest）· Lighthouse 90 · Markdown → Worklog 导入
          Blocker 独立实体 · MCP 包装层 · 任务截止日期与逾期
 ```

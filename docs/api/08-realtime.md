@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 |----|-----|
-| URL | `ws(s)://{host}/ws/workspaces/{workspace_slug}/projects/{project_id}/` |
+| URL | 规范：`ws(s)://{host}/ws/projects/{project_id}/`（Phase 5，私人工程唯一通道）<br>兼容：`ws(s)://{host}/ws/workspaces/{workspace_slug}/projects/{project_id}/`（deprecated） |
 | 鉴权 | **Session Cookie**（与 HTTP 完全同一套）：握手时带上 `sessionid`，浏览器同源下自动携带 |
 | 心跳 | 客户端发 `{"type": "ping"}` → 服务端回 `{"event":"pong","payload":{}}` |
 | 消息格式 | 全部 JSON 文本帧 |
@@ -55,24 +55,8 @@ URL：`/ws/engineering/overview/`。Island **所有项目共用这一条连接**
 服务端逐项校验可访问性，回执 `{"event":"subscriptions","payload":{"subscribed":[],"denied":[]}}`；
 `unsubscribe` 对称。单次上限 200 个。
 
-**权限重校验**：每个连接额外加入 `permission.{user_id}` 组。项目/工作区成员增删或
-角色变更（事务提交后）向该组发 `membership.changed` → 消费者重查订阅并**退出无权
-项目的组**，同时向客户端回 `membership.changed` 帧（payload.subscribed / removed）。
-
-**心跳**：服务端每 30s 推 `{"event":"ping"}`；前端超过 90s 未收到任何帧即主动
-断开重连（应对浏览器静默断线不抛 close，channels#1244）。客户端也可发 `ping`，
-服务端回 `pong`。
-
-**事件转发**：订阅的项目组事件原样转发，payload **注入 `project_id`**
-（前端按项目失效缓存）。事件仍是通知不是数据 —— 重连后以 REST 为事实来源重取。
-
-### 2.0 Engineering Overview 通道（Island V2 阶段 4 · 2026-10-14）
-
-URL：`/ws/engineering/overview/`。Island **所有项目共用这一条连接**（不按卡片建连）。
-
-**订阅协议（C-lite）**：连接后客户端发 `{"type":"subscribe","project_ids":[...]}`，
-服务端逐项校验可访问性，回执 `{"event":"subscriptions","payload":{"subscribed":[],"denied":[]}}`；
-`unsubscribe` 对称。单次上限 200 个。
+**LIVE 语义**：`connected` 只代表握手成功；客户端必须等到 `subscriptions` 回执
+才显示 LIVE / 允许依赖“事件一定会到”。否则启动 Agent 等操作可能落在订阅生效前。
 
 **权限重校验**：每个连接额外加入 `permission.{user_id}` 组。项目/工作区成员增删或
 角色变更（事务提交后）向该组发 `membership.changed` → 消费者重查订阅并**退出无权
@@ -82,8 +66,9 @@ URL：`/ws/engineering/overview/`。Island **所有项目共用这一条连接**
 断开重连（应对浏览器静默断线不抛 close，channels#1244）。客户端也可发 `ping`，
 服务端回 `pong`。
 
-**事件转发**：订阅的项目组事件原样转发，payload **注入 `project_id`**
-（前端按项目失效缓存）。事件仍是通知不是数据 —— 重连后以 REST 为事实来源重取。
+**事件转发**：项目组消息必须带**顶层 `project_id`**（`broadcast()` 已注入），
+OverviewConsumer 按它过滤订阅并把 `project_id` 注入 payload；事件仍是通知不是数据，
+重连后以 REST 为事实来源重取。
 
 ### 2.1 `issue.updated`
 

@@ -41,10 +41,10 @@ def end_session(
 def update_progress(
     session: AgentSession,
     *,
-    current_step: str = "",
+    current_step: str | None = None,
     step_index: int | None = None,
     step_total: int | None = None,
-    method_summary: str = "",
+    method_summary: str | None = None,
 ) -> AgentSession:
     """Agent 上报当前执行进度（Island V2 阶段 3 · 规格 §6.2）。
 

@@ -9,6 +9,7 @@ from apps.issues.models import Issue
 from apps.projects import services as project_services
 from apps.worklogs.models import Worklog
 from apps.workspaces import services as ws_services
+from apps.workspaces.models import WorkspaceRoles
 from core.testing import TEST_PASSWORD
 
 User = get_user_model()
@@ -30,6 +31,28 @@ class AgentApiTests(APITestCase):
         p = {"workspace_slug": self.ws.slug, "project_id": str(self.proj.id), "title": "T"}
         p.update(over)
         return p
+
+    def test_workspace_viewer_token_cannot_write(self):
+        """团队 WS Viewer 能看见项目，但 Agent Token 不得绕过 Member 写入门槛。"""
+        viewer = User.objects.create_user(username="viewer", email="v@t.cn", password=TEST_PASSWORD)
+        ws_services.add_member(self.ws, viewer.email, WorkspaceRoles.VIEWER)
+        _, raw = AgentToken.mint(viewer, name="viewer-agent")
+        agent = APITestCase.client_class()
+        agent.credentials(HTTP_AUTHORIZATION=f"Bearer {raw}")
+
+        payload = {
+            "workspace_slug": self.ws.slug,
+            "project_id": str(self.proj.id),
+            "title": "越权任务",
+        }
+        r = agent.post("/api/v1/agent/tasks/", payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN, r.content)
+        r = agent.post(
+            "/api/v1/agent/sessions/",
+            {**payload, "title": "越权会话"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN, r.content)
 
     def test_bad_token_rejected(self):
         client = APITestCase.client_class()

@@ -4,6 +4,8 @@
 WS Admin 视同 > 其他 WS 成员只读 > 非 WS 成员 404）。
 """
 
+from types import SimpleNamespace
+
 from django.db.models import (
     CharField,
     Count,
@@ -22,7 +24,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -85,8 +87,18 @@ def project_list_create(request, workspace_slug: str):
     return Response(body.data, status=status.HTTP_201_CREATED)
 
 
-def _project_list_response(queryset, request, workspace=None, workspace_role=None):
-    """项目列表的统一实现：批量算生效角色防 N+1（含 owner 短路）。"""
+def _project_list_response(
+    queryset,
+    request,
+    workspace=None,
+    workspace_role=None,
+    workspace_roles=None,
+):
+    """项目列表的统一实现：批量算生效角色防 N+1（含 owner 短路）。
+
+    `workspace_roles` 用于跨工作区的规范列表（scope=accessible）：同一个人可能在
+    多个工作区里有不同角色，不能拿单一 workspace_role 代替。
+    """
     paginator = StandardPagination()
     page = paginator.paginate_queryset(queryset.order_by("-created_at"), request)
 
@@ -95,6 +107,10 @@ def _project_list_response(queryset, request, workspace=None, workspace_role=Non
             "project_id", "role"
         )
     )
+    roles_by_workspace = dict(workspace_roles or {})
+    if workspace is not None and workspace_role is not None:
+        roles_by_workspace[workspace.id] = workspace_role
+
     data = []
     for project in page:
         if request.user.id == project.owner_id:
@@ -106,7 +122,7 @@ def _project_list_response(queryset, request, workspace=None, workspace_role=Non
                     continue  # 私人工程非 owner 不会出现在查询集里；防御性跳过
                 role = (
                     ProjectRoles.ADMIN
-                    if workspace_role == WorkspaceRoles.ADMIN
+                    if roles_by_workspace.get(project.workspace_id) == WorkspaceRoles.ADMIN
                     else ProjectRoles.VIEWER
                 )
         data.append(ProjectSerializer(project, context={"role": role}).data)
@@ -137,7 +153,10 @@ def project_list_create_canonical(request):
         queryset = Project.objects.filter(owner=request.user)
 
     if request.method == "GET":
-        return _project_list_response(queryset, request)
+        workspace_roles = dict(
+            WorkspaceMember.objects.filter(user=request.user).values_list("workspace_id", "role")
+        )
+        return _project_list_response(queryset, request, workspace_roles=workspace_roles)
 
     serializer = ProjectWriteSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -145,11 +164,11 @@ def project_list_create_canonical(request):
     workspace_id = request.data.get("workspace_id")
     if workspace_id is not None:
         from django.core.exceptions import ObjectDoesNotExist
-        from rest_framework.exceptions import ValidationError
+        from django.core.exceptions import ValidationError as DjangoValidationError
 
         try:
             workspace = Workspace.objects.get(id=workspace_id)
-        except (ObjectDoesNotExist, ValueError, TypeError):
+        except (ObjectDoesNotExist, DjangoValidationError, ValueError, TypeError):
             raise ValidationError({"workspace_id": ["工作区不存在。"]}) from None
         # 显式共享进团队：要求请求者是该 WS 的 Member+（与兼容路由创建门槛一致）
         member_role = (
@@ -263,44 +282,44 @@ def project_detail(request, workspace_slug: str, project_id):
     return _project_detail_impl(request, project_id, resolver, workspace_slug)
 
 
-@extend_schema(
-    summary="项目成员列表 / 添加",
-    request=ProjectMemberAddSerializer,
-    responses={200: ProjectMemberSerializer(many=True), 201: ProjectMemberSerializer},
-)
-@api_view(["GET", "POST"])
-@permission_classes([IsAuthenticated])
-def project_member_list_create(request, workspace_slug: str, project_id):
-    """GET：WS 成员可读；POST：仅项目 Admin（WS Admin 视同），被添加者须是 WS 成员。"""
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+def _project_member_rows(project):
+    """成员列表数据源。
 
+    私人工程没有 ProjectMember 概念（DOMAIN_MODEL §4），但 owner 就是唯一可指派的
+    人；返回一个稳定的隐式成员视图，让任务指派/批量指派在个人工程里也成立。
+    """
+    if project.workspace_id is None:
+        owner = project.owner
+        return [
+            SimpleNamespace(
+                id=owner.id,
+                user=owner,
+                role=ProjectRoles.ADMIN,
+                created_at=project.created_at,
+            )
+        ]
+    return project.members.select_related("user").all()
+
+
+def _project_member_list_impl(request, project, role):
     if request.method == "GET":
-        queryset = project.members.select_related("user").all()
         paginator = StandardPagination()
-        page = paginator.paginate_queryset(queryset, request)
+        page = paginator.paginate_queryset(_project_member_rows(project), request)
         return paginator.get_paginated_response(ProjectMemberSerializer(page, many=True).data)
 
     _require_role(role, ProjectRoles.ADMIN)
+    if project.workspace_id is None:
+        raise ValidationError({"detail": "私人工程没有成员管理（成员即 owner）。"})
     serializer = ProjectMemberAddSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     member = services.add_member(project.workspace, project, **serializer.validated_data)
     return Response(ProjectMemberSerializer(member).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema_view(
-    patch=extend_schema(
-        summary="修改项目成员角色",
-        request=ProjectMemberRoleSerializer,
-        responses={200: ProjectMemberSerializer},
-    ),
-    delete=extend_schema(summary="移除项目成员", responses={204: None}),
-)
-@api_view(["PATCH", "DELETE"])
-@permission_classes([IsAuthenticated])
-def project_member_detail(request, workspace_slug: str, project_id, member_id):
-    """仅项目 Admin；移除后至少保留一位项目 Admin。"""
-    project, role = resolve_project(request.user, workspace_slug, project_id)
+def _project_member_detail_impl(request, project, role, member_id):
     _require_role(role, ProjectRoles.ADMIN)
+    if project.workspace_id is None:
+        raise ValidationError({"detail": "私人工程没有成员管理（成员即 owner）。"})
     # get_object_or_404：member_id 不存在（或属于别的项目）→ 404；
     # 裸 .get() 会抛 DoesNotExist → 500，与契约「不存在 → 404」不符
     member = get_object_or_404(
@@ -315,6 +334,69 @@ def project_member_detail(request, workspace_slug: str, project_id, member_id):
 
     services.remove_member(project, member)
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    summary="项目成员（兼容路由，deprecated）",
+    deprecated=True,
+    request=ProjectMemberAddSerializer,
+    responses={200: ProjectMemberSerializer(many=True), 201: ProjectMemberSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def project_member_list_create(request, workspace_slug: str, project_id):
+    """GET：项目成员可读；POST：仅项目 Admin，被添加者须是 WS 成员。"""
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _project_member_list_impl(request, project, role)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改项目成员角色（兼容路由，deprecated）",
+        request=ProjectMemberRoleSerializer,
+        responses={200: ProjectMemberSerializer},
+        deprecated=True,
+    ),
+    delete=extend_schema(
+        summary="移除项目成员（兼容路由，deprecated）", responses={204: None}, deprecated=True
+    ),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def project_member_detail(request, workspace_slug: str, project_id, member_id):
+    project, role = resolve_project(request.user, workspace_slug, project_id)
+    return _project_member_detail_impl(request, project, role, member_id)
+
+
+@extend_schema(
+    summary="项目成员（规范路由）",
+    description=(
+        "团队工程返回 ProjectMember 列表；私人工程返回 owner 的隐式 ADMIN 成员视图，"
+        "让指派与批量指派在个人工程里也可用。私人工程不接受成员写操作。"
+    ),
+    request=ProjectMemberAddSerializer,
+    responses={200: ProjectMemberSerializer(many=True), 201: ProjectMemberSerializer},
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def project_member_list_create_canonical(request, project_id):
+    project, role = resolve_project_by_id(request.user, project_id)
+    return _project_member_list_impl(request, project, role)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="修改项目成员角色（规范路由）",
+        request=ProjectMemberRoleSerializer,
+        responses={200: ProjectMemberSerializer},
+    ),
+    delete=extend_schema(summary="移除项目成员（规范路由）", responses={204: None}),
+)
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def project_member_detail_canonical(request, project_id, member_id):
+    project, role = resolve_project_by_id(request.user, project_id)
+    return _project_member_detail_impl(request, project, role, member_id)
 
 
 def _state_list_impl(request, project):

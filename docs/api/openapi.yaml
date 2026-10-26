@@ -1018,6 +1018,141 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/projects/{project_id}/members/:
+    get:
+      operationId: v1_projects_members_list
+      description: 团队工程返回 ProjectMember 列表；私人工程返回 owner 的隐式 ADMIN 成员视图，让指派与批量指派在个人工程里也可用。私人工程不接受成员写操作。
+      summary: 项目成员（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectMember'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+          description: ''
+    post:
+      operationId: v1_projects_members_create
+      description: 团队工程返回 ProjectMember 列表；私人工程返回 owner 的隐式 ADMIN 成员视图，让指派与批量指派在个人工程里也可用。私人工程不接受成员写操作。
+      summary: 项目成员（规范路由）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberAdd'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberAdd'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberAdd'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectMember'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+          description: ''
+  /api/v1/projects/{project_id}/members/{member_id}/:
+    patch:
+      operationId: v1_projects_members_partial_update
+      summary: 修改项目成员角色（规范路由）
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectMemberRole'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectMemberRole'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectMemberRole'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMember'
+          description: ''
+    delete:
+      operationId: v1_projects_members_destroy
+      summary: 移除项目成员（规范路由）
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/projects/{project_id}/plan/:
     get:
       operationId: v1_projects_plan_retrieve
@@ -2795,8 +2930,8 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/members/:
     get:
       operationId: v1_workspaces_projects_members_list
-      description: GET：WS 成员可读；POST：仅项目 Admin（WS Admin 视同），被添加者须是 WS 成员。
-      summary: 项目成员列表 / 添加
+      description: GET：项目成员可读；POST：仅项目 Admin，被添加者须是 WS 成员。
+      summary: 项目成员（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2813,6 +2948,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2830,8 +2966,8 @@ paths:
           description: ''
     post:
       operationId: v1_workspaces_projects_members_create
-      description: GET：WS 成员可读；POST：仅项目 Admin（WS Admin 视同），被添加者须是 WS 成员。
-      summary: 项目成员列表 / 添加
+      description: GET：项目成员可读；POST：仅项目 Admin，被添加者须是 WS 成员。
+      summary: 项目成员（兼容路由，deprecated）
       parameters:
       - in: path
         name: project_id
@@ -2860,6 +2996,7 @@ paths:
         required: true
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2878,8 +3015,7 @@ paths:
   /api/v1/workspaces/{workspace_slug}/projects/{project_id}/members/{member_id}/:
     patch:
       operationId: v1_workspaces_projects_members_partial_update
-      description: 仅项目 Admin；移除后至少保留一位项目 Admin。
-      summary: 修改项目成员角色
+      summary: 修改项目成员角色（兼容路由，deprecated）
       parameters:
       - in: path
         name: member_id
@@ -2913,6 +3049,7 @@ paths:
               $ref: '#/components/schemas/PatchedProjectMemberRole'
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '200':
           content:
@@ -2922,8 +3059,7 @@ paths:
           description: ''
     delete:
       operationId: v1_workspaces_projects_members_destroy
-      description: 仅项目 Admin；移除后至少保留一位项目 Admin。
-      summary: 移除项目成员
+      summary: 移除项目成员（兼容路由，deprecated）
       parameters:
       - in: path
         name: member_id
@@ -2946,6 +3082,7 @@ paths:
       - v1
       security:
       - cookieAuth: []
+      deprecated: true
       responses:
         '204':
           description: No response body
@@ -3533,7 +3670,6 @@ components:
       properties:
         current_step:
           type: string
-          default: ''
           maxLength: 200
         step_index:
           type: integer
@@ -3547,7 +3683,6 @@ components:
           nullable: true
         method_summary:
           type: string
-          default: ''
           maxLength: 300
     AgentSessionStart:
       type: object

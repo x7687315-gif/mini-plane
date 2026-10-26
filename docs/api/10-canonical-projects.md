@@ -26,6 +26,7 @@
 | 资源 | 路径 | 说明 |
 |---|---|---|
 | 详情/改/删 | `/ , PATCH / , DELETE /` | GET 走版本化缓存（哨兵键）；写 ≥ Admin |
+| 成员 | `GET/POST /members/` · `PATCH/DELETE /members/{mid}/` | 团队工程按 Admin 管理；**私人工程 GET 返回 owner 的隐式 ADMIN 成员**（供指派），写操作 400 |
 | 五态 | `GET /states/` | 预置只读 |
 | Plan | `GET/POST /plan/` | POST 追加 Stage（**order 不可写**，服务端发号） |
 | Stage | `PATCH/DELETE /plan/stages/{sid}/` | 删除置空关联 Task/Worklog 的 stage |
@@ -54,7 +55,7 @@
 | `GET/POST /api/v1/issues/mine/` | 保持原位（对外语义已是「我的工作」） |
 | `GET /api/v1/agent/projects/{ws}/{pid}/…` | `/api/v1/agent/projects/{pid}/…` |
 | `POST /api/v1/agent/tasks\|worklogs\|sessions/`（body 含 workspace_slug） | body 的 `workspace_slug` **可选**：省略即规范解析（私人工程可达）；传了按旧双重作用域校验 |
-| `GET/PATCH/DELETE /workspaces/{ws}/projects/{pid}/members…` | **保留原位**（团队协作概念，属 Workspace namespace；计划 §3.2） |
+| `GET/PATCH/DELETE /workspaces/{ws}/projects/{pid}/members…` | 规范路由 `/projects/{pid}/members…` 已提供（私人工程返回 owner 隐式成员）；旧路径保留为团队兼容壳 |
 
 ## 4. 行为契约要点
 
@@ -62,3 +63,9 @@
 2. **幂等**：Agent 全部 8 个写动作（含本次补齐的 `session.end`）支持 `Idempotency-Key` 回放。
 3. **缓存**：工程详情缓存存在两种作用域键（兼容 ws slug / 规范哨兵 `-`）；任何写路径经 `invalidate_all_scopes` 同时作废两种键。
 4. **错误体/分页/snake_case/尾斜杠**：沿用 00 契约，无变化。
+5. **私人工程成员语义**：`GET /projects/{pid}/members/` 对 `workspace=null` 返回 owner 的
+   隐式 ADMIN 成员视图；任务指派允许 owner（即使没有 ProjectMember 行）。成员写操作
+   （POST/PATCH/DELETE）对私人工程返回 400——私人工程没有成员管理。
+6. **实时**：项目通道新增规范路径 `ws/projects/{pid}/`（私人工程唯一入口）；
+   旧 `/ws/workspaces/{ws}/projects/{pid}/` 保留。Overview 通道要求项目组消息带顶层
+   `project_id`，否则 Island 不会转发（2026-10-25 修复）。
