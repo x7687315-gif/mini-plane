@@ -67,6 +67,8 @@ class BroadcastTests(RealtimeTestCase):
         self.assertEqual(call.args[0], project_group(self.project.id))
         frame = call.args[1]
         self.assertEqual(frame["type"], "project.event")
+        # overview 单连接通道依赖顶层 project_id 决定是否转发给订阅者
+        self.assertEqual(frame["project_id"], str(self.project.id))
         self.assertEqual(frame["event"], "issue.updated")
         self.assertEqual(frame["payload"], {"issue_id": "i", "sequence_id": 1})
 

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AppShell } from "@/components/shell/AppShell";
 import { DimProgress, SectionHead, localDate } from "@/components/ui/v2";
 import { useMyProjects, useCreatePersonalProject } from "@/features/project";
 import { useChrome } from "@/stores/chrome";
@@ -40,7 +39,7 @@ export default function MyEngineeringPage() {
   const goOn = projects.filter((p) => p.now_task != null);
 
   return (
-    <AppShell>
+    <>
       {projects.length === 0 ? (
         isLoading ? (
           <HomeSkeleton />
@@ -152,7 +151,7 @@ export default function MyEngineeringPage() {
           )}
         </>
       )}
-    </AppShell>
+    </>
   );
 }
 

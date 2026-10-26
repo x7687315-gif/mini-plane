@@ -60,7 +60,13 @@ def broadcast(project_id, event: str, payload: dict) -> None:
         return
     async_to_sync(layer.group_send)(
         project_group(project_id),
-        {"type": "project.event", **json_safe({"event": event, "payload": payload})},
+        {
+            "type": "project.event",
+            # OverviewConsumer 按顶层 project_id 过滤订阅；缺了它，Island 的
+            # 单连接总览通道会静默丢弃所有项目事件（2026-10-25 E2E 实测）。
+            "project_id": str(project_id),
+            **json_safe({"event": event, "payload": payload}),
+        },
     )
 
 

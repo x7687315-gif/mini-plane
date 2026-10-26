@@ -1,5 +1,9 @@
 # Phase 5 报告 · 个人版 UI 重构（按已评审模板 v2 实施）
 
+> **2026-10-25 补记**：Phase 5 之后的可见回归（首页双壳、项目 WS 未接线、成员地址、
+> 批量轮询、工作台 URL 筛选）已在 Phase 5.5 稳定化批次修复，并补上完整 E2E 门禁。
+> 当前状态见 [TECH_DEBT.md](TECH_DEBT.md) 与 [devlog/2026-10-25-phase5-stabilization.md](../devlog/2026-10-25-phase5-stabilization.md)。
+
 > 完成于 2026-10-24 · 分支 `refactor/personal-first-domain` · 依据：`ui-design/miniplane-ui-template-v2.html`（用户已确认）+ `UI_REDESIGN_PROPOSAL.md`。
 > 用户补充要求：**整体化、不突兀**——落实为「五屏共用一套 v2 原语」。
 

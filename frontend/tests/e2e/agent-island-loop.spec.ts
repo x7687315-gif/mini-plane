@@ -37,11 +37,13 @@ test.describe("Agent → Island 实时闭环", () => {
     await expect(sheet).toBeVisible({ timeout: 20_000 });
     await expect(sheet.getByText("IDLE")).toBeVisible();
 
-    // 先确认 WebSocket 真的连上了：否则后面"不刷新就变"根本不可能发生，
+    // 先确认 overview WebSocket 真的连上了：否则后面"不刷新就变"根本不可能发生，
     // 红了也分不清是 WS 断了还是别的问题。
-    // 用 role=banner 定位顶层顶栏：页面里其实有 3 个 <header>（顶栏 / 页面自己的 /
-    // 图纸卡的），裸 header 选择器会撞上 strict mode violation。
-    await expect(page.getByRole("banner")).toContainText(/已连接/, { timeout: 20_000 });
+    // Island 用的是独立的 overview 通道，不注册项目通道，所以 TopBar 的 polling
+    // 不代表这里断线；应看 Island 自己的 LIVE/离线指示（断线不虚报）。
+    await expect(
+      page.getByTestId("island-overview").getByText("LIVE", { exact: true }),
+    ).toBeVisible({ timeout: 20_000 });
 
     // ── 3. 换一个身份：Agent Token（不是用户会话）起一个会话
     const agentCtx = await playwrightRequest.newContext({

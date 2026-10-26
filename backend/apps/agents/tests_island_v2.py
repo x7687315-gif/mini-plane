@@ -67,6 +67,28 @@ class AgentProgressTests(APITestCase):
         self.assertEqual(body["step_total"], 6)
         self.assertEqual(body["method_summary"], "先冻结规格再编码，分阶段提交")
 
+    def test_progress_partial_update_keeps_existing_fields(self):
+        """只上报 step_index 时，其余字段必须保持原值（不能被 serializer default 清空）。"""
+        sid = self._start()
+        first = self._progress(
+            sid,
+            {
+                "current_step": "保持这一步",
+                "step_index": 2,
+                "step_total": 6,
+                "method_summary": "保持这个方法",
+            },
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK, first.content)
+
+        second = self._progress(sid, {"step_index": 3})
+        self.assertEqual(second.status_code, status.HTTP_200_OK, second.content)
+        body = second.json()
+        self.assertEqual(body["step_index"], 3)
+        self.assertEqual(body["current_step"], "保持这一步")
+        self.assertEqual(body["method_summary"], "保持这个方法")
+        self.assertEqual(body["step_total"], 6)
+
     def test_step_index_cannot_exceed_total(self):
         sid = self._start()
         r = self._progress(sid, {"step_index": 9, "step_total": 3})

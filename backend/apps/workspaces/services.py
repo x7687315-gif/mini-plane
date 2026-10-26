@@ -113,6 +113,8 @@ def change_role(workspace: Workspace, member: WorkspaceMember, role: int) -> Wor
         raise ValidationError({"detail": "不能修改工作区所有者的角色。"})
     member.role = role
     member.save(update_fields=["role", "updated_at"])
+    # 角色降级/升级同样改变项目生效角色 → overview 订阅必须重校验。
+    defer_membership_changed(user_ids=[member.user_id])
     return member
 
 
@@ -137,8 +139,11 @@ def delete_workspace(workspace: Workspace) -> None:
                 )
             }
         )
+    member_user_ids = list(workspace.members.values_list("user_id", flat=True))
     project_cache.invalidate_workspace(workspace)
     workspace.delete()
+    if member_user_ids:
+        defer_membership_changed(user_ids=member_user_ids)
 
 
 def remove_member(workspace: Workspace, member: WorkspaceMember) -> None:

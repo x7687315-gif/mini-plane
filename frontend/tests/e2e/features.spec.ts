@@ -100,7 +100,7 @@ test.describe("我的工程首页（Sprint 09）", () => {
     });
     // 演示项目（global.setup 建的 E2E Project）应出现在工程卡片里
     await expect(page.getByText("E2E Project").first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/progress/i).first()).toBeVisible();
+    await expect(page.getByRole("progressbar").first()).toBeVisible();
   });
 
   test("Workspace 降级到 /workspaces 仍可访问", async ({ page }) => {

@@ -78,28 +78,17 @@
 
 ### 2.1 字体来源
 
-| 用途 | 字体 | 加载方式 |
+| 用途 | 字体 | 加载方式（2026-10-25 实测） |
 |------|------|---------|
-| 装饰大写 / Logo / 编号 / 标签 | **Cormorant Garamond**（Italic） | Google Fonts |
-| 正文 / UI / 表格 | **Inter** | Google Fonts |
-| 等宽（trace ID、commit hash） | **JetBrains Mono**（可选） | Google Fonts |
+| 装饰大写 / Logo / 编号 / 标签 | **Cormorant Garamond**（Italic） | `@fontsource` 自托管（`globals.css` @import） |
+| 正文 / UI / 表格 | **Inter** | `@fontsource` 自托管 |
+| 等宽（trace ID、commit hash） | **JetBrains Mono**（可选） | `@fontsource` 自托管 |
+| 中文正文 / 标题 | **Noto Sans SC / Noto Serif SC** | `scripts/extract-cjk-fonts.py` 抽取的子集（404 个 woff2 分片，`app/fonts-cjk.css`） |
 | 等宽 · **Island 仪表数据层**（V3，2026-10-21） | **JetBrains Mono** + `tabular-nums` | 同上；Island 的 NOW/STEP/HOW/NEXT/DONE/AGENT、百分比、时间戳（见 §3.3） |
 
-字体导入（在 app/layout.tsx）：
-
-```ts
-import { Cormorant_Garamond, Inter } from "next/font/google";
-
-const serif = Cormorant_Garamond({
-  subsets: ["latin"], weight: ["400", "500", "600"],
-  style: ["italic", "normal"], variable: "--font-serif",
-});
-
-const sans = Inter({
-  subsets: ["latin"], weight: ["400", "500"],
-  variable: "--font-sans",
-});
-```
+> 2026-10-25 修正：构建环境无法访问 Google Fonts，实际实现是 `@fontsource` 自托管 +
+> 中文 Noto 子集；**不再使用** `next/font/google`。字体变量 `--font-serif/--font-sans/--font-mono`
+> 在 `app/globals.css` 定义，入口见 `app/layout.tsx`。
 
 ### 2.2 字体尺度（Type Scale）
 
@@ -119,7 +108,7 @@ const sans = Inter({
 
 - **永远 sentence case**（句首大写，句中小写），绝不 Title Case、绝不 ALL CAPS（除了 `.text-uppercase` 这种特定 token）
 - 衬线 **只在装饰位** 用（Logo / 编号 / Hero / 标签），正文必须是 Inter
-- 中文字体走系统默认（PingFang SC / 思源黑体）；不主动引入中文衬线（会破坏「蓝图编辑风」的克制感）
+- 中文使用自托管的 **Noto Sans SC / Noto Serif SC** 子集（见 §2.1）；衬线只用于装饰位，正文仍是无衬线
 - 字体粗细只有两档：400 / 500，绝不 600/700
 
 ---
@@ -204,7 +193,7 @@ V3 起 Island 的「科技感」表达（不突破上述红线）：
 ├──────────┬──────────────────────────────────┬───────────────┤
 │          │                                  │               │
 │ LeftRail │ Main                             │ Aside         │
-│ 96px     │ flex 1                           │ 168px         │
+│ 176px    │ flex 1                           │ 240px         │
 │          │                                  │               │
 │ Workspace│  PageHeader                      │ Throughput    │
 │ Switcher │  Filters                         │ Cycle time    │
@@ -217,12 +206,12 @@ V3 起 Island 的「科技感」表达（不突破上述红线）：
 ```
 
 - **TopBar**：56px fixed，含 Logo + 当前路径 + 当前用户
-- **LeftRail**：96px 宽，左侧 workspace 切换（缩略字母 + 当前 role 角标）
-- **Main**：弹性宽度，最小 640px
-- **Aside**：168px 宽，右侧 KPI / ledger（不强制出现，窄屏可隐藏）
+- **LeftRail**：176px 宽（`w-44`），个人四项 + 条件「协作」区
+- **Main**：弹性宽度，容器最小宽度 `1180px`（桌面工具，不做移动端折叠）
+- **Aside**：240px 宽（`w-60`），仅在工作区页按需出现
 - **Footer**：28px 固定底部，3 列布局（坐标 / covenant / 版本）
 
-> 三栏比例 **96 : flex : 168** ≈ **1 : 6 : 2**，留 Main 充足空间。
+> 三栏比例 **176 : flex : 240**，留 Main 充足空间。断点表见 §7.1（实际为桌面优先）。
 
 ---
 
@@ -437,12 +426,13 @@ V3 起 Island 的「科技感」表达（不突破上述红线）：
 
 ### 7.1 断点
 
-| Breakpoint | Width | 行为 |
-|------------|-------|------|
-| `mobile` | < 640px | Aside 隐藏，LeftRail 收为顶部抽屉，Main 单列 |
-| `tablet` | 640–1024px | Aside 隐藏，LeftRail 96px 保留 |
-| `desktop` | ≥ 1024px | 三栏完整布局 |
-| `wide` | ≥ 1440px | Main 居中最大 1280px |
+| Breakpoint | Width | 行为（2026-10-25 实测） |
+|------------|-------|------------------------|
+| `< desktop` | < 1180px | 应用容器保持 `min-w-[1180px]`，出现横向滚动；不做移动端抽屉 |
+| `desktop` | ≥ 1180px | TopBar + LeftRail + Main（+ 可选 Aside） |
+| `wide` | ≥ 1440px | Main 仍按容器宽度伸展（页面自身上限如 `max-w-4xl`） |
+
+> 本项目是本地桌面工具，优先保证桌面窗口内可用；移动端布局不在当前范围（与旧稿不同）。
 
 ### 7.2 容器查询
 
@@ -538,8 +528,8 @@ V3 起 Island 的「科技感」表达（不突破上述红线）：
 | 任何动效 > 400ms | 慢 |
 | ALL CAPS 装饰文字（除了 `text-uppercase` token） | 阅读困难 |
 | 字体粗细 600/700/800 | 视觉噪音 |
-| 主题切换（多套色） | 蓝图编辑风只有一套 |
-| 任何形式的暗色模式 | 第一期只有亮色；二期再议 |
+| 新增第三套主题配色 | 蓝图编辑风只有一套；仅保留 **明 / 暗两态**（`data-theme` + tokens） |
+| 以「暗色模式」为名另造一套配色体系 | 暗色只翻表面令牌（`globals.css`），不改变色相与语义 |
 | 浮动提示（tooltip on hover） | 用页内说明或空文字代替 |
 | 全局 loading overlay | 用骨架屏 |
 

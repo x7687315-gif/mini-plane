@@ -35,8 +35,10 @@ export function useTaskRun(
 ) {
   return useQuery({
     queryKey: taskKeys.detail(slug ?? "", projectId ?? "", taskId ?? ""),
-    queryFn: () => getTaskRun(slug!, projectId!, taskId!),
-    enabled: Boolean(slug && projectId && taskId),
+    queryFn: () => getTaskRun(slug ?? "", projectId!, taskId!),
+    // 规范路由只凭 projectId + jobrun id；slug 已不参与定位（Phase 4），
+    // 不能再要求它非空，否则工程台（slug=""）的批量任务永远不会轮询。
+    enabled: Boolean(projectId && taskId),
     refetchInterval: (query) =>
       nextTaskPollDelay(
         query.state.data as TaskRun | undefined,

@@ -3,24 +3,25 @@
 这是把 **前端 + 后端 + 数据库合并成一个本地桌面应用** 的运行层。产品定位回归本意：
 数据不出本机，双击弹原生窗口，**不再用浏览器打开、不需要安装 PostgreSQL**。
 
-## Island 独立窗口（Sprint 15）
+## Island（V3 单窗两态，2026-10-21 起）
 
-主窗口之外会再开一个 **Island 窗口**：置顶、无边框可拖、顶部居中，**默认隐藏**。
+主窗口之外只有一个 **Island 窗口**，**永不隐藏**：收起态就是 360×44 的把手条，
+展开态是 520×420 的工程浮页（可缩放）。旧的双窗「触发把手 + 面板」已退役。
 
 | 操作 | 方式 |
 |------|------|
-| 唤出 / 收起 | `Alt+I`，或 Island 页右上角的「独立窗口」按钮 |
-| 拖动 | 拖窗口任意位置（`easy_drag`） |
-| 切项目 | 窗口内左右翻页；**主窗口翻页时这个窗口会跟着翻**（localStorage 同步，零延迟） |
-| 关掉这个窗口 | 点右上角关闭即可，**不会退出应用**（主窗口还在） |
-| 临时不要 | `MINIPLANE_ISLAND=0` 启动即可完全不创建它 |
+| 展开 / 收起 | 点把手条、`Alt+I`；`Esc` 收起（pinned 时除外） |
+| 固定 | 图钉 → 常驻置顶；取消固定不自动收起 |
+| 拖动 / 缩放 | 把手条整条可拖；展开态边缘热区缩放（JS 桥接） |
+| 重启恢复 | 位置、展开尺寸、形态、固定态存 `runtime/desktop-config.json` |
+| 关 Island 窗口 | 本次会话 Island 退场，主窗口照常；不退出应用 |
 
-三个文件分工：
+文件分工：
 
 ```text
-island.py          Island 窗口规格：URL（/island-panel）、尺寸、置顶、顶部居中、隐藏启动
-window_manager.py  窗口生命周期 + 暴露给前端的 js_api（显示/隐藏只有这一个负责人）
-launcher.py        登记两个窗口并把 js_api 注入两者
+island.py          Island 规格：/island-panel?form=collapsed|expanded、尺寸、置顶
+window_manager.py  唯一持有窗口引用与 displayMode × form 状态机
+launcher.py        编排主窗 + Island、注入 js_api、关主窗停服
 ```
 
 > 窗口出问题时先看 `runtime/launcher.log`：启动器的一切关键信息都落在这里。
@@ -77,7 +78,7 @@ set MINIPLANE_NO_WINDOW=1 && python desktop\launcher.py
 | SQLite / 密钥 / 日志 | `runtime/` | — |
 | 就绪超时 | 180s | `MINIPLANE_READY_TIMEOUT` |
 
-改端口需同步 `desktop.py` 里的 `_PAGE_ORIGIN`（CORS/CSRF 白名单）。
+改端口需同步 `MINIPLANE_PAGE_ORIGIN`（CORS/CSRF 白名单；默认 `http://127.0.0.1:3000`）。
 
 ## 快捷方式 & 打包 .exe
 

@@ -173,6 +173,8 @@ export function useUpdateProject(slug: string, projectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
       qc.invalidateQueries({ queryKey: projectKeys.wsList(slug) });
+      // 首页聚合包含 name / identifier / 最近活动：改名后必须同步失效。
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
     },
   });
 }
@@ -181,7 +183,12 @@ export function useDeleteProject(slug: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (projectId: string) => deleteProject(slug, projectId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.wsList(slug) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.wsList(slug) });
+      // 删除后首页不能继续显示幽灵工程（staleTime 30s 内会命中旧聚合）
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      qc.invalidateQueries({ queryKey: projectKeys.all });
+    },
   });
 }
 

@@ -1,8 +1,11 @@
 # SCREEN_BLUEPRINTS.md — Mini Plane 屏幕蓝图
 
-> 与 [DESIGN.md](./DESIGN.md) 配套；路由、组件清单、数据源（API endpoint）的唯一来源。
-> 状态：v0.1 — 初稿；后续每个 Sprint 收尾会更新本文件
-> 数据契约全部来自 [../docs/api/](../docs/api/)；不再重复 endpoint 字段定义
+> **2026-10-25 历史提示**：本文件停留在 Sprint 0–8 的团队版页面结构，**不是当前路由事实源**。
+> 当前路由以 `frontend/app/**` 与 `README.md` 为准：个人首页 `/`、工程台 `/projects/[pid]`、
+> 我的工作 `/me/issues`、设置 `/me`、Island `/island`、桌面面板 `/island-panel`；
+> 旧 `/w/{slug}/projects/[pid]` 已服务端重定向到工程台。保留本文件仅作设计史料。
+>
+> 与 [DESIGN.md](./DESIGN.md) 配套；数据契约来自 [../docs/api/](../docs/api/)。
 
 ---
 

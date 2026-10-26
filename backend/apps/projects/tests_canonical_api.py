@@ -146,6 +146,57 @@ class CanonicalProjectAPITests(APITestCase):
             self.client.get(f"/api/v1/projects/{project.id}/tasks/").json()["count"], 2
         )
 
+    def test_personal_members_returns_implicit_owner_and_allows_assignment(self):
+        """私人工程没有 ProjectMember，但 owner 必须是可读、可指派的隐式成员。"""
+        pid = self._create_personal()
+
+        r = self.client.get(f"/api/v1/projects/{pid}/members/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        body = r.json()
+        self.assertEqual(body["count"], 1)
+        member = body["results"][0]
+        self.assertEqual(member["user"]["id"], str(self.alice.id))
+        self.assertEqual(member["role"], 20)
+
+        r = self.client.post(
+            f"/api/v1/projects/{pid}/tasks/",
+            {"title": "指派给自己", "assignee_id": str(self.alice.id)},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        self.assertEqual(r.json()["assignee"]["id"], str(self.alice.id))
+
+        # 私人工程不接受成员写操作（成员即 owner）
+        r = self.client.post(
+            f"/api/v1/projects/{pid}/members/",
+            {"user_id": str(self.bob.id)},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+    def test_accessible_scope_marks_workspace_admin_as_admin(self):
+        """跨工作区列表不能把 WS Admin 误标为 VIEWER（否则 UI 会隐藏管理入口）。"""
+        from apps.workspaces import services as ws_services
+        from apps.workspaces.models import WorkspaceRoles
+
+        ws = ws_services.create_workspace(self.alice, "团队", "team-role")
+        ws_services.add_member(ws, self.bob.email, WorkspaceRoles.MEMBER)
+        project = project_services.create_project(
+            self.bob, workspace=ws, name="Bob 的团队工程", identifier="BTM"
+        )
+        self.client.force_authenticate(self.alice)
+        rows = self.client.get("/api/v1/projects/?scope=accessible").json()["results"]
+        row = next(p for p in rows if p["id"] == str(project.id))
+        self.assertEqual(row["current_user_role"], 20)
+
+    def test_invalid_workspace_id_is_400_not_500(self):
+        r = self.client.post(
+            "/api/v1/projects/",
+            {"name": "坏工作区", "identifier": "BADW", "workspace_id": "not-a-uuid"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
     def test_workspace_create_requires_membership(self):
         from apps.workspaces import services as ws_services
         from apps.workspaces.models import WorkspaceMember, WorkspaceRoles

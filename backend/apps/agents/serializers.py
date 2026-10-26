@@ -131,18 +131,15 @@ class AgentSessionProgressSerializer(serializers.Serializer):
     - 空字符串表示"清空"（例如步骤做完了要撤回），None 表示"这次不碰这个字段"。
     """
 
-    current_step = serializers.CharField(
-        max_length=200, required=False, allow_blank=True, default=""
-    )
+    # 不设 default：省略 = 本次不碰这个字段；空串才是显式清空（docstring 的约定）。
+    current_step = serializers.CharField(max_length=200, required=False, allow_blank=True)
     step_index = serializers.IntegerField(
         required=False, allow_null=True, min_value=1, max_value=9999
     )
     step_total = serializers.IntegerField(
         required=False, allow_null=True, min_value=1, max_value=9999
     )
-    method_summary = serializers.CharField(
-        max_length=300, required=False, allow_blank=True, default=""
-    )
+    method_summary = serializers.CharField(max_length=300, required=False, allow_blank=True)
 
     def validate(self, attrs):
         idx, total = attrs.get("step_index"), attrs.get("step_total")

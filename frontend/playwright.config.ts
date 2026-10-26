@@ -35,7 +35,8 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
-    channel: "chrome",
+    // 本地复用已安装的 Chrome；CI 用 `playwright install chromium` 装的无头浏览器。
+    channel: process.env.CI ? undefined : "chrome",
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
