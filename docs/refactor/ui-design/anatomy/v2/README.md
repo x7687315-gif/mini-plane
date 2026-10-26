@@ -8,7 +8,7 @@
 | Phase | 内容 | 状态 | 交付物 |
 |---|---|---|---|
 | 0 | 基线、截图、设计决策、fixtures、审计 | ✅ 2026-10-26 | [PHASE0_BASELINE.md](PHASE0_BASELINE.md)、baseline/*.png、fixtures |
-| 1 | 安全稳定的静态 React SVG 对象 | ⏳ 下一步 | 待写 |
+| 1 | 安全稳定的静态 React SVG 对象 | ✅ 2026-10-26 | [PHASE1_REPORT.md](PHASE1_REPORT.md) |
 | 2 | 空间交互（focus/exploded/restore）+ Motion Spike | ⏳ | 待写 |
 | 3 | 真实新增/状态变化的演进痕迹 | ⏳ | 待写 |
 | 4 | 事件时间线 / 历史快照决策 | ⏳ | 待写 |

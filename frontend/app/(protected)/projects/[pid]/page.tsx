@@ -154,6 +154,9 @@ function WorkbenchRoute() {
         status={parseStateFilter(searchParams.get("status"))}
         search={searchParams.get("search") ?? ""}
         agentRunning={mine?.find((p) => p.id === pid)?.agent_running ?? false}
+        nowTaskId={mine?.find((p) => p.id === pid)?.now_task_id ?? null}
+        projectProgress={mine?.find((p) => p.id === pid)?.progress ?? null}
+        progressSource={mine?.find((p) => p.id === pid)?.progress_source ?? null}
         view={view}
         onView={(v) => handleParam("view", v === "bench" ? null : v)}
         drawerIssueId={issueId}
@@ -182,6 +185,9 @@ function Workbench({
   status,
   search,
   agentRunning,
+  nowTaskId,
+  projectProgress,
+  progressSource,
   view,
   onView,
   drawerIssueId,
@@ -205,6 +211,9 @@ function Workbench({
   status: StateFilter;
   search: string;
   agentRunning: boolean;
+  nowTaskId: string | null;
+  projectProgress: number | null;
+  progressSource: "plan" | "tasks" | null;
   view: "bench" | "plate";
   onView: (v: "bench" | "plate") => void;
   drawerIssueId: string | null;
@@ -262,7 +271,7 @@ function Workbench({
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className={view === "plate" ? "max-w-6xl" : "max-w-4xl"}>
       {/* 头：serif 名 + 安静链接 */}
       <div className="flex items-baseline">
         <h1 className="font-serif italic text-[28px] text-[color:var(--color-ink)]">
@@ -336,12 +345,14 @@ function Workbench({
         <div className="mt-4">
           <AnatomyPlate
             identifier={identifier}
+            projectName={projectName}
             stages={plan?.stages ?? []}
             tasks={tasks}
-            logs={logPage?.results ?? []}
-            states={states}
+            plan={plan ?? null}
+            nowTaskId={nowTaskId}
             agentRunning={agentRunning}
-            nextStageName={plan?.next_stage?.name ?? null}
+            projectProgress={projectProgress}
+            progressSource={progressSource}
             onOpenTask={(id) => onParam("issue", id)}
           />
         </div>
