@@ -81,6 +81,18 @@ def record_project_event(project, *, actor, action: str, old_value=None, new_val
     )
 
 
+def record_worklog_event(worklog, *, actor, action: str, old_value=None, new_value=None):
+    return record_activity(
+        actor=actor,
+        project=worklog.project,
+        entity_type=EntityTypes.WORKLOG,
+        entity_id=worklog.id,
+        action=action,
+        old_value=old_value,
+        new_value=new_value,
+    )
+
+
 # ── 值翻译与 diff（06 契约字段表）─────────────────────────────────
 
 
@@ -143,4 +155,5 @@ __all__ = [
     "record_comment_event",
     "record_issue_event",
     "record_project_event",
+    "record_worklog_event",
 ]

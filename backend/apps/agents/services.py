@@ -4,22 +4,31 @@
 复用现有 WebSocket 通道（§14：Agent 改工程状态 → 桌面实时看到）。
 """
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from apps.agents.models import AgentSession, AgentSessionStatus
+from apps.projects.models import Project
 from apps.realtime import broadcast as rt
 
 
 @transaction.atomic
 def start_session(*, project, token, title: str, task=None) -> AgentSession:
-    session = AgentSession.objects.create(
-        project=project,
-        token=token,
-        task=task,
-        title=title,
-        status=AgentSessionStatus.RUNNING,
-    )
+    # 锁 Project 行串行化并发 start（PostgreSQL）；SQLite 无行锁时由部分唯一约束兜底。
+    Project.objects.select_for_update().get(pk=project.pk)
+    if AgentSession.objects.filter(project=project, status=AgentSessionStatus.RUNNING).exists():
+        raise ValidationError({"detail": "该工程已有运行中的 Agent 会话，请先结束它。"})
+    try:
+        session = AgentSession.objects.create(
+            project=project,
+            token=token,
+            task=task,
+            title=title,
+            status=AgentSessionStatus.RUNNING,
+        )
+    except IntegrityError:
+        raise ValidationError({"detail": "该工程已有运行中的 Agent 会话，请先结束它。"}) from None
     rt.defer_agent_session(project_id=project.id, session=session)
     return session
 
@@ -28,6 +37,8 @@ def start_session(*, project, token, title: str, task=None) -> AgentSession:
 def end_session(
     session: AgentSession, *, status: str = AgentSessionStatus.DONE, note: str = ""
 ) -> AgentSession:
+    if session.status != AgentSessionStatus.RUNNING:
+        raise ValidationError({"detail": "会话已结束，不能重复结束。"})
     session.status = status
     session.ended_at = timezone.now()
     if note:

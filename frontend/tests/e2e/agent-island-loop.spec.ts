@@ -50,13 +50,12 @@ test.describe("Agent → Island 实时闭环", () => {
       baseURL: API_BASE,
       extraHTTPHeaders: {
         Authorization: `Bearer ${agentToken}`,
-        "Idempotency-Key": "e2e-island-loop-session-1",
         "Content-Type": "application/json",
       },
     });
     const started = await agentCtx.post("/api/v1/agent/sessions/", {
+      headers: { "Idempotency-Key": "e2e-island-loop-session-1" },
       data: {
-        workspace_slug: fixture.workspaceSlug,
         project_id: fixture.projectId,
         title: "验证长文本漏字",
       },
@@ -74,6 +73,7 @@ test.describe("Agent → Island 实时闭环", () => {
 
     // ── 5. 收尾：结束会话（保持测试数据干净，也验证 end 端点可用）
     const ended = await agentCtx.post(`/api/v1/agent/sessions/${session.id}/end/`, {
+      headers: { "Idempotency-Key": "e2e-island-loop-end-1" },
       data: { status: "done" },
     });
     expect(ended.ok(), "结束会话失败").toBeTruthy();
@@ -94,17 +94,22 @@ test.describe("Agent → Island 实时闭环", () => {
       baseURL: API_BASE,
       extraHTTPHeaders: {
         Authorization: `Bearer ${token}`,
-        "Idempotency-Key": "e2e-island-idem-1",
         "Content-Type": "application/json",
       },
     });
     const payload = {
-      workspace_slug: fixture.workspaceSlug,
       project_id: fixture.projectId,
       title: "幂等验证",
     };
-    const first = await agentCtx.post("/api/v1/agent/sessions/", { data: payload });
-    const second = await agentCtx.post("/api/v1/agent/sessions/", { data: payload });
+    const idemHeaders = { "Idempotency-Key": "e2e-island-idem-1" };
+    const first = await agentCtx.post("/api/v1/agent/sessions/", {
+      headers: idemHeaders,
+      data: payload,
+    });
+    const second = await agentCtx.post("/api/v1/agent/sessions/", {
+      headers: idemHeaders,
+      data: payload,
+    });
     expect(first.ok()).toBeTruthy();
     expect(second.ok()).toBeTruthy();
     // 重放应返回**同一个**会话（同一个 id），而不是新建一条
@@ -112,7 +117,10 @@ test.describe("Agent → Island 实时闭环", () => {
     const b = (await second.json()) as { id: string };
     expect(b.id, "相同 Idempotency-Key 必须复用同一条会话").toBe(a.id);
 
-    await agentCtx.post(`/api/v1/agent/sessions/${a.id}/end/`, { data: { status: "done" } });
+    await agentCtx.post(`/api/v1/agent/sessions/${a.id}/end/`, {
+      headers: { "Idempotency-Key": "e2e-island-idem-end-1" },
+      data: { status: "done" },
+    });
     await agentCtx.dispose();
   });
 });

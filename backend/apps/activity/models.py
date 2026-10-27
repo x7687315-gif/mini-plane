@@ -23,6 +23,7 @@ class EntityTypes(models.TextChoices):
     PROJECT = "project", "项目"
     WORKSPACE = "workspace", "工作区"
     MEMBER = "member", "成员"
+    WORKLOG = "worklog", "工程日志"
 
 
 class Actions(models.TextChoices):
@@ -62,8 +63,11 @@ class ActivityLog(BaseModel):
     project = models.ForeignKey(
         Project,
         verbose_name="项目",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="activities",
+        help_text="事件发生时所属工程；工程删除后置空，审计留痕保留",
     )
     # 上下文：这条留痕属于哪个 Issue（评论事件也归到它所属的 Issue）
     issue = models.ForeignKey(

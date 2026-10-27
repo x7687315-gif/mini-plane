@@ -71,6 +71,7 @@ class AgentWorklogCreateSerializer(serializers.Serializer):
     project_id = serializers.UUIDField()
     title = serializers.CharField(max_length=120)
     summary = serializers.CharField()
+    details = serializers.CharField(required=False, allow_blank=True)
     conclusion = serializers.CharField(required=False, allow_blank=True)
     next_step = serializers.CharField(required=False, allow_blank=True)
     blocker = serializers.CharField(required=False, allow_blank=True)

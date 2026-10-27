@@ -149,7 +149,11 @@ export type RealtimeEffect =
       status: string;
       elapsedSeconds: number;
       agent: string;
-    };
+    }
+  | { kind: "worklog-changed"; action: string }
+  | { kind: "stage-updated"; stageId: string | null }
+  | { kind: "project-updated" }
+  | { kind: "membership-changed" };
 
 function asRecord(payload: unknown): Record<string, unknown> | null {
   return typeof payload === "object" && payload !== null
@@ -208,7 +212,22 @@ export function planRealtimeEffect(
     };
   }
 
-  // 08 契约 §2.3: only two events exist today; anything else is ignored rather than
-  // guessed at, so a future server-side addition cannot make an old client misbehave.
+  if (event === "worklog.created" || event === "worklog.updated" || event === "worklog.deleted") {
+    return { kind: "worklog-changed", action: str(p.action) ?? event.split(".")[1] };
+  }
+
+  if (event === "stage.updated") {
+    return { kind: "stage-updated", stageId: str(p.stage_id) };
+  }
+
+  if (event === "project.updated") {
+    return { kind: "project-updated" };
+  }
+
+  if (event === "membership.changed") {
+    return { kind: "membership-changed" };
+  }
+
+  // 08 契约：未知事件忽略而不是猜测，未来服务端新增事件不会让旧客户端误行为。
   return { kind: "none", reason: "unknown-event" };
 }

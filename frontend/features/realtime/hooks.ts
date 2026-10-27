@@ -134,6 +134,9 @@ function invalidateProject(qc: QueryClient, slug: string, projectId: string): vo
   void qc.invalidateQueries({ queryKey: activityKeys.project(slug, projectId) });
   // 评论挂在 task 之下：失效整个 tasks 子树（含列表/详情/评论，工厂键前缀）
   void qc.invalidateQueries({ queryKey: taskKeys.list(projectId) });
+  // Phase 7：断线窗口可能错过 worklog/stage/project 事件，重连后统一补拉。
+  void qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+  void qc.invalidateQueries({ queryKey: projectKeys.mine() });
 }
 
 function applyEffect(event: string, payload: unknown, ctx: RealtimeContext): void {
@@ -183,6 +186,30 @@ function applyEffect(event: string, payload: unknown, ctx: RealtimeContext): voi
         agent: effect.agent,
       });
       void qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      return;
+    }
+
+    case "worklog-changed": {
+      void qc.invalidateQueries({ queryKey: projectKeys.worklogs(projectId) });
+      void qc.invalidateQueries({ queryKey: projectKeys.activities(projectId) });
+      void qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      return;
+    }
+
+    case "stage-updated": {
+      void qc.invalidateQueries({ queryKey: projectKeys.plan(projectId) });
+      void qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      return;
+    }
+
+    case "project-updated": {
+      void qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      void qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      return;
+    }
+
+    case "membership-changed": {
+      invalidateProject(qc, slug, projectId);
       return;
     }
   }

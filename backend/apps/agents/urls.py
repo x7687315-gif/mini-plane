@@ -29,6 +29,11 @@ urlpatterns = [
         views.agent_session_list_canonical,
         name="agent-session-list-canonical",
     ),
+    path(
+        "projects/<uuid:project_id>/tasks/",
+        views.agent_task_list_canonical,
+        name="agent-task-list-canonical",
+    ),
     # 工程动作——兼容路由（含 workspace slug，deprecated）
     path(
         "projects/<str:workspace_slug>/<uuid:project_id>/",

@@ -14,9 +14,11 @@ from channels.layers import get_channel_layer
 from django.test import TestCase
 
 from apps.issues import services as issue_services
+from apps.projects import services as project_services
 from apps.realtime import broadcast as rt
 from apps.realtime.broadcast import KNOWN_EVENTS, broadcast, project_group
 from apps.realtime.tests.base import RealtimeScenarioMixin, RealtimeTestCase
+from apps.worklogs import services as worklog_services
 
 
 def patch_group_send():
@@ -41,14 +43,22 @@ class BroadcastTests(RealtimeTestCase):
     def test_known_events_are_the_contract_list(self):
         """契约 08 的权威清单：刻意收窄（不做全站广播）。
 
-        Sprint 13 起加入第三个事件 `agent.session`（Agent 会话状态 → 桌面实时投影），
-        仍属"工程状态变化"而非全站广播，符合收窄初衷。
-        Island V2 阶段 4 起加入第四个事件 `membership.changed`（成员/角色变化 →
-        overview 连接重校验订阅，规格 §7.2 C-lite）。
+        Phase 7 增加 worklog.* / stage.updated / project.updated：仍属"工程状态
+        变化"，只是把已有写路径的实时投影补齐。
         """
         self.assertEqual(
             KNOWN_EVENTS,
-            ("issue.updated", "comment.created", "agent.session", "membership.changed"),
+            (
+                "issue.updated",
+                "comment.created",
+                "agent.session",
+                "worklog.created",
+                "worklog.updated",
+                "worklog.deleted",
+                "stage.updated",
+                "project.updated",
+                "membership.changed",
+            ),
         )
 
     def test_group_name_format(self):
@@ -70,7 +80,14 @@ class BroadcastTests(RealtimeTestCase):
         # overview 单连接通道依赖顶层 project_id 决定是否转发给订阅者
         self.assertEqual(frame["project_id"], str(self.project.id))
         self.assertEqual(frame["event"], "issue.updated")
-        self.assertEqual(frame["payload"], {"issue_id": "i", "sequence_id": 1})
+        self.assertEqual(
+            frame["payload"],
+            {
+                "issue_id": "i",
+                "sequence_id": 1,
+                "project_id": str(self.project.id),
+            },
+        )
 
     def test_datetime_is_serialized_like_http_responses(self):
         """与 07 契约同一条规则：缓存/推送里的时间都是 ISO8601 字符串。"""
@@ -118,7 +135,29 @@ class ServiceHookTests(RealtimeScenarioMixin, TestCase):
         self.assertEqual(frame["payload"]["comment_id"], str(comment.id))
         self.assertEqual(frame["payload"]["content"], "看到推送了吗")
         self.assertEqual(frame["payload"]["author"]["username"], "rt-member")
-        self.assertEqual(frame["payload"]["issue_id"], str(self.issue.id))
+
+    def test_worklog_create_defers_event(self):
+        with patch_group_send() as group_send:
+            with self.captureOnCommitCallbacks(execute=True):
+                worklog = worklog_services.create_worklog(
+                    self.project, self.owner, title="日志", summary="做完了"
+                )
+
+        (frame,) = frames_of(group_send)
+        self.assertEqual(frame["event"], "worklog.created")
+        self.assertEqual(frame["payload"]["worklog_id"], str(worklog.id))
+        self.assertEqual(frame["payload"]["project_id"], str(self.project.id))
+
+    def test_stage_create_defers_event(self):
+        plan = project_services.get_or_create_plan(self.project)
+        with patch_group_send() as group_send:
+            with self.captureOnCommitCallbacks(execute=True):
+                stage = project_services.add_stage(plan, name="阶段一")
+
+        (frame,) = frames_of(group_send)
+        self.assertEqual(frame["event"], "stage.updated")
+        self.assertEqual(frame["payload"]["stage_id"], str(stage.id))
+        self.assertEqual(frame["payload"]["action"], "created")
 
     def test_patch_without_change_defers_nothing(self):
         """与活动留痕同一套 diff 规则：值没变就不广播，不制造噪声。"""
