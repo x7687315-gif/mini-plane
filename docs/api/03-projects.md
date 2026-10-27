@@ -1,5 +1,9 @@
 # 03 · Project（与成员 / 状态）契约
 
+> **历史兼容文档（2026-10-28）**：本文的 `/workspaces/{slug}/projects/…` 路径已标记
+> deprecated，前端已改用 [`10-canonical-projects.md`](10-canonical-projects.md) 的
+> `/api/v1/projects/{pid}/…`。本文的角色矩阵与字段语义仍有效，路径以 10 号为准。
+>
 > 状态：**已冻结**（前端 Sprint 2 已按本契约实现并确认，2026-09-17）
 > 公共约定见 [00-conventions.md](00-conventions.md)。角色值：`20=Admin / 15=Member / 5=Viewer`。
 

@@ -22,23 +22,29 @@ Island 空态用例在同一上下文注册新账户；Django `login()` 发现�
 
 `runtime/miniplane.sqlite3` 内混入 `smoke_*` 用户与 `smoke-ws` 工作区。处置：备份 → 删除。
 
-## TD-04 · 兼容路由退役（Phase 9）
+## TD-04 · 兼容路由退役（Phase 9 已收敛为“显式退役条件”）
 
-前端已零调用兼容业务路由；外部 Agent 消费者已确认不存在。退役动作：
-删各 views 的兼容壳 + `apps/projects/urls.py` 的业务段（保留工作区列表所需端点）+ 契约迁移表更新。
+前端/桌面已零调用兼容业务路由；本机与工作区搜索未发现外部 Agent 消费者。
+Phase 9 **保留**薄 deprecated 适配器（避免无法穷尽证明的远端消费者静默断裂），
+退出条件写入 [`docs/api/10-canonical-projects.md`](../api/10-canonical-projects.md) §3：
+一个发布周期内旧路径访问为零 + 外部 Agent 使用方确认迁移后删除。
+当前所有兼容路由仍委托同一 service，OpenAPI 标记 deprecated。
 
-## TD-05 · 旧契约文档 deprecated 横幅（Phase 9）
+## TD-05 · 旧契约文档 deprecated 横幅（✅ 已完成 2026-10-28）
 
-`docs/api/03–07` 尚未逐文件加 deprecated 横幅；索引层与 10 号契约已标注。
+`docs/api/03–07` 已逐文件加历史兼容横幅，指向 10 号规范契约；不再被误读为当前路径。
 
-## TD-06 · 预留 hooks 复查（Phase 9）
+## TD-06 · 预留 hooks 复查（✅ 已完成 2026-10-28）
 
-`createLabel/updateLabel/deleteLabel`、项目成员写、`useProjectActivities`、`updateWorklog`
-仍无 UI 消费者。UI 重构已落地，复查后接线或裁剪。
+`createLabel/updateLabel/deleteLabel` 与项目成员写 hooks/API 无 UI 消费者，已从前端删除；
+`useProjectActivities` 已接线；`useUpdateWorklog` 未存在（Worklog 仅创建/删除 UI）。
+后端端点保留（Agent/未来管理界面可用），前端不再保留死接口。
 
-## TD-07 · 组件级 Issue→Task 语义更名（未完成）
+## TD-07 · 组件级 Issue→Task 语义更名（保留历史命名）
 
-`useIssues/useIssue/IssueDrawer` 等导出名与组件名仍用历史名；类型层已有 `Task` 别名。
+`useIssues/useIssue/IssueDrawer` 等内部名仍用历史名；公共 API/类型/路由已统一 Task。
+按计划 §6「不把后端 Issue 改名为新 app」，本轮只保证用户可见语义与契约统一；
+组件内部重命名成本高、收益低，登记为可选的后续重构，不影响功能。
 
 ## TD-08 · 私人工程独立路由（✅ 已解决，Phase 5 C3）
 
@@ -56,24 +62,29 @@ Island 空态用例在同一上下文注册新账户；Django `login()` 发现�
 - 分页：工程台使用 `per_page=100` + `page` URL 参数，超过一页显示上一页/下一页。
 - 新 E2E：完整 39 条已全绿（新增 Anatomy V2 2 条）；「初见上手屏」独立用例仍未单独覆盖。
 
-## TD-11 · 后端一致性/安全余项（Phase 7）
+## TD-11 · 后端一致性/安全余项（Phase 7 已完成 5/6）
 
 已在本轮修复：Agent 写端点补角色 ≥ Member；session.progress 部分更新不再清空兄弟字段；
 canonical 列表 WS Admin 角色；Agent 无 slug；非法 `workspace_id` 400；Workspace 角色变更广播。
 
-仍开放（按优先级）：
-1. Agent 幂等 `_replay`/`_remember` 非原子（并发同 key 可执行两次）；`IdempotencyRecord` 无 TTL。
-2. `AgentSession` 可同时存在多个 running；`session.end` 重复结束会刷新 `ended_at`。
-3. `ActivityLog.project=CASCADE`：删工程会丢审计；Worklog 变更不写审计/广播；
-   团队工程任意 Member 可改删他人 Worklog。
-4. `/projects/mine/` 不分页；`_recent_done_titles`/`_latest_logs` 全量拉回 Python 再截断；
-   Issue 缺 assignee/created_by 索引；`AgentToken.touch()` 每请求一写。
-5. `AgentScopes.READ_TASK` 未被任何端点使用。
-6. `add_stage` max(order)+1 并发冲突未转 400。
+Phase 7 追加完成：
+1. 幂等改为 `(token,key)` 唯一 + 前置占位 + body 指纹 + 24h TTL；同键不同 action/body → 409；
+   并发由唯一约束兜底（SQLite 无行锁，按 Django 文档保留约束方案）。✅
+2. `AgentSession` 部分唯一约束 `(project) WHERE running`；迁移关闭历史重复 running（保留记录）；
+   重复 end → 400。✅
+3. Worklog 唯一 service（用户/Agent 共用）；创建/修改/删除写 Activity + 广播；作者或项目 Admin 才能改删；
+   `ActivityLog.project` 改 SET_NULL，工程删除后审计保留。✅
+4. Issue 增 `assignee/created_by` 索引；`AgentToken.touch()` 60s 节流。`/projects/mine/` 仍不分页
+   （个人工程量级；首页需要全量），`_recent_done_titles/_latest_logs` 仍为批量取回后截断，
+   登记为可接受的性能边界，等项目数显著增长再改用窗口函数。⚠️ 部分保留
+5. `READ_TASK` 新增 `GET /agent/projects/{pid}/tasks/` 实际端点。✅
+6. `add_stage` 锁 Plan 行 + 唯一约束转 400。✅
 
 ## TD-12 · 桌面产物与源码漂移（交付纪律）
 
 `dist/MiniPlane/MiniPlane.exe` 曾是 2026-10-17 的 V2 双窗壳层，而 `dist/MiniPlane/app` 已是新前端。
-已在 2026-10-26 稳定化批次重建：`package.py` → `build.py --portable`（exe 09:00 后时间戳），
-并用 `MINIPLANE_NO_WINDOW=1 MiniPlane.exe` 完成 SQLite 栈自检（ready + services stopped）。
+Phase 8 已再次重建：`scripts/package.py` → `dist/mini-plane-1.0.0-local-20261028-010626`；
+`desktop/build.py --portable` → `dist/MiniPlane/MiniPlane.exe`（旧 backend 备份为 `backend.old-1028-0110`），
+并用 `MINIPLANE_NO_WINDOW=1 MiniPlane.exe` 完成 SQLite 栈自检
+（`[selftest] stack ready …` + `services stopped`）。
 纪律不变：**改前端后必须 `python scripts/package.py` + `desktop/build.py --portable`**。

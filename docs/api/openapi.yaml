@@ -84,6 +84,31 @@ paths:
                 items:
                   $ref: '#/components/schemas/AgentSession'
           description: ''
+  /api/v1/agent/projects/{project_id}/tasks/:
+    get:
+      operationId: agent_task_list_canonical
+      description: 让 READ_TASK scope 有实际端点；只读，不扩大写权限。
+      summary: agent.tasks：工程任务列表（规范路由，READ_TASK）
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - agentTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Issue'
+          description: ''
   /api/v1/agent/projects/{workspace_slug}/{project_id}/:
     get:
       operationId: v1_agent_projects_retrieve
@@ -686,7 +711,8 @@ paths:
     get:
       operationId: v1_projects_list
       description: 个人优先（ADR-001）：GET 默认返回我拥有的工程（scope=owned，含已共享到团队的）；scope=accessible
-        返回我可访问的全部（含他人拥有的团队工程）。POST 默认创建私人工程（不需要 workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。
+        返回我可访问的全部（含他人拥有的团队工程）。?workspace=<slug> 只返回该团队的工程（需求该团队成员，非成员 404）。POST 默认创建私人工程（不需要
+        workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。
       summary: 工程列表 / 创建（规范路由）
       tags:
       - v1
@@ -710,7 +736,8 @@ paths:
     post:
       operationId: v1_projects_create
       description: 个人优先（ADR-001）：GET 默认返回我拥有的工程（scope=owned，含已共享到团队的）；scope=accessible
-        返回我可访问的全部（含他人拥有的团队工程）。POST 默认创建私人工程（不需要 workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。
+        返回我可访问的全部（含他人拥有的团队工程）。?workspace=<slug> 只返回该团队的工程（需求该团队成员，非成员 404）。POST 默认创建私人工程（不需要
+        workspace）；传 workspace_id 则创建该团队的工程（需成员权限）。
       summary: 工程列表 / 创建（规范路由）
       tags:
       - v1
@@ -855,6 +882,29 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ActivityLog'
+          description: ''
+  /api/v1/projects/{project_id}/detach/:
+    post:
+      operationId: v1_projects_detach_create
+      description: 仅工程 owner 可发起；脱离后清除 ProjectMember，工程变为私人工程。
+      summary: 把团队工程脱离协作
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
           description: ''
   /api/v1/projects/{project_id}/jobruns/{jobrun_id}/:
     get:
@@ -1282,6 +1332,41 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/projects/{project_id}/share/:
+    post:
+      operationId: v1_projects_share_create
+      description: 仅工程 owner 可发起；目标工作区成员身份需为 Member+。显式确认后才会改变协作边界。
+      summary: 把私人工程共享到团队
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectShare'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectShare'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectShare'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
   /api/v1/projects/{project_id}/states/:
     get:
       operationId: v1_projects_states_list
@@ -1852,6 +1937,29 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProjectEngineering'
+          description: ''
+  /api/v1/tasks/mine/:
+    get:
+      operationId: v1_tasks_mine_list
+      description: |-
+        跨用户可访问的工程，聚合「指派给我 / 我创建的」Task。
+
+        `scope`：`assigned`（指派给我）| `created`（我创建）| `all`（默认，二者并集）。
+        可见性沿用 `accessible_project_ids`（owner / ProjectMember / WS 成员），与单项目读取同一套规则；
+        排序按创建时间倒序，分页沿用 StandardPagination。
+      summary: 我的工作（跨项目聚合）
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyIssue'
           description: ''
   /api/v1/workspaces/:
     get:
@@ -3832,6 +3940,8 @@ components:
           maxLength: 120
         summary:
           type: string
+        details:
+          type: string
         conclusion:
           type: string
         next_step:
@@ -3921,6 +4031,7 @@ components:
       - project
       - workspace
       - member
+      - worklog
       type: string
       description: |-
         * `issue` - 任务
@@ -3930,6 +4041,7 @@ components:
         * `project` - 项目
         * `workspace` - 工作区
         * `member` - 成员
+        * `worklog` - 工程日志
     GroupEnum:
       enum:
       - backlog
@@ -4686,6 +4798,16 @@ components:
       - progress
       - stages
       - title
+    ProjectShare:
+      type: object
+      description: 把私人工程显式加入一个团队工作区。
+      properties:
+        workspace_id:
+          type: string
+          format: uuid
+          description: 目标工作区 id；必须是当前用户的 Member+ 工作区
+      required:
+      - workspace_id
     ProjectStage:
       type: object
       description: Global Plan 的单个阶段（只读响应体）。

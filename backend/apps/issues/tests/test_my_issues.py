@@ -5,7 +5,7 @@ from rest_framework import status
 from apps.issues import services
 from apps.issues.tests.base import IssueAPITestCase
 
-MINE_URL = "/api/v1/issues/mine/"
+MINE_URL = "/api/v1/tasks/mine/"
 
 
 class MyIssuesTests(IssueAPITestCase):
