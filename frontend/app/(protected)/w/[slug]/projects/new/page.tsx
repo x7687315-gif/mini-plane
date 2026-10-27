@@ -60,8 +60,9 @@ export default function NewProjectPage() {
         name: values.name,
         identifier: values.identifier.toUpperCase(),
         description: values.description || undefined,
+        workspace_id: ws.data?.id,
       });
-      router.replace(`/w/${slug}/projects/${project.id}`);
+      router.replace(`/projects/${project.id}`);
     } catch (e) {
       if (e instanceof ApiError) {
         const flat = flattenErrors(e.body);

@@ -115,5 +115,5 @@ def invalidate_workspace(workspace) -> int:
 
     project_ids = list(Project.objects.filter(workspace=workspace).values_list("id", flat=True))
     for project_id in project_ids:
-        invalidate(project_id, workspace_slug=workspace.slug)
+        invalidate_all_scopes(project_id, workspace_slug=workspace.slug)
     return len(project_ids)

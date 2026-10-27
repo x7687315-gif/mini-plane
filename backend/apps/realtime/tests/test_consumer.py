@@ -1,5 +1,6 @@
 """消费者测试：握手鉴权、消息协议、组广播（契约 docs/api/08-realtime.md）。"""
 
+from asgiref.sync import sync_to_async
 from channels.layers import get_channel_layer
 from django.contrib.auth.models import AnonymousUser
 
@@ -145,3 +146,25 @@ class ProjectConsumerTests(RealtimeTestCase):
 
         await first.disconnect()
         await second.disconnect()
+
+    async def test_membership_change_closes_open_project_socket(self):
+        """成员被移出工作区后，已打开的项目 WS 必须立即关闭（不能等重连）。"""
+        from apps.workspaces.models import WorkspaceMember
+        from apps.workspaces.services import remove_member
+
+        communicator, connected, _ = await self._connect(self.member)
+        self.assertTrue(connected)
+        await communicator.receive_json_from()  # connected ack
+
+        membership = await sync_to_async(WorkspaceMember.objects.get)(
+            workspace=self.workspace, user=self.member
+        )
+        await sync_to_async(remove_member)(self.workspace, membership)
+
+        frame = await communicator.receive_json_from(timeout=CONNECT_TIMEOUT)
+        self.assertEqual(frame["event"], "membership.changed")
+        self.assertEqual(frame["payload"]["project_id"], str(self.project.id))
+
+        closed = await communicator.receive_output(timeout=CONNECT_TIMEOUT)
+        self.assertEqual(closed["type"], "websocket.close")
+        self.assertEqual(closed["code"], CLOSE_NOT_FOUND)

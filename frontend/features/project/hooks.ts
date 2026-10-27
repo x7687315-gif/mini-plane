@@ -3,21 +3,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectKeys } from "@/lib/queryKeys";
 import type {
-  AddProjectMemberPayload,
   CreateProjectPayload,
   StagePayload,
   UpdateProjectPayload,
   WorklogPayload,
 } from "@/types/project";
-import type { UpdateMemberRolePayload } from "@/types/workspace";
 import {
-  addProjectMember,
   addStage,
   createPersonalProject,
   createProject,
   createWorklog,
   deleteProject,
   deleteWorklog,
+  detachProject,
   getPlan,
   getProject,
   listProjectMembers,
@@ -25,9 +23,8 @@ import {
   listMyProjects,
   listStates,
   listWorklogs,
-  removeProjectMember,
+  shareProject,
   updateProject,
-  updateProjectMemberRole,
   updateStage,
 } from "./api";
 
@@ -192,36 +189,26 @@ export function useDeleteProject(slug: string) {
   });
 }
 
-export function useAddProjectMember(slug: string, projectId: string) {
+export function useShareProject(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: AddProjectMemberPayload) =>
-      addProjectMember(slug, projectId, payload),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: projectKeys.members(projectId) }),
+    mutationFn: (workspaceId: string) => shareProject(projectId, workspaceId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      qc.invalidateQueries({ queryKey: projectKeys.all });
+    },
   });
 }
 
-export function useUpdateProjectMemberRole(slug: string, projectId: string) {
+export function useDetachProject(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      memberId,
-      payload,
-    }: {
-      memberId: string;
-      payload: UpdateMemberRolePayload;
-    }) => updateProjectMemberRole(slug, projectId, memberId, payload),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: projectKeys.members(projectId) }),
-  });
-}
-
-export function useRemoveProjectMember(slug: string, projectId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (memberId: string) => removeProjectMember(slug, projectId, memberId),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: projectKeys.members(projectId) }),
+    mutationFn: () => detachProject(projectId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      qc.invalidateQueries({ queryKey: projectKeys.mine() });
+      qc.invalidateQueries({ queryKey: projectKeys.all });
+    },
   });
 }

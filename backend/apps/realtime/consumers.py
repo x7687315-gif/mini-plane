@@ -45,8 +45,14 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
             await self.reject_with(CLOSE_NOT_FOUND)
             return
 
+        self.project_id = project_id
+        self.workspace_slug = workspace_slug
+        self.user_id = str(user.id)
         self.group_name = project_group(project_id)
         await self.channel_layer.group_add(self.group_name, self.channel_name)
+        # 项目级连接也必须接收成员/角色变化：否则被移出的人会继续收到项目事件，
+        # 直到主动断线（Overview 已收敛但 ProjectConsumer 仍是旧权限）。
+        await self.channel_layer.group_add(permission_group(self.user_id), self.channel_name)
         await self.accept()
         await self.send_json(
             {"event": "connected", "payload": {"project_id": project_id, "role": role}}
@@ -75,6 +81,30 @@ class ProjectConsumer(AsyncJsonWebsocketConsumer):
         group_name = getattr(self, "group_name", None)
         if group_name is not None:
             await self.channel_layer.group_discard(group_name, self.channel_name)
+        user_id = getattr(self, "user_id", None)
+        if user_id is not None:
+            await self.channel_layer.group_discard(permission_group(user_id), self.channel_name)
+
+    async def membership_changed(self, message):
+        """成员/角色变化 → 重查生效角色；失权立即关闭项目连接。"""
+        role = await self._effective_role(
+            getattr(self, "workspace_slug", None), getattr(self, "project_id", None)
+        )
+        if role is None:
+            await self.send_json(
+                {
+                    "event": "membership.changed",
+                    "payload": {"project_id": getattr(self, "project_id", None)},
+                }
+            )
+            await self.close(code=CLOSE_NOT_FOUND)
+            return
+        await self.send_json(
+            {
+                "event": "membership.changed",
+                "payload": {"project_id": getattr(self, "project_id", None), "role": role},
+            }
+        )
 
     async def receive_json(self, content, **kwargs):
         """客户端输入面刻意收窄：只有 ping（心跳），其它一律回 error 帧。"""

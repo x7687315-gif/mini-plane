@@ -45,6 +45,7 @@ export default function WorkspaceSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [serverFields, setServerFields] = useState<Record<string, string>>({});
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const admin = isAdmin(ws.data?.current_role);
 
@@ -161,14 +162,17 @@ export default function WorkspaceSettingsPage() {
             Danger zone
           </h2>
           <p className="text-[12px] text-[color:var(--color-ink-2)] mb-4">
-            删除该工作区会<b>级联</b>影响其中所有项目、成员、状态与任务。
-            没有软删除，也无法撤销（BACKEND_PLAN §D7）。
+            工作区里仍有工程时，删除会被拒绝——工程是个人/团队资产，不会被级联清空。
+            请先删除工程，或把工程「脱离协作」转为私人工程，再删除工作区。
           </p>
           <Button
             variant="secondary"
             size="sm"
             className="border-[color:var(--color-urgent)] text-[color:var(--color-urgent)]"
-            onClick={() => setDeleteOpen(true)}
+            onClick={() => {
+              setDeleteError(null);
+              setDeleteOpen(true);
+            }}
           >
             delete this workspace
           </Button>
@@ -182,12 +186,18 @@ export default function WorkspaceSettingsPage() {
           open
           onClose={() => setDeleteOpen(false)}
           slug={slug}
+          error={deleteError}
           onConfirm={async () => {
+            setDeleteError(null);
             try {
               await deleteMutation.mutateAsync(slug);
               router.replace("/");
-            } catch {
-              setDeleteOpen(false);
+            } catch (e) {
+              setDeleteError(
+                e instanceof ApiError
+                  ? (flattenErrors(e.body).form ?? `删除失败（HTTP ${e.status}）`)
+                  : "网络异常，请稍后重试。",
+              );
             }
           }}
           pending={deleteMutation.isPending}
@@ -201,12 +211,14 @@ function DeleteWorkspaceModal({
   open,
   onClose,
   slug,
+  error,
   onConfirm,
   pending,
 }: {
   open: boolean;
   onClose: () => void;
   slug: string;
+  error: string | null;
   onConfirm: () => void;
   pending: boolean;
 }) {
@@ -249,6 +261,11 @@ function DeleteWorkspaceModal({
         autoFocus
         className="font-mono"
       />
+      {error && (
+        <p className="mt-3 text-[11.5px] text-[color:var(--color-urgent)]" role="alert">
+          {error}
+        </p>
+      )}
     </Modal>
   );
 }
