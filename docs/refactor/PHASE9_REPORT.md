@@ -17,7 +17,7 @@
   Session/幂等唯一约束、Worklog 改删权限同步。
 - 使用指南 [`docs/使用指南.md`](../使用指南.md)：个人工程无需 Workspace、显式共享/脱离、
   生效角色说明、个人工程不展示负责人。
-- README / HANDOVER 更新门禁数字（406 / 172 / 40）与 Phase 6–9 状态。
+- README / HANDOVER 更新门禁数字（406 / 172 / 39 + setup 40）与 Phase 6–9 状态。
 
 ## 2. 兼容路由状态（明确保留，不盲删）
 
@@ -51,7 +51,7 @@ Phase 9 的结论不是“所有旧路径已删除”，而是**有证据的退�
 | 前端 typecheck / lint | 通过 |
 | 前端单测 | **172 pass / 0 fail** |
 | 前端生产构建 | 通过 |
-| Playwright 全量 | **40/40 pass**（真实 Postgres + 后端 + Next dev） |
+| Playwright 全量 | **40/40 pass（含 setup；业务 39）**（真实 Postgres + 后端 + Next dev） |
 | 桌面 SQLite 自检 | `stack ready` + `services stopped` |
 | 桌面包 | `dist/MiniPlane/MiniPlane.exe` + app/backend，源包 `20261028-010626` |
 
@@ -68,7 +68,7 @@ E2E 期间修正了两类**真实回归**：
 - 核心 API 不把 Workspace 当 Project 必需上下文：✅ 规范路由只凭 `project_id`。
 - 规范 API/OpenAPI/前端类型/文档一致：✅ schema 校验 + 快照 diff 通过。
 - 旧数据迁移无丢失：✅ Phase 2 迁移 + 本轮 Activity/SET_NULL、Session/幂等迁移；SQLite/Postgres 均有测试。
-- Agent 权限/幂等/Realtime/桌面仍通过：✅ scope、409、撤权、E2E 40、桌面自检。
+- Agent 权限/幂等/Realtime/桌面仍通过：✅ scope、409、撤权、E2E 39（+setup 40）、桌面自检。
 - 所有测试结果如实记录：✅ 见上表。
 - 文档冲突收敛：✅ 03–07 已标历史；10 号为路径事实源；README/HANDOVER 数字更新。
 

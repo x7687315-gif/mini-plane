@@ -13,7 +13,7 @@
 
 <p align="center">
   <b>Python 3.12</b> · <b>Django 5.2 LTS</b> · <b>Next.js 16</b> · <b>React 19</b> · <b>TypeScript</b> · <b>Tailwind v4</b> · <b>Channels/WebSocket</b> · <b>pywebview</b><br>
-  <b>后端 406</b> 用例 · <b>前端 172</b> 单测 · <b>40</b> 个浏览器 E2E · <b>CI 三 job</b>
+  <b>后端 406</b> 用例 · <b>前端 172</b> 单测 · <b>39</b> 个浏览器 E2E（+setup 40）· <b>CI 三 job</b>
 </p>
 
 ---
@@ -366,13 +366,13 @@ mini-plane/
 |------|------|------|
 | 后端 | **406** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
 | 前端单测 | **172** | `cd frontend && pnpm test`（`node --test`，零依赖） |
-| 浏览器 E2E | **40** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
+| 浏览器 E2E | **39**（+setup 40） | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，三个 job 全绿才可合并）：
 
 - **backend**：`ruff check` / `ruff format --check`（覆盖 `backend/`、`desktop/`、`scripts/`）→ desktop 状态机单测 → `makemigrations --check` → `spectacular --validate --fail-on-warn` → 与 `docs/api/openapi.yaml` 快照 diff → 全量测试 → Redis 缓存后端实测
 - **frontend**：`pnpm install --frozen-lockfile` → `lint` → `typecheck` → `test` → `build` → 断言 standalone 产物存在
-- **e2e**：起 Postgres + 真实后端 + Next dev，安装 Chromium，跑完整 40 条 Playwright（不 mock 后端）
+- **e2e**：起 Postgres + 真实后端 + Next dev，安装 Chromium，跑完整 39 条业务 Playwright + setup（共 40，不 mock 后端）
 
 > 设计原则：**先跑最便宜最能拦的**（lint / 类型 / 迁移漂移 / schema diff），最后才跑慢的（测试 / build）。
 > 单测刻意只覆盖"算错了但界面看着还挺正常"的地方（进度量纲、翻页边界、计时进位、脏数据、URL 形态）。

@@ -45,7 +45,7 @@ Island 仍然：
 |---|---|
 | 前端 typecheck / lint / build | 通过 |
 | 前端单测 | 172 pass |
-| Playwright 全量 | **40/40 pass**（含 Island、Agent→Island 实时闭环、实时撤权、Anatomy V2） |
+| Playwright 全量 | **40/40 pass（含 setup；业务 39）**（含 Island、Agent→Island 实时闭环、实时撤权、Anatomy V2） |
 | 桌面 SQLite 自检 | ready + services stopped |
 | 后端 | 406 pass（Phase 7 结果，Phase 8 未改后端） |
 
