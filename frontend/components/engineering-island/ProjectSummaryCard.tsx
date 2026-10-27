@@ -4,11 +4,11 @@
  * 每张卡片必须回答：Progress / Stage / NOW / STEP / HOW / NEXT / DONE，外加 AGENT 状态。
  *
  * 两条红线（规格 §2，改动前请先读）：
- * 1. **STEP / HOW 只能来自 Agent 上报**（阶段 3 的 `AgentSession.current_step` /
- *    `method_summary`）。本阶段后端还没这些字段，所以恒定显示约定文案
+ * 1. **STEP / HOW 只能来自 Agent 上报**（`AgentSession.current_step` /
+ *    `method_summary`，经 `/projects/mine/` 投影）。没有上报就显示约定文案
  *    `EMPTY_STEP` / `EMPTY_HOW` —— 不用任务描述冒充，不猜。
- * 2. **Task 与 Worklog 语义不合并**：DONE 有标题清单时用清单（阶段 3 的 `recent_done`），
- *    本阶段回退为「已完成 N 项」计数（`done_tasks` 是真实统计，不是推测），
+ * 2. **Task 与 Worklog 语义不合并**：DONE 有标题清单时用清单（`recent_done`），
+ *    没有标题才回退「已完成 N 项」计数（`done_tasks` 是真实统计，不是推测），
  *    两者都没有才显示 `EMPTY_DONE`。**不许**用今日日志结论冒充已完成任务。
  *
  * 视觉：这是 Island 专属例外区域（DESIGN.md §3.3）—— 卡片 12–16px 圆角 + 单层淡阴影，
@@ -45,15 +45,18 @@ export function ProjectSummaryCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const percent = progressPercent(project.progress);
-  const done = doneSummary(project.done_tasks);
+  const done = doneSummary(project.done_tasks, project.recent_done);
   const stage = project.current_stage?.trim() || EMPTY_STAGE;
   const now = project.now_task?.trim() || null;
   const next = project.next_task?.trim() || null;
 
-  // 本阶段 STEP / HOW 恒为占位（后端字段在阶段 3 落地）。
-  // 留成显式常量而不是写死字符串：阶段 3 接入时只改这两行，E2E 的断言也已共享同一常量。
-  const step: string | null = null;
-  const how: string | null = null;
+  // STEP / HOW 只来自运行中 Agent 会话的真实上报；没有就是约定文案，不拿任务描述冒充。
+  const step = project.agent_step?.trim() || null;
+  const how = project.agent_method?.trim() || null;
+  const stepIndex =
+    project.agent_step_index != null && project.agent_step_total != null
+      ? `${project.agent_step_index}/${project.agent_step_total}`
+      : null;
 
   return (
     <article
@@ -97,7 +100,20 @@ export function ProjectSummaryCard({
         </Row>
 
         <Row label="STEP">
-          <span className="text-[color:var(--color-ink-2)]">{step ?? EMPTY_STEP}</span>
+          <span className="text-[color:var(--color-ink-2)]">
+            {step ? (
+              <>
+                {step}
+                {stepIndex && (
+                  <span className="ml-2 font-mono text-[11px] text-[color:var(--color-ink-3)]">
+                    {stepIndex}
+                  </span>
+                )}
+              </>
+            ) : (
+              EMPTY_STEP
+            )}
+          </span>
           {step ? null : (
             <span className="ml-2 text-[11px] text-[color:var(--color-ink-3)]">
               （Agent 上报后显示）
@@ -133,9 +149,7 @@ export function ProjectSummaryCard({
               ))}
             </ul>
           ) : done.kind === "count" ? (
-            <span className="text-[color:var(--color-ink-2)]">
-              已完成 {done.count} 项（明细在阶段 3 接入）
-            </span>
+            <span className="text-[color:var(--color-ink-2)]">已完成 {done.count} 项</span>
           ) : (
             <span className="text-[color:var(--color-ink-3)]">{EMPTY_DONE}</span>
           )}
