@@ -119,7 +119,7 @@ export default function WorkspacePage() {
         {recent.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {recent.map((p) => (
-              <Link key={p.id} href={`/w/${slug}/projects/${p.id}`} className="block group">
+              <Link key={p.id} href={`/projects/${p.id}`} className="block group">
                 <div className="relative border border-[color:var(--color-rule)] p-4 h-full group-hover:border-[color:var(--color-ink-2)] transition-colors">
                   <span
                     className="absolute left-0 top-0 bottom-0 w-[2px] bg-transparent group-hover:bg-[color:var(--color-accent)] transition-colors"

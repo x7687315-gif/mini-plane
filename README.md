@@ -13,7 +13,7 @@
 
 <p align="center">
   <b>Python 3.12</b> · <b>Django 5.2 LTS</b> · <b>Next.js 16</b> · <b>React 19</b> · <b>TypeScript</b> · <b>Tailwind v4</b> · <b>Channels/WebSocket</b> · <b>pywebview</b><br>
-  <b>后端 387</b> 用例 · <b>前端 169</b> 单测 · <b>39</b> 个浏览器 E2E · <b>CI 三 job</b>
+  <b>后端 406</b> 用例 · <b>前端 172</b> 单测 · <b>39</b> 个浏览器 E2E（+setup 40）· <b>CI 三 job</b>
 </p>
 
 ---
@@ -364,15 +364,15 @@ mini-plane/
 
 | 类别 | 数量 | 命令 |
 |------|------|------|
-| 后端 | **387** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
-| 前端单测 | **169** | `cd frontend && pnpm test`（`node --test`，零依赖） |
-| 浏览器 E2E | **39** | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
+| 后端 | **406** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
+| 前端单测 | **172** | `cd frontend && pnpm test`（`node --test`，零依赖） |
+| 浏览器 E2E | **39**（+setup 40） | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 
 CI（`.github/workflows/ci.yml`，三个 job 全绿才可合并）：
 
 - **backend**：`ruff check` / `ruff format --check`（覆盖 `backend/`、`desktop/`、`scripts/`）→ desktop 状态机单测 → `makemigrations --check` → `spectacular --validate --fail-on-warn` → 与 `docs/api/openapi.yaml` 快照 diff → 全量测试 → Redis 缓存后端实测
 - **frontend**：`pnpm install --frozen-lockfile` → `lint` → `typecheck` → `test` → `build` → 断言 standalone 产物存在
-- **e2e**：起 Postgres + 真实后端 + Next dev，安装 Chromium，跑完整 39 条 Playwright（不 mock 后端）
+- **e2e**：起 Postgres + 真实后端 + Next dev，安装 Chromium，跑完整 39 条业务 Playwright + setup（共 40，不 mock 后端）
 
 > 设计原则：**先跑最便宜最能拦的**（lint / 类型 / 迁移漂移 / schema diff），最后才跑慢的（测试 / build）。
 > 单测刻意只覆盖"算错了但界面看着还挺正常"的地方（进度量纲、翻页边界、计时进位、脏数据、URL 形态）。
@@ -411,7 +411,11 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
       Island V3 单窗两态（壳层）            ✅ 2026-10-21
       Phase 5.5 稳定化（回归/E2E/安全）      ✅ 2026-10-25
       Anatomy V2 Phase 0–5（对象/空间交互）  ✅ 2026-10-26
-      ── 下一周期：Phase 6–9 重构收尾 + Blueprint Dock + Anatomy 后续演进
+      Phase 6 团队模式降级与兼容              ✅ 2026-10-28
+      Phase 7 Agent API / Realtime 收敛        ✅ 2026-10-28
+      Phase 8 Island 数据对齐 + 桌面验收       ✅ 2026-10-28
+      Phase 9 文档/兼容状态/发布门禁           ✅ 2026-10-28
+      ── 下一周期：Blueprint Dock + Anatomy 后续演进
       ── 可选：组件测试（Vitest）· Lighthouse 90 · Markdown → Worklog 导入
          Blocker 独立实体 · MCP 包装层 · 任务截止日期与逾期
 ```
@@ -425,7 +429,7 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
 | 你想知道 | 看这里 |
 |---------|--------|
 | **产品原则**（唯一事实源） | [`docs/PRODUCT_PRINCIPLES.md`](docs/PRODUCT_PRINCIPLES.md) · 领域模型 [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md) |
-| **个人优先重构**（Phase 0–5 + 稳定化已完成，Phase 6–9 待排期） | [`docs/refactor/`](docs/refactor/) · 决策记录 [`docs/decisions/`](docs/decisions/) |
+| **个人优先重构**（Phase 0–9 已完成） | [`docs/refactor/`](docs/refactor/) · Phase 6–9 报告 [`PHASE6_REPORT.md`](docs/refactor/PHASE6_REPORT.md) … [`PHASE9_REPORT.md`](docs/refactor/PHASE9_REPORT.md) · 决策记录 [`docs/decisions/`](docs/decisions/) |
 | **项目解剖图 V2**（Phase 0–5 完成：React SVG 对象 / 空间交互 / 演进痕迹 / 记录浏览 / 性能基线） | [`docs/refactor/ui-design/anatomy/v2/README.md`](docs/refactor/ui-design/anatomy/v2/README.md) |
 | 原始计划 / 设计输入（只作溯源，非事实源） | [`docs/refactor/inputs/`](docs/refactor/inputs/) |
 | 产品重构计划（历史档案，Sprint 09–17 已完成） | [`docs/PRODUCT_REFACTOR_PLAN.md`](docs/PRODUCT_REFACTOR_PLAN.md) |

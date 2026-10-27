@@ -10,9 +10,11 @@ import { apiClient, expectWriteOk } from "./helpers";
  */
 
 async function createProject(api: Awaited<ReturnType<typeof apiClient>>, suffix: string) {
+  // 每轮唯一：私人工程的 identifier 只按 owner 唯一，固定值会在重复跑时撞 400。
+  const token = Math.random().toString(36).slice(2, 5).toUpperCase().padEnd(3, "X");
   const response = await api.write("POST", "/api/v1/projects/", {
-    name: `Anatomy V2 E2E ${suffix}`,
-    identifier: `AN${suffix.slice(0, 3).toUpperCase()}`,
+    name: `Anatomy V2 E2E ${suffix} ${token}`,
+    identifier: `AN${token}`,
   });
   await expectWriteOk(response, "创建 Anatomy 测试工程");
   return response.json() as Promise<{ id: string; identifier: string }>;

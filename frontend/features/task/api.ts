@@ -17,14 +17,12 @@ import type { Paginated } from "@/types/project";
 import type { TaskRun } from "@/types/task";
 import type {
   CreateIssuePayload,
-  CreateLabelPayload,
   Issue,
   IssueListQuery,
   Label,
   MyIssue,
   MyIssuesScope,
   UpdateIssuePayload,
-  UpdateLabelPayload,
 } from "@/types/issue";
 import { serializeIssueQuery } from "@/types/issue";
 
@@ -39,12 +37,12 @@ function labelsBase(_slug: string, projectId: string): string {
 
 /* ---------------- issues ---------------- */
 
-/** GET /api/v1/issues/mine/ —— 跨项目聚合「指派给我 / 我创建的」（特色 B）。 */
+/** GET /api/v1/tasks/mine/ —— 跨项目聚合「指派给我 / 我创建的」（特色 B）。 */
 export async function listMyIssues(
   scope: MyIssuesScope = "all",
 ): Promise<Paginated<MyIssue>> {
   const qs = scope && scope !== "all" ? `?scope=${scope}` : "";
-  return api<Paginated<MyIssue>>(`/issues/mine${qs}`);
+  return api<Paginated<MyIssue>>(`/tasks/mine${qs}`);
 }
 
 export async function listIssues(
@@ -124,32 +122,4 @@ export async function listLabels(
   projectId: string,
 ): Promise<Paginated<Label>> {
   return api<Paginated<Label>>(labelsBase(slug, projectId));
-}
-
-export async function createLabel(
-  slug: string,
-  projectId: string,
-  payload: CreateLabelPayload,
-): Promise<Label> {
-  return api<Label>(labelsBase(slug, projectId), { method: "POST", json: payload });
-}
-
-export async function updateLabel(
-  slug: string,
-  projectId: string,
-  labelId: string,
-  payload: UpdateLabelPayload,
-): Promise<Label> {
-  return api<Label>(`${labelsBase(slug, projectId)}/${labelId}`, {
-    method: "PATCH",
-    json: payload,
-  });
-}
-
-export async function deleteLabel(
-  slug: string,
-  projectId: string,
-  labelId: string,
-): Promise<void> {
-  return api<void>(`${labelsBase(slug, projectId)}/${labelId}`, { method: "DELETE" });
 }

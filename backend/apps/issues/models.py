@@ -171,6 +171,9 @@ class Issue(BaseModel):
             models.Index(fields=["project", "-created_at", "-sequence_id"]),
             models.Index(fields=["project", "state"]),
             models.Index(fields=["project", "priority"]),
+            # TD-11：按 assignee / created_by 过滤与审计查询的高频路径
+            models.Index(fields=["assignee", "project"]),
+            models.Index(fields=["created_by", "project"]),
         ]
         ordering = ["-sequence_id"]
 

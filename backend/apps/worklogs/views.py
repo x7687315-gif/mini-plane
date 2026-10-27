@@ -15,19 +15,12 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.projects.models import ProjectRoles, ProjectStage
-from apps.worklogs.models import Worklog
+from apps.projects.models import ProjectRoles
+from apps.worklogs import services
 from apps.worklogs.serializers import WorklogSerializer, WorklogWriteSerializer
 from core.pagination import StandardPagination
 from core.permissions import require_role as _require_role
 from core.permissions import resolve_project, resolve_project_by_id
-
-
-def _resolve_stage(project, stage_id):
-    """stage 必须属于该工程；属于别的工程 → 404（防跨项目越权/枚举）。"""
-    if stage_id is None:
-        return None
-    return get_object_or_404(ProjectStage, id=stage_id, plan__project=project)
 
 
 def _worklog_list_create_impl(request, project, role):
@@ -51,43 +44,23 @@ def _worklog_list_create_impl(request, project, role):
     _require_role(role, ProjectRoles.MEMBER)
     serializer = WorklogWriteSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    v = serializer.validated_data
-    stage = _resolve_stage(project, v.get("stage_id"))
-    worklog = Worklog.objects.create(
-        project=project,
-        author=request.user,
-        stage=stage,
-        date=v.get("date") or timezone.localdate(),
-        title=v["title"],
-        summary=v["summary"],
-        details=v.get("details", ""),
-        conclusion=v.get("conclusion", ""),
-        next_step=v.get("next_step", ""),
-        blocker=v.get("blocker", ""),
-        source=v.get("source", "manual"),
-    )
+    worklog = services.create_worklog(project, request.user, **serializer.validated_data)
     return Response(WorklogSerializer(worklog).data, status=status.HTTP_201_CREATED)
 
 
 def _worklog_detail_impl(request, project, role, worklog_id):
     _require_role(role, ProjectRoles.MEMBER)
-    worklog = get_object_or_404(project.worklogs, id=worklog_id)
+    worklog = get_object_or_404(project.worklogs.select_related("author", "stage"), id=worklog_id)
 
     if request.method == "DELETE":
-        worklog.delete()
+        services.delete_worklog(worklog, actor=request.user, role=role)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     serializer = WorklogWriteSerializer(data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
-    v = serializer.validated_data
-    if "stage_id" in v:
-        worklog.stage = _resolve_stage(project, v.get("stage_id"))
-    for field in ("title", "summary", "details", "conclusion", "next_step", "blocker", "source"):
-        if field in v:
-            setattr(worklog, field, v[field])
-    if v.get("date"):
-        worklog.date = v["date"]
-    worklog.save()
+    worklog = services.update_worklog(
+        worklog, actor=request.user, role=role, **serializer.validated_data
+    )
     return Response(WorklogSerializer(worklog).data)
 
 

@@ -84,6 +84,12 @@ class ProjectMemberRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=ProjectRoles.choices)
 
 
+class ProjectShareSerializer(serializers.Serializer):
+    """把私人工程显式加入一个团队工作区。"""
+
+    workspace_id = serializers.UUIDField(help_text="目标工作区 id；必须是当前用户的 Member+ 工作区")
+
+
 class StateSerializer(serializers.ModelSerializer):
     """状态只读响应体（预置五态）。"""
 

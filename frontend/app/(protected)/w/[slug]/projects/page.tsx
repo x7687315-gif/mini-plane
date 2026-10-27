@@ -91,7 +91,7 @@ export default function ProjectsPage() {
           {list.map((p) => (
             <Link
               key={p.id}
-              href={`/w/${slug}/projects/${p.id}`}
+              href={`/projects/${p.id}`}
               className="grid grid-cols-[80px_1fr_120px_100px_40px] gap-4 py-3 px-2 items-center border-b border-dashed border-[color:var(--color-rule)] hover:bg-[rgba(31,63,168,0.035)] transition-colors group"
             >
               <span className="font-serif italic text-[15px] text-[color:var(--color-accent)] tracking-[0.04em]">

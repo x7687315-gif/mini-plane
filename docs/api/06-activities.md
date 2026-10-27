@@ -1,5 +1,9 @@
 # 06 · Activity（活动流）契约
 
+> **历史兼容文档（2026-10-28）**：规范路径见
+> [`10-canonical-projects.md`](10-canonical-projects.md) 的 `/api/v1/projects/{pid}/activities/…`；
+> 本文的 `/issues/` 路径仅作 deprecated 适配器。文案映射与 diff 规则仍有效。
+>
 > 状态：**已冻结**（前端 Sprint 4 已按本契约实现并确认，2026-09-17）
 > 公共约定见 [00-conventions.md](00-conventions.md)。
 > 计划依据：[BACKEND_PLAN.md](../../BACKEND_PLAN.md) §Sprint 4、§7.7。

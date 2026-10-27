@@ -41,6 +41,7 @@ from apps.projects.serializers import (
     ProjectMemberSerializer,
     ProjectPlanSerializer,
     ProjectSerializer,
+    ProjectShareSerializer,
     ProjectStageSerializer,
     ProjectStageWriteSerializer,
     ProjectWriteSerializer,
@@ -51,6 +52,7 @@ from apps.workspaces.models import WorkspaceRoles
 from core.pagination import StandardPagination
 from core.permissions import (
     accessible_project_ids,
+    effective_roles_for_projects,
     get_effective_project_role_by_ids,
     resolve_project,
     resolve_project_by_id,
@@ -102,29 +104,16 @@ def _project_list_response(
     paginator = StandardPagination()
     page = paginator.paginate_queryset(queryset.order_by("-created_at"), request)
 
-    member_roles = dict(
-        ProjectMember.objects.filter(user=request.user, project__in=page).values_list(
-            "project_id", "role"
-        )
-    )
     roles_by_workspace = dict(workspace_roles or {})
     if workspace is not None and workspace_role is not None:
         roles_by_workspace[workspace.id] = workspace_role
+    roles = effective_roles_for_projects(request.user, page, roles_by_workspace)
 
     data = []
     for project in page:
-        if request.user.id == project.owner_id:
-            role = ProjectRoles.ADMIN
-        else:
-            role = member_roles.get(project.id)
-            if role is None:
-                if project.workspace_id is None:
-                    continue  # 私人工程非 owner 不会出现在查询集里；防御性跳过
-                role = (
-                    ProjectRoles.ADMIN
-                    if roles_by_workspace.get(project.workspace_id) == WorkspaceRoles.ADMIN
-                    else ProjectRoles.VIEWER
-                )
+        role = roles.get(project.id)
+        if role is None:
+            continue  # 防御性跳过：查询集与可见性规则不一致时宁缺毋滥
         data.append(ProjectSerializer(project, context={"role": role}).data)
     return paginator.get_paginated_response(data)
 
@@ -134,6 +123,7 @@ def _project_list_response(
     description=(
         "个人优先（ADR-001）：GET 默认返回我拥有的工程（scope=owned，含已共享到团队的）；"
         "scope=accessible 返回我可访问的全部（含他人拥有的团队工程）。"
+        "?workspace=<slug> 只返回该团队的工程（需求该团队成员，非成员 404）。"
         "POST 默认创建私人工程（不需要 workspace）；"
         "传 workspace_id 则创建该团队的工程（需成员权限）。"
     ),
@@ -146,7 +136,24 @@ def project_list_create_canonical(request):
     from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
 
     scope = request.query_params.get("scope", "owned")
-    if scope == "accessible":
+    workspace_ref = request.query_params.get("workspace")
+    if workspace_ref:
+        # 团队工程列表：Workspace 只提供筛选作用域，资源仍走统一 Project 查询。
+        # 非成员按防枚举语义 404，而不是返回空列表暴露工作区是否存在。
+        workspace = Workspace.objects.filter(slug=workspace_ref).first()
+        member_role = (
+            WorkspaceMember.objects.filter(workspace=workspace, user=request.user)
+            .values_list("role", flat=True)
+            .first()
+            if workspace is not None
+            else None
+        )
+        if workspace is None or member_role is None:
+            raise Http404
+        queryset = Project.objects.filter(workspace=workspace)
+        if scope == "owned":
+            queryset = queryset.filter(owner=request.user)
+    elif scope == "accessible":
         queryset = Project.objects.filter(id__in=accessible_project_ids(request.user))
     else:
         # owned：我拥有的（无论私人还是已共享团队）
@@ -221,10 +228,7 @@ def _project_detail_impl(request, project_id, resolve_fn, cache_scope_slug):
         return Response(ProjectSerializer(project, context={"role": role}).data)
 
     # 先失效再删：双路由两种缓存键同时作废（见 cache.invalidate_all_scopes）
-    project_cache.invalidate_all_scopes(
-        project.id, workspace_slug=project.workspace.slug if project.workspace_id else None
-    )
-    project.delete()  # 级联删除成员/状态/Task/Worklog/Plan
+    services.delete_project(project, actor=request.user)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -280,6 +284,45 @@ def project_detail(request, workspace_slug: str, project_id):
         return resolve_project(request.user, workspace_slug, project_id)
 
     return _project_detail_impl(request, project_id, resolver, workspace_slug)
+
+
+@extend_schema(
+    summary="把私人工程共享到团队",
+    description="仅工程 owner 可发起；目标工作区成员身份需为 Member+。显式确认后才会改变协作边界。",
+    request=ProjectShareSerializer,
+    responses={200: ProjectSerializer},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def project_share_canonical(request, project_id):
+    project, _role = resolve_project_by_id(request.user, project_id)
+    if project.owner_id != request.user.id:
+        raise PermissionDenied("只有工程所有者可以发起共享。")
+    serializer = ProjectShareSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    from apps.workspaces.models import Workspace
+
+    workspace = Workspace.objects.filter(id=serializer.validated_data["workspace_id"]).first()
+    if workspace is None:
+        raise ValidationError({"workspace_id": ["工作区不存在。"]})
+    project = services.share_project(project, workspace=workspace, actor=request.user)
+    return Response(ProjectSerializer(project, context={"role": ProjectRoles.ADMIN}).data)
+
+
+@extend_schema(
+    summary="把团队工程脱离协作",
+    description="仅工程 owner 可发起；脱离后清除 ProjectMember，工程变为私人工程。",
+    request=None,
+    responses={200: ProjectSerializer},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def project_detach_canonical(request, project_id):
+    project, _role = resolve_project_by_id(request.user, project_id)
+    if project.owner_id != request.user.id:
+        raise PermissionDenied("只有工程所有者可以脱离协作。")
+    project = services.detach_project(project, actor=request.user)
+    return Response(ProjectSerializer(project, context={"role": ProjectRoles.ADMIN}).data)
 
 
 def _project_member_rows(project):
@@ -692,7 +735,7 @@ def _stage_detail_impl(request, project, role, stage_id):
         stage = services.update_stage(stage, **serializer.validated_data)
         return Response(ProjectStageSerializer(stage).data)
 
-    stage.delete()
+    services.delete_stage(stage)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 

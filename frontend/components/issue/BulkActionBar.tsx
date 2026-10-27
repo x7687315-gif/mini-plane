@@ -45,6 +45,8 @@ export interface BulkActionBarProps {
   states: IssueState[];
   labels: Label[];
   members: ProjectMember[];
+  /** 个人工程不展示负责人选择（owner 是隐式成员，不是协作语义）。 */
+  showAssignee?: boolean;
   onClearSelection: () => void;
 }
 
@@ -56,6 +58,7 @@ export function BulkActionBar({
   states,
   labels,
   members,
+  showAssignee = true,
   onClearSelection,
 }: BulkActionBarProps) {
   const count = selectedIds.length;
@@ -293,17 +296,19 @@ export function BulkActionBar({
           onSelect={(v) => v && handleSetPriority(v as IssuePriority)}
         />
 
-        <EditableField
-          label="负责人"
-          className="w-[160px]"
-          value={null}
-          options={memberOptions}
-          clearable
-          clearLabel="unassign all"
-          disabled={busy}
-          placeholder="指派给…"
-          onSelect={(v) => handleSetAssignee(v)}
-        />
+        {showAssignee && (
+          <EditableField
+            label="负责人"
+            className="w-[160px]"
+            value={null}
+            options={memberOptions}
+            clearable
+            clearLabel="unassign all"
+            disabled={busy}
+            placeholder="指派给…"
+            onSelect={(v) => handleSetAssignee(v)}
+          />
+        )}
 
         {/* Labels are the one control that needs an explicit apply: the endpoint
             replaces the whole set, so firing per click would issue N partial batches. */}

@@ -22,6 +22,13 @@ urlpatterns = [
     path("mine/", views.my_projects_summary, name="projects-mine"),
     # 详情 / 修改 / 删除
     path("<uuid:project_id>/", views.project_detail_canonical, name="project-detail-canonical"),
+    # 显式协作边界变更（仅 owner）
+    path("<uuid:project_id>/share/", views.project_share_canonical, name="project-share-canonical"),
+    path(
+        "<uuid:project_id>/detach/",
+        views.project_detach_canonical,
+        name="project-detach-canonical",
+    ),
     # 项目成员（团队工程管理；私人工程返回 owner 隐式成员，供指派使用）
     path(
         "<uuid:project_id>/members/",

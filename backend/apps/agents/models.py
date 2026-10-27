@@ -9,14 +9,17 @@
 
 import hashlib
 import secrets
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from core.models import BaseModel
 
 TOKEN_PREFIX = "mpa_"  # Mini Plane Agent
+IDEMPOTENCY_TTL = timedelta(hours=24)
 
 
 class AgentScopes(models.TextChoices):
@@ -81,30 +84,43 @@ class AgentToken(BaseModel):
         return token, raw
 
     def touch(self) -> None:
-        AgentToken.objects.filter(pk=self.pk).update(last_used_at=timezone.now())
+        """节流更新最近使用时间：每 60 秒最多写一次，避免每个请求都写库。"""
+        now = timezone.now()
+        if self.last_used_at and (now - self.last_used_at).total_seconds() < 60:
+            return
+        AgentToken.objects.filter(pk=self.pk).update(last_used_at=now)
+        self.last_used_at = now
 
 
 class IdempotencyRecord(BaseModel):
-    """(token, key, action) 唯一：重复请求回放首次响应。"""
+    """(token, key) 唯一：重复请求回放首次响应；同键不同动作/请求体拒绝。
+
+    先插入 `status_code=0` 的占位记录再执行业务，保证并发请求不会都执行一次。
+    `expires_at` 到期后按不存在处理（惰性清理）。
+    """
 
     token = models.ForeignKey(
         AgentToken, verbose_name="令牌", on_delete=models.CASCADE, related_name="idempotency"
     )
     key = models.CharField("幂等键", max_length=120)
     action = models.CharField("动作", max_length=60)
-    status_code = models.PositiveIntegerField("首次状态码")
+    request_hash = models.CharField("请求指纹", max_length=64, blank=True, default="")
+    status_code = models.PositiveIntegerField("首次状态码", default=0)
     response = models.JSONField("首次响应体", default=dict)
+    expires_at = models.DateTimeField("过期时间", null=True, blank=True, db_index=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                fields=["token", "key", "action"], name="uniq_idempotency_per_token_action"
-            ),
+            models.UniqueConstraint(fields=["token", "key"], name="uniq_idempotency_per_token_key"),
         ]
         ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.action}:{self.key}"
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at is not None and self.expires_at <= timezone.now()
 
 
 class AgentSessionStatus(models.TextChoices):
@@ -164,6 +180,15 @@ class AgentSession(BaseModel):
 
     class Meta:
         ordering = ["-started_at"]
+        constraints = [
+            # 同一工程最多一个运行中的会话（DOMAIN_MODEL §2 AgentSession）。
+            # 并发 start 由数据库兜底，service 先做友好校验。
+            models.UniqueConstraint(
+                fields=["project"],
+                condition=Q(status="running"),
+                name="uniq_running_session_per_project",
+            ),
+        ]
         indexes = [
             models.Index(fields=["project", "status"]),
         ]

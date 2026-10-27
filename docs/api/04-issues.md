@@ -1,5 +1,9 @@
 # 04 · Issue（含 Label）契约
 
+> **历史兼容文档（2026-10-28）**：对外资源名与规范路径已统一为
+> [`10-canonical-projects.md`](10-canonical-projects.md) 的 `/api/v1/projects/{pid}/tasks/…`；
+> 本文的 `/issues/` 路径仅保留为 deprecated 适配器。字段/权限语义仍有效。
+>
 > 状态：**已冻结**（前端 Sprint 3 已按本契约实现并确认，2026-09-17）
 > 公共约定见 [00-conventions.md](00-conventions.md)。角色值：`20=Admin / 15=Member / 5=Viewer`。
 > 项目作用域见 [03-projects.md](03-projects.md)「生效角色」表——本模块所有权限判定都基于**生效角色**。

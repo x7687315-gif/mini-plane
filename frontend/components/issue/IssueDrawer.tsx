@@ -64,6 +64,8 @@ export interface IssueDrawerProps {
   states: IssueState[];
   /** Effective role of the current user in this project (from Project.current_user_role). */
   role: number | null | undefined;
+  /** 团队工程才展示负责人/成员；个人工程里 owner 是隐式成员，不暴露协作字段。 */
+  isTeamProject: boolean;
   /** Active tab — URL-backed so a link can point at the thread. */
   tab: IssueDrawerTab;
   onTabChange: (tab: IssueDrawerTab) => void;
@@ -86,6 +88,7 @@ export function IssueDrawer({
   issueId,
   states,
   role,
+  isTeamProject,
   tab,
   onTabChange,
 }: IssueDrawerProps) {
@@ -272,24 +275,26 @@ export function IssueDrawer({
                 }}
               />
 
-              <EditableField
-                label="指派"
-                value={issue.assignee?.id ?? null}
-                options={assigneeOptions}
-                clearable
-                clearLabel="Unassigned"
-                disabled={!writable}
-                placeholder="unassigned"
-                onSelect={(v) => {
-                  const member = (membersQuery.data?.results ?? []).find(
-                    (m) => m.user.id === v,
-                  );
-                  runUpdate(
-                    { assignee_id: v },
-                    { assignee: member ? member.user : null },
-                  );
-                }}
-              />
+              {isTeamProject && (
+                <EditableField
+                  label="指派"
+                  value={issue.assignee?.id ?? null}
+                  options={assigneeOptions}
+                  clearable
+                  clearLabel="Unassigned"
+                  disabled={!writable}
+                  placeholder="unassigned"
+                  onSelect={(v) => {
+                    const member = (membersQuery.data?.results ?? []).find(
+                      (m) => m.user.id === v,
+                    );
+                    runUpdate(
+                      { assignee_id: v },
+                      { assignee: member ? member.user : null },
+                    );
+                  }}
+                />
+              )}
 
               <EditableField
                 label="添加标签"

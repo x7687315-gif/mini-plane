@@ -19,7 +19,11 @@ from apps.projects.models import (
     ProjectStage,
     identifier_validator,
 )
-from apps.realtime.broadcast import defer_membership_changed
+from apps.realtime.broadcast import (
+    defer_membership_changed,
+    defer_project_updated,
+    defer_stage_updated,
+)
 from apps.users.models import User
 from apps.workspaces.models import Workspace, WorkspaceMember, WorkspaceRoles
 
@@ -165,6 +169,107 @@ def _invalidate_cache(project: Project) -> None:
     )
 
 
+@transaction.atomic
+def share_project(project: Project, *, workspace: Workspace, actor) -> Project:
+    """把私人工程显式加入团队协作（只允许 owner 发起，service 再兜一次底）。
+
+    不自动移动已在其他工作区的工程：先显式脱离，避免一次误操作改变协作边界。
+    """
+    if project.owner_id != actor.id:
+        raise ValidationError({"detail": "只有工程所有者可以发起共享。"})
+    if project.workspace_id == workspace.id:
+        return project
+    if project.workspace_id is not None:
+        raise ValidationError({"detail": "工程已属于其他工作区，请先脱离当前协作。"})
+    member_role = (
+        WorkspaceMember.objects.filter(workspace=workspace, user=actor)
+        .values_list("role", flat=True)
+        .first()
+    )
+    if member_role is None:
+        raise ValidationError({"workspace_id": ["你不是该工作区成员。"]})
+    if member_role < WorkspaceRoles.MEMBER:
+        raise ValidationError({"workspace_id": ["工作区只读成员不能共享工程。"]})
+
+    project.workspace = workspace
+    project.save(update_fields=["workspace", "updated_at"])
+    ProjectMember.objects.get_or_create(
+        project=project, user=project.owner, defaults={"role": ProjectRoles.ADMIN}
+    )
+    activity_services.record_project_event(
+        project,
+        actor=actor,
+        action=ActivityActions.UPDATED,
+        old_value={"workspace": None},
+        new_value={"workspace": workspace.name},
+    )
+    project_cache.invalidate_all_scopes(project.id)
+    # 新获得可见性的工作区成员需要重算 overview 订阅；owner 自己也在组内。
+    user_ids = list(workspace.members.values_list("user_id", flat=True))
+    defer_membership_changed(user_ids=user_ids or [project.owner_id])
+    defer_project_updated(project=project)
+    return project
+
+
+@transaction.atomic
+def detach_project(project: Project, *, actor) -> Project:
+    """把团队工程脱离协作，转为私人工程（只允许 owner 发起）。
+
+    显式清除 ProjectMember：否则外键 SET_NULL 后原成员仍会凭 ProjectMember 访问；
+    审计事件保留（ActivityLog 在 Phase 7 改为 SET_NULL，见对应报告）。
+    """
+    if project.owner_id != actor.id:
+        raise ValidationError({"detail": "只有工程所有者可以脱离协作。"})
+    if project.workspace_id is None:
+        raise ValidationError({"detail": "该工程已经是私人工程。"})
+
+    workspace = project.workspace
+    old_name = workspace.name
+    user_ids = set(workspace.members.values_list("user_id", flat=True))
+    user_ids.update(project.members.values_list("user_id", flat=True))
+    user_ids.add(project.owner_id)
+
+    ProjectMember.objects.filter(project=project).delete()
+    project.workspace = None
+    project.save(update_fields=["workspace", "updated_at"])
+    activity_services.record_project_event(
+        project,
+        actor=actor,
+        action=ActivityActions.UPDATED,
+        old_value={"workspace": old_name},
+        new_value={"workspace": None},
+    )
+    project_cache.invalidate_all_scopes(project.id, workspace_slug=workspace.slug)
+    defer_membership_changed(user_ids=sorted(user_ids))
+    defer_project_updated(project=project)
+    return project
+
+
+@transaction.atomic
+def delete_project(project: Project, *, actor) -> None:
+    """删除工程并使所有已连接的项目 WS 重新校验权限。
+
+    删除本身会级联 Task/Stage/Worklog；在事务提交后通知 owner、项目成员与
+    工作区成员重查可访问集，ProjectConsumer 会因角色为 None 主动关闭。
+    """
+    user_ids = set(project.members.values_list("user_id", flat=True))
+    if project.workspace_id is not None:
+        user_ids.update(project.workspace.members.values_list("user_id", flat=True))
+    user_ids.add(project.owner_id)
+    project_cache.invalidate_all_scopes(
+        project.id, workspace_slug=project.workspace.slug if project.workspace_id else None
+    )
+    # 审计留痕先写：ActivityLog.project 已是 SET_NULL，工程删除后记录仍在。
+    activity_services.record_project_event(
+        project,
+        actor=actor,
+        action=ActivityActions.DELETED,
+        old_value={"name": project.name},
+    )
+    project.delete()
+    defer_membership_changed(user_ids=sorted(user_ids))
+
+
 def add_member(workspace: Workspace, project: Project, user_id, role: int) -> ProjectMember:
     """添加项目成员；必须已是工作区成员（03 契约）。"""
     user = User.objects.filter(id=user_id).first()
@@ -243,20 +348,27 @@ def add_stage(
     is_current: bool = False,
 ) -> ProjectStage:
     """追加一个 Stage；order 缺省为现有最大 +1。is_current 互斥（同 plan 仅一个）。"""
+    # 锁 Plan 行串行化 order 计算（PostgreSQL）；SQLite 无行锁，唯一约束兜底。
+    plan = ProjectPlan.objects.select_for_update().get(pk=plan.pk)
     if order is None:
         last = plan.stages.aggregate(m=Max("order"))["m"]
         order = (last or 0) + 1
     if is_current:
         plan.stages.update(is_current=False)
-    return ProjectStage.objects.create(
-        plan=plan,
-        order=order,
-        name=name,
-        weight=weight,
-        progress=progress,
-        goal=goal,
-        is_current=is_current,
-    )
+    try:
+        stage = ProjectStage.objects.create(
+            plan=plan,
+            order=order,
+            name=name,
+            weight=weight,
+            progress=progress,
+            goal=goal,
+            is_current=is_current,
+        )
+    except IntegrityError:
+        raise ValidationError({"order": ["阶段顺序冲突，请重试。"]}) from None
+    defer_stage_updated(project_id=plan.project_id, stage=stage, action="created")
+    return stage
 
 
 @transaction.atomic
@@ -267,7 +379,14 @@ def update_stage(stage: ProjectStage, **fields) -> ProjectStage:
     for key, value in fields.items():
         setattr(stage, key, value)
     stage.save()
+    defer_stage_updated(project_id=stage.plan.project_id, stage=stage)
     return stage
+
+
+@transaction.atomic
+def delete_stage(stage: ProjectStage) -> None:
+    defer_stage_updated(project_id=stage.plan.project_id, stage=stage, action="deleted")
+    stage.delete()
 
 
 def plan_progress(plan: ProjectPlan) -> int:

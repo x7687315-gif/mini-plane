@@ -256,4 +256,21 @@ describe("planRealtimeEffect", () => {
     assert.equal(e.elapsedSeconds, 42);
     assert.equal(e.agent, "本地编码 Agent");
   });
+
+  test("worklog.* → worklog-changed（Phase 7）", () => {
+    const e = planRealtimeEffect("worklog.created", { action: "created" });
+    assert.equal(e.kind, "worklog-changed");
+    assert.equal(e.kind === "worklog-changed" && e.action, "created");
+  });
+
+  test("stage.updated → stage-updated（Phase 7）", () => {
+    const e = planRealtimeEffect("stage.updated", { stage_id: "st-1", action: "created" });
+    assert.equal(e.kind, "stage-updated");
+    assert.equal(e.kind === "stage-updated" && e.stageId, "st-1");
+  });
+
+  test("project.updated / membership.changed → 对应刷新效果（Phase 7）", () => {
+    assert.equal(planRealtimeEffect("project.updated", {}).kind, "project-updated");
+    assert.equal(planRealtimeEffect("membership.changed", {}).kind, "membership-changed");
+  });
 });

@@ -25,6 +25,11 @@ GROUP_PREFIX = "project"
 EVENT_ISSUE_UPDATED = "issue.updated"
 EVENT_COMMENT_CREATED = "comment.created"
 EVENT_AGENT_SESSION = "agent.session"
+EVENT_WORKLOG_CREATED = "worklog.created"
+EVENT_WORKLOG_UPDATED = "worklog.updated"
+EVENT_WORKLOG_DELETED = "worklog.deleted"
+EVENT_STAGE_UPDATED = "stage.updated"
+EVENT_PROJECT_UPDATED = "project.updated"
 
 # Island V2 阶段 4：成员/角色变化 → 相关用户的 overview 连接重校验订阅（规格 §7.2）
 EVENT_MEMBERSHIP_CHANGED = "membership.changed"
@@ -34,6 +39,11 @@ KNOWN_EVENTS = (
     EVENT_ISSUE_UPDATED,
     EVENT_COMMENT_CREATED,
     EVENT_AGENT_SESSION,
+    EVENT_WORKLOG_CREATED,
+    EVENT_WORKLOG_UPDATED,
+    EVENT_WORKLOG_DELETED,
+    EVENT_STAGE_UPDATED,
+    EVENT_PROJECT_UPDATED,
     EVENT_MEMBERSHIP_CHANGED,
 )
 
@@ -65,7 +75,14 @@ def broadcast(project_id, event: str, payload: dict) -> None:
             # OverviewConsumer 按顶层 project_id 过滤订阅；缺了它，Island 的
             # 单连接总览通道会静默丢弃所有项目事件（2026-10-25 E2E 实测）。
             "project_id": str(project_id),
-            **json_safe({"event": event, "payload": payload}),
+            **json_safe(
+                {
+                    "event": event,
+                    # Phase 7：payload 也带 project_id，ProjectConsumer / 旧客户端
+                    # 不必依赖外层字段就能路由。
+                    "payload": {**payload, "project_id": str(project_id)},
+                }
+            ),
         },
     )
 
@@ -131,6 +148,39 @@ def defer_membership_changed(*, user_ids) -> None:
     """
     for uid in user_ids:
         transaction.on_commit(_send_membership_changed(str(uid)))
+
+
+def defer_worklog_changed(*, project_id, event: str, payload: dict) -> None:
+    """工程日志创建/修改/删除（Phase 7）。payload 已由 service 组成可展示形态。"""
+    defer(project_id, event, payload)
+
+
+def stage_payload(stage, *, action: str = "updated") -> dict:
+    return {
+        "stage_id": str(stage.id),
+        "name": stage.name,
+        "order": stage.order,
+        "progress": stage.progress,
+        "is_current": stage.is_current,
+        "action": action,
+    }
+
+
+def defer_stage_updated(*, project_id, stage, action: str = "updated") -> None:
+    """Stage 增删改；payload 在调用时固化，删除后仍可安全发送。"""
+    defer(project_id, EVENT_STAGE_UPDATED, stage_payload(stage, action=action))
+
+
+def defer_project_updated(*, project) -> None:
+    """工程共享/脱离协作/基础信息变化。"""
+    defer(
+        project.id,
+        EVENT_PROJECT_UPDATED,
+        {
+            "name": project.name,
+            "workspace_id": str(project.workspace_id) if project.workspace_id else None,
+        },
+    )
 
 
 def _send_membership_changed(uid: str):

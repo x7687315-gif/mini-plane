@@ -9,9 +9,6 @@
 - Agent 动作复用 issues/worklogs 的 service，**自动写 Activity 留痕**（§23 数据流）。
 """
 
-import json
-
-from django.core.serializers.json import DjangoJSONEncoder
 from django.http import Http404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -24,12 +21,12 @@ from rest_framework.response import Response
 
 from apps.agents import services as agent_services
 from apps.agents.authentication import AgentTokenAuthentication
+from apps.agents.idempotency import execute_idempotent
 from apps.agents.models import (
     AgentScopes,
     AgentSession,
     AgentSessionStatus,
     AgentToken,
-    IdempotencyRecord,
 )
 from apps.agents.serializers import (
     AgentProgressSerializer,
@@ -50,16 +47,16 @@ from apps.issues.services import create_issue, update_issue
 from apps.projects.models import ProjectRoles, ProjectStage
 from apps.projects.serializers import ProjectPlanSerializer, ProjectSerializer
 from apps.projects.services import get_or_create_plan, update_stage
-from apps.worklogs.models import Worklog, WorklogSource
+from apps.worklogs import services as worklog_services
+from apps.worklogs.models import WorklogSource
 from apps.worklogs.serializers import WorklogSerializer
+from core.pagination import StandardPagination
 from core.permissions import (
     accessible_project_ids,
     get_effective_project_role,
     resolve_project,
     resolve_project_by_id,
 )
-
-IDEM_HEADER = "HTTP_IDEMPOTENCY_KEY"
 
 
 def require_write_role(project, user) -> None:
@@ -92,34 +89,6 @@ def _resolve_agent_project(user, v):
     if slug:
         return resolve_project(user, slug, v["project_id"])
     return resolve_project_by_id(user, v["project_id"])
-
-
-def _replay(request, action: str):
-    """命中幂等键 → 直接回放首次响应；否则 None。"""
-    key = request.META.get(IDEM_HEADER)
-    token = request.auth
-    if not key or not isinstance(token, AgentToken):
-        return None
-    rec = IdempotencyRecord.objects.filter(token=token, key=key, action=action).first()
-    if rec is None:
-        return None
-    return Response(rec.response, status=rec.status_code)
-
-
-def _remember(request, action: str, response: Response) -> Response:
-    key = request.META.get(IDEM_HEADER)
-    token = request.auth
-    if key and isinstance(token, AgentToken):
-        # response.data 里可能有 UUID/datetime 等原生对象，JSONField 默认编码器不认；
-        # 用 DjangoJSONEncoder 落成与线上响应一致的 JSON 安全结构再存。
-        payload = json.loads(json.dumps(response.data, cls=DjangoJSONEncoder))
-        IdempotencyRecord.objects.get_or_create(
-            token=token,
-            key=key,
-            action=action,
-            defaults={"status_code": response.status_code, "response": payload},
-        )
-    return response
 
 
 # ── Token 管理（用户会话，非 Agent）──────────────────────────────
@@ -203,6 +172,26 @@ def agent_project_get(request, workspace_slug: str, project_id):
 
 
 @extend_schema(
+    summary="agent.tasks：工程任务列表（规范路由，READ_TASK）",
+    operation_id="agent_task_list_canonical",
+    responses={200: IssueSerializer(many=True)},
+)
+@api_view(["GET"])
+@authentication_classes(_AGENT_AUTH)
+@permission_classes([IsAuthenticated])
+def agent_task_list_canonical(request, project_id):
+    """让 READ_TASK scope 有实际端点；只读，不扩大写权限。"""
+    require_scope(request, AgentScopes.READ_TASK)
+    project = resolve_project_by_id(request.user, project_id)[0]
+    queryset = project.issues.select_related("state", "assignee", "stage").prefetch_related(
+        "labels"
+    )
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(queryset, request)
+    return paginator.get_paginated_response(IssueSerializer(page, many=True).data)
+
+
+@extend_schema(
     summary="task.create：建任务（幂等）",
     request=AgentTaskCreateSerializer,
     responses={201: IssueSerializer},
@@ -213,44 +202,42 @@ def agent_project_get(request, workspace_slug: str, project_id):
 def agent_task_create(request):
     """task.create：建任务（写 Activity）。幂等键防重复建。"""
     require_scope(request, AgentScopes.WRITE_TASK)
-    cached = _replay(request, "task.create")
-    if cached is not None:
-        return cached
 
-    serializer = AgentTaskCreateSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    v = serializer.validated_data
-    project, role = _resolve_agent_project(request.user, v)
-    if role < ProjectRoles.MEMBER:
-        raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
-    kwargs = {"title": v["title"], "description": v.get("description", "")}
-    if v.get("priority"):
-        kwargs["priority"] = v["priority"]
-    issue = create_issue(project, request.user, **kwargs)
-    resp = Response(IssueSerializer(issue).data, status=status.HTTP_201_CREATED)
-    return _remember(request, "task.create", resp)
+    def action():
+        serializer = AgentTaskCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+        project, role = _resolve_agent_project(request.user, v)
+        if role < ProjectRoles.MEMBER:
+            raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
+        kwargs = {"title": v["title"], "description": v.get("description", "")}
+        if v.get("priority"):
+            kwargs["priority"] = v["priority"]
+        issue = create_issue(project, request.user, **kwargs)
+        return Response(IssueSerializer(issue).data, status=status.HTTP_201_CREATED)
+
+    return execute_idempotent(request, "task.create", action)
 
 
 def _transition(request, issue_id, group: str, action: str):
     require_scope(request, AgentScopes.WRITE_TASK)
-    cached = _replay(request, action)
-    if cached is not None:
-        return cached
 
-    issue = (
-        Issue.objects.filter(id=issue_id, project_id__in=accessible_project_ids(request.user))
-        .select_related("project")
-        .first()
-    )
-    if issue is None:
-        return Response({"detail": "未找到。"}, status=status.HTTP_404_NOT_FOUND)
-    require_write_role(issue.project, request.user)
-    state = issue.project.states.filter(group=group).order_by("sort_order").first()
-    if state is None:
-        raise ValidationError({"detail": f"项目缺少 group={group} 的状态。"})
-    issue = update_issue(issue, actor=request.user, state=state)
-    resp = Response(IssueSerializer(issue).data)
-    return _remember(request, action, resp)
+    def execute():
+        issue = (
+            Issue.objects.filter(id=issue_id, project_id__in=accessible_project_ids(request.user))
+            .select_related("project")
+            .first()
+        )
+        if issue is None:
+            return Response({"detail": "未找到。"}, status=status.HTTP_404_NOT_FOUND)
+        require_write_role(issue.project, request.user)
+        state = issue.project.states.filter(group=group).order_by("sort_order").first()
+        if state is None:
+            raise ValidationError({"detail": f"项目缺少 group={group} 的状态。"})
+        issue = update_issue(issue, actor=request.user, state=state)
+        return Response(IssueSerializer(issue).data)
+
+    return execute_idempotent(request, action, execute)
 
 
 @extend_schema(summary="task.start：推进到进行中", request=None, responses={200: IssueSerializer})
@@ -284,59 +271,53 @@ def agent_task_complete(request, issue_id):
 def agent_worklog_create(request):
     """worklog.create：Agent 写工程日志（source=agent）。"""
     require_scope(request, AgentScopes.WRITE_WORKLOG)
-    cached = _replay(request, "worklog.create")
-    if cached is not None:
-        return cached
 
-    serializer = AgentWorklogCreateSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    v = serializer.validated_data
-    project, role = _resolve_agent_project(request.user, v)
-    if role < ProjectRoles.MEMBER:
-        raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
+    def action():
+        serializer = AgentWorklogCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+        project, role = _resolve_agent_project(request.user, v)
+        if role < ProjectRoles.MEMBER:
+            raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
+        worklog = worklog_services.create_worklog(
+            project,
+            request.user,
+            title=v["title"],
+            summary=v["summary"],
+            details=v.get("details", ""),
+            conclusion=v.get("conclusion", ""),
+            next_step=v.get("next_step", ""),
+            blocker=v.get("blocker", ""),
+            stage_id=v.get("stage_id"),
+            date=v.get("date"),
+            source=WorklogSource.AGENT,
+        )
+        return Response(WorklogSerializer(worklog).data, status=status.HTTP_201_CREATED)
 
-    stage = None
-    if v.get("stage_id"):
-        stage = get_object_or_404(ProjectStage, id=v["stage_id"], plan__project=project)
-
-    worklog = Worklog.objects.create(
-        project=project,
-        author=request.user,
-        stage=stage,
-        date=v.get("date") or timezone.localdate(),
-        title=v["title"],
-        summary=v["summary"],
-        conclusion=v.get("conclusion", ""),
-        next_step=v.get("next_step", ""),
-        blocker=v.get("blocker", ""),
-        source=WorklogSource.AGENT,
-    )
-    resp = Response(WorklogSerializer(worklog).data, status=status.HTTP_201_CREATED)
-    return _remember(request, "worklog.create", resp)
+    return execute_idempotent(request, "worklog.create", action)
 
 
 def _agent_progress_update_impl(request, project):
     require_scope(request, AgentScopes.UPDATE_PROGRESS)
     require_write_role(project, request.user)
-    cached = _replay(request, "progress.update")
-    if cached is not None:
-        return cached
 
-    serializer = AgentProgressSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    v = serializer.validated_data
-    stage = get_object_or_404(ProjectStage, id=v["stage_id"], plan__project=project)
+    def action():
+        serializer = AgentProgressSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+        stage = get_object_or_404(ProjectStage, id=v["stage_id"], plan__project=project)
 
-    fields = {}
-    if "progress" in v:
-        fields["progress"] = v["progress"]
-    if v.get("set_current"):
-        fields["is_current"] = True
-    update_stage(stage, **fields)
+        fields = {}
+        if "progress" in v:
+            fields["progress"] = v["progress"]
+        if v.get("set_current"):
+            fields["is_current"] = True
+        update_stage(stage, **fields)
 
-    plan = get_or_create_plan(project)
-    resp = Response(ProjectPlanSerializer(plan).data)
-    return _remember(request, "progress.update", resp)
+        plan = get_or_create_plan(project)
+        return Response(ProjectPlanSerializer(plan).data)
+
+    return execute_idempotent(request, "progress.update", action)
 
 
 @extend_schema(
@@ -416,25 +397,24 @@ def agent_session_list(request, workspace_slug: str, project_id):
 @permission_classes([IsAuthenticated])
 def agent_session_start(request):
     require_scope(request, AgentScopes.WRITE_TASK)
-    cached = _replay(request, "session.start")
-    if cached is not None:
-        return cached
 
-    serializer = AgentSessionStartSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    v = serializer.validated_data
-    project, role = _resolve_agent_project(request.user, v)
-    if role < ProjectRoles.MEMBER:
-        raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
-    task = None
-    if v.get("task_id"):
-        task = get_object_or_404(Issue, id=v["task_id"], project=project)
+    def action():
+        serializer = AgentSessionStartSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+        project, role = _resolve_agent_project(request.user, v)
+        if role < ProjectRoles.MEMBER:
+            raise PermissionDenied("Agent Token 持有者在该工程只有只读权限。")
+        task = None
+        if v.get("task_id"):
+            task = get_object_or_404(Issue, id=v["task_id"], project=project)
 
-    session = agent_services.start_session(
-        project=project, token=request.auth, title=v["title"], task=task
-    )
-    resp = Response(AgentSessionSerializer(session).data, status=status.HTTP_201_CREATED)
-    return _remember(request, "session.start", resp)
+        session = agent_services.start_session(
+            project=project, token=request.auth, title=v["title"], task=task
+        )
+        return Response(AgentSessionSerializer(session).data, status=status.HTTP_201_CREATED)
+
+    return execute_idempotent(request, "session.start", action)
 
 
 @extend_schema(
@@ -449,24 +429,23 @@ def agent_session_end(request, session_id):
     """Phase 3 补齐幂等（Phase 0 风险 R-06）：与其余 7 个写动作一致，
     带 Idempotency-Key 的重复 end 直接回放首次响应。"""
     require_scope(request, AgentScopes.WRITE_TASK)
-    cached = _replay(request, "session.end")
-    if cached is not None:
-        return cached
 
-    session = get_object_or_404(
-        AgentSession.objects.select_related("project"),
-        id=session_id,
-        project_id__in=accessible_project_ids(request.user),
-    )
-    require_write_role(session.project, request.user)
-    serializer = AgentSessionEndSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    v = serializer.validated_data
-    session = agent_services.end_session(
-        session, status=v.get("status", AgentSessionStatus.DONE), note=v.get("note", "")
-    )
-    resp = Response(AgentSessionSerializer(session).data)
-    return _remember(request, "session.end", resp)
+    def action():
+        session = get_object_or_404(
+            AgentSession.objects.select_related("project"),
+            id=session_id,
+            project_id__in=accessible_project_ids(request.user),
+        )
+        require_write_role(session.project, request.user)
+        serializer = AgentSessionEndSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+        session = agent_services.end_session(
+            session, status=v.get("status", AgentSessionStatus.DONE), note=v.get("note", "")
+        )
+        return Response(AgentSessionSerializer(session).data)
+
+    return execute_idempotent(request, "session.end", action)
 
 
 @extend_schema(
@@ -487,24 +466,20 @@ def agent_session_progress(request, session_id):
     4. 遵守现有 `Idempotency-Key` 约定，重复上报直接回放首次响应。
     """
     require_scope(request, AgentScopes.WRITE_TASK)
-    cached = _replay(request, "session.progress")
-    if cached is not None:
-        return cached
 
-    session = get_object_or_404(
-        AgentSession.objects.select_related("project"),
-        id=session_id,
-        project_id__in=accessible_project_ids(request.user),
-    )
-    require_write_role(session.project, request.user)
-    if session.status != AgentSessionStatus.RUNNING:
-        return Response(
-            {"detail": f"会话已结束（{session.get_status_display()}），不能更新执行进度。"},
-            status=status.HTTP_400_BAD_REQUEST,
+    def action():
+        session = get_object_or_404(
+            AgentSession.objects.select_related("project"),
+            id=session_id,
+            project_id__in=accessible_project_ids(request.user),
         )
+        require_write_role(session.project, request.user)
+        if session.status != AgentSessionStatus.RUNNING:
+            raise ValidationError({"detail": "会话已结束，不能更新执行进度。"})
 
-    serializer = AgentSessionProgressSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    session = agent_services.update_progress(session, **serializer.validated_data)
-    resp = Response(AgentSessionSerializer(session).data)
-    return _remember(request, "session.progress", resp)
+        serializer = AgentSessionProgressSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        session = agent_services.update_progress(session, **serializer.validated_data)
+        return Response(AgentSessionSerializer(session).data)
+
+    return execute_idempotent(request, "session.progress", action)

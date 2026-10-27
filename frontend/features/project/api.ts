@@ -8,7 +8,6 @@
 
 import { api } from "@/lib/api";
 import type {
-  AddProjectMemberPayload,
   CreateProjectPayload,
   IssueState,
   Paginated,
@@ -22,7 +21,6 @@ import type {
   Worklog,
   WorklogPayload,
 } from "@/types/project";
-import type { UpdateMemberRolePayload } from "@/types/workspace";
 
 /** GET /api/v1/projects/mine/ —— 我的工程首页聚合摘要（Sprint 09）。 */
 export async function listMyProjects(): Promise<ProjectEngineering[]> {
@@ -96,7 +94,8 @@ export async function deleteWorklog(
 }
 
 export async function listProjects(slug: string): Promise<Paginated<Project>> {
-  return api<Paginated<Project>>(`/workspaces/${slug}/projects`);
+  const qs = new URLSearchParams({ scope: "accessible", workspace: slug });
+  return api<Paginated<Project>>(`/projects?${qs.toString()}`);
 }
 
 export async function getProject(slug: string, projectId: string): Promise<Project> {
@@ -107,7 +106,21 @@ export async function createProject(
   slug: string,
   payload: CreateProjectPayload,
 ): Promise<Project> {
-  return api<Project>(`/workspaces/${slug}/projects`, { method: "POST", json: payload });
+  return api<Project>("/projects", { method: "POST", json: payload });
+}
+
+export async function shareProject(
+  projectId: string,
+  workspaceId: string,
+): Promise<Project> {
+  return api<Project>(`/projects/${projectId}/share`, {
+    method: "POST",
+    json: { workspace_id: workspaceId },
+  });
+}
+
+export async function detachProject(projectId: string): Promise<Project> {
+  return api<Project>(`/projects/${projectId}/detach`, { method: "POST" });
 }
 
 export async function updateProject(
@@ -132,39 +145,6 @@ export async function listProjectMembers(
   projectId: string,
 ): Promise<Paginated<ProjectMember>> {
   return api<Paginated<ProjectMember>>(`/projects/${projectId}/members`);
-}
-
-export async function addProjectMember(
-  _slug: string,
-  projectId: string,
-  payload: AddProjectMemberPayload,
-): Promise<ProjectMember> {
-  return api<ProjectMember>(`/projects/${projectId}/members`, {
-    method: "POST",
-    json: payload,
-  });
-}
-
-export async function updateProjectMemberRole(
-  _slug: string,
-  projectId: string,
-  memberId: string,
-  payload: UpdateMemberRolePayload,
-): Promise<ProjectMember> {
-  return api<ProjectMember>(`/projects/${projectId}/members/${memberId}`, {
-    method: "PATCH",
-    json: payload,
-  });
-}
-
-export async function removeProjectMember(
-  _slug: string,
-  projectId: string,
-  memberId: string,
-): Promise<void> {
-  return api<void>(`/projects/${projectId}/members/${memberId}`, {
-    method: "DELETE",
-  });
 }
 
 /* ---- states (read-only, 5 predefined) ---- */

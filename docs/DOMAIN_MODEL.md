@@ -67,8 +67,9 @@ resolve_project(user, project_id):
 ```
 
 - 个人项目（workspace 为空）：**只有 owner 可见**（本地单机语义）；无 ProjectMember 概念。
-- 团队项目：沿用既有双层角色与防枚举语义，不变。
+- 团队项目：沿用既有双层角色与防枚举语义，不变；ProjectMember 是显式 override（可高于/低于 WS 角色）。
 - Agent：`accessible = owner==token.owner ∪ 既有规则`；scope 校验照旧。
+- 列表与详情共用 `core.permissions.combine_effective_role` / `effective_roles_for_projects`，不各自内联优先级。
 
 ## 5. 删除与脱离行为
 
@@ -76,9 +77,10 @@ resolve_project(user, project_id):
 |---|---|
 | 删除 Workspace | **仍有项目 → 400 拒绝**；项目全部显式脱离（转私人/删除）后才可删。DB 层 `Project.workspace` SET_NULL 兜底（不级联清空工程）；ActivityLog.workspace 同步改可空 SET_NULL |
 | 删除 Stage | 其 Task.stage 与 Worklog.stage 置空（SET_NULL）；**不删任务/日志**；若删的是当前阶段，`is_current` 归空（不自动迁移） |
-| 删除 Project | 级联删除其 Task/Worklog/Plan/Stage/JobRun/活动（现状不变；个人数据删除是显式动作） |
+| 删除 Project | 级联删除其 Task/Worklog/Plan/Stage/JobRun；**ActivityLog.project 置空（SET_NULL），审计留痕保留**；删除前给相关用户发 `membership.changed`，项目 WS 主动关闭 |
 | 删除 Task | 保留 deleted 活动留痕（现状不变） |
-| 脱离协作（转私人） | workspace 置空 + 清理该项目的 ProjectMember（owner 保留）+ 缓存失效 + 实时 membership 广播（Phase 6 完整实现） |
+| 共享进团队 | 仅 owner 显式发起；目标 Workspace 需 Member+；已在其他 Workspace → 400（先脱离）；owner 获 ProjectMember.ADMIN，其余 WS 成员按生效角色读取 |
+| 脱离协作（转私人） | 仅 owner 显式发起；workspace 置空 + 清理该项目的 **全部** ProjectMember（owner 为隐式 ADMIN）+ 缓存失效 + `membership.changed` 广播（ProjectConsumer 关闭） |
 
 ## 6. 唯一性约束（数据库层）
 
@@ -88,13 +90,17 @@ resolve_project(user, project_id):
 | ProjectStage.order / name | plan 内唯一（不变） |
 | ProjectStage.is_current | `(plan) WHERE is_current` 部分唯一索引（新增，service 之外的第二道保险） |
 | Task.sequence_id | 项目内唯一（不变） |
+| AgentSession.running | `(project) WHERE status='running'`：同一工程最多一个运行中会话 |
+| IdempotencyRecord | `(token, key)` 唯一；同键不同 action/请求体 → 409；24h TTL |
 
 ## 7. 校验语义（跨项目注入防护）
 
 - 请求体中的引用字段（Task 的 `stage_id`/`state_id`/`label_ids`）若不属于本项目 → **400 字段错误**（既有 state/labels 同语义，Phase 2 已按此实现）。
 - URL 路径中的 ID 越界（如 Stage 详情/删除路径）→ **404**（防枚举语义）。
-- Worklog 的 `stage_id` 历史实现为 404（`_resolve_stage`），Phase 3 契约统一时对齐为 400 字段错误。
-- Agent 写入的 workspace_slug/project_id 组合不存在或不属于该 token 可见集 → 404。
+- Worklog 的 `stage_id` 跨项目 → 404（防枚举，Phase 6 保持）。
+- Agent 写入只凭稳定 `project_id`；旧 body 的 `workspace_slug` 是 deprecated 兼容字段，会被忽略。
+- Worklog 改删：作者或项目 Admin；团队普通 Member 不能改删他人日志。
+- Agent 写动作的前置条件与用户 API 一致：生效角色 ≥ Member，scope 仍单独校验。
 
 ## 8. 现状 → 目标的差异清单（Phase 2 实施项）
 

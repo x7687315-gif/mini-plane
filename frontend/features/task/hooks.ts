@@ -6,25 +6,20 @@ import { projectKeys, taskKeys } from "@/lib/queryKeys";
 import type { Paginated } from "@/types/project";
 import type {
   CreateIssuePayload,
-  CreateLabelPayload,
   Issue,
   IssueListQuery,
   MyIssuesScope,
   UpdateIssuePayload,
-  UpdateLabelPayload,
 } from "@/types/issue";
 import {
   bulkSetLabels,
   createIssue,
-  createLabel,
   deleteIssue,
-  deleteLabel,
   getIssue,
   listIssues,
   listLabels,
   listMyIssues,
   updateIssue,
-  updateLabel,
 } from "./api";
 
 /**
@@ -189,39 +184,6 @@ export function useDeleteIssue(slug: string, projectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) });
       qc.invalidateQueries({ queryKey: activityKeys.project(slug, projectId) });
-    },
-  });
-}
-
-export function useCreateLabel(slug: string, projectId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: CreateLabelPayload) => createLabel(slug, projectId, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: issueKeys.labels(slug, projectId) }),
-  });
-}
-
-export function useUpdateLabel(slug: string, projectId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ labelId, payload }: { labelId: string; payload: UpdateLabelPayload }) =>
-      updateLabel(slug, projectId, labelId, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: issueKeys.labels(slug, projectId) });
-      // Labels are embedded in Issue objects, so issues must be refetched too.
-      qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) });
-    },
-  });
-}
-
-export function useDeleteLabel(slug: string, projectId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (labelId: string) => deleteLabel(slug, projectId, labelId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: issueKeys.labels(slug, projectId) });
-      // Deleting a label removes it from every issue that referenced it.
-      qc.invalidateQueries({ queryKey: issueKeys.all(slug, projectId) });
     },
   });
 }

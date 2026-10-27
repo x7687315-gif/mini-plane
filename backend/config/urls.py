@@ -16,7 +16,9 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/health/", core_views.health, name="health"),
     path("api/v1/auth/", include("apps.users.urls")),
-    # 「我的工作」聚合（历史挂载位；对外命名统一 Task 属 Phase 4 前端切换，路径暂不动）
+    # 「我的工作」聚合：对外统一 Task 命名（/tasks/mine/ 为规范入口）
+    path("api/v1/tasks/", include("apps.issues.urls")),
+    # 旧挂载位保留为 deprecated 适配器，前端已不再调用（Phase 9 退出清单）
     path("api/v1/issues/", include("apps.issues.urls")),
     # 工程规范路由（Phase 3：/projects/ 列表/创建 + /projects/{pid}/… 全部子资源 + mine/）
     path("api/v1/projects/", include("apps.projects.urls_canonical")),

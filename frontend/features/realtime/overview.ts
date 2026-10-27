@@ -19,7 +19,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { nextBackoffDelay } from "@/features/realtime/policy";
-import { projectKeys } from "@/lib/queryKeys";
+import { projectKeys, taskKeys } from "@/lib/queryKeys";
 import { wsBaseUrl } from "@/lib/api";
 
 function overviewUrl(): string {
@@ -100,10 +100,30 @@ export function useEngineeringOverview(
           void qc.invalidateQueries({ queryKey: projectKeys.mine() });
           return;
         }
-        // 业务事件：payload.project_id 由 overview consumer 注入
-        const pid = typeof frame.payload?.project_id === "string" ? frame.payload.project_id : null;
+        // 业务事件：payload.project_id 由 overview consumer 注入。
+        const pid =
+          typeof frame.payload?.project_id === "string" ? frame.payload.project_id : null;
         void qc.invalidateQueries({ queryKey: projectKeys.mine() });
-        if (pid) void qc.invalidateQueries({ queryKey: projectKeys.worklogs(pid) });
+        if (!pid) return;
+        if (
+          event === "worklog.created" ||
+          event === "worklog.updated" ||
+          event === "worklog.deleted"
+        ) {
+          void qc.invalidateQueries({ queryKey: projectKeys.worklogs(pid) });
+          return;
+        }
+        if (event === "stage.updated") {
+          void qc.invalidateQueries({ queryKey: projectKeys.plan(pid) });
+          return;
+        }
+        if (event === "project.updated") {
+          void qc.invalidateQueries({ queryKey: projectKeys.detail(pid) });
+          return;
+        }
+        if (event === "issue.updated" || event === "comment.created") {
+          void qc.invalidateQueries({ queryKey: taskKeys.list(pid) });
+        }
       };
 
       ws.onclose = () => {

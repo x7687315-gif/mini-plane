@@ -36,6 +36,25 @@ def get_workspace_role(user, workspace) -> int | None:
     )
 
 
+def combine_effective_role(*, is_owner: bool, project_role, workspace_role) -> int | None:
+    """把三份事实合成生效角色（**唯一优先级实现**）。
+
+    优先级：owner > ProjectMember > Workspace 角色。
+    - 私人工程没有 Workspace 角色；owner 之外不可见；
+    - WS Admin 视同项目 Admin，其他 WS 成员只读；
+    - ProjectMember 是显式 override，优先于 Workspace 角色（可提升也可降级）。
+    """
+    if is_owner:
+        return ProjectRoles.ADMIN
+    if project_role is not None:
+        return project_role
+    if workspace_role is None:
+        return None
+    if workspace_role == WorkspaceRoles.ADMIN:
+        return ProjectRoles.ADMIN
+    return ProjectRoles.VIEWER
+
+
 def effective_role(user, *, workspace_id, project_id, owner_id=None) -> int | None:
     """生效角色规则的**唯一实现**（03 契约表格 + ADR-001 owner 短路）。
 
@@ -45,32 +64,65 @@ def effective_role(user, *, workspace_id, project_id, owner_id=None) -> int | No
     """
     if not user.is_authenticated:
         return None
-    # owner 短路：所有权优先于一切成员关系（含被移出工作区的场景）。
     # str() 归一：缓存命中路径的 owner_id 经 JSON 往返是字符串，user.id 是 UUID——
     # 直接 == 会恒为 False，导致私人工程在缓存命中时整只 404（Phase 5 实测教训）。
-    if owner_id is not None and str(owner_id) == str(user.id):
-        return ProjectRoles.ADMIN
+    is_owner = owner_id is not None and str(owner_id) == str(user.id)
+    if is_owner:
+        # 热路径（缓存命中）必须 0 查询：owner 短路不能再查 ProjectMember。
+        return combine_effective_role(is_owner=True, project_role=None, workspace_role=None)
     project_role = (
         ProjectMember.objects.filter(project_id=project_id, user=user)
         .values_list("role", flat=True)
         .first()
     )
     if project_role is not None:
-        return project_role
-    if workspace_id is None:
-        # 私人工程：没有 WorkspaceMember 可言，owner 之外不可见
-        return None
-
-    workspace_role = (
-        WorkspaceMember.objects.filter(workspace_id=workspace_id, user=user)
-        .values_list("role", flat=True)
-        .first()
+        # ProjectMember 是显式 override：命中后无需再查 Workspace 角色。
+        return combine_effective_role(
+            is_owner=False, project_role=project_role, workspace_role=None
+        )
+    workspace_role = None
+    if workspace_id is not None:
+        workspace_role = (
+            WorkspaceMember.objects.filter(workspace_id=workspace_id, user=user)
+            .values_list("role", flat=True)
+            .first()
+        )
+    return combine_effective_role(
+        is_owner=False,
+        project_role=None,
+        workspace_role=workspace_role,
     )
-    if workspace_role == WorkspaceRoles.ADMIN:
-        return ProjectRoles.ADMIN
-    if workspace_role is None:
-        return None
-    return ProjectRoles.VIEWER
+
+
+def effective_roles_for_projects(user, projects, workspace_roles=None) -> dict:
+    """批量计算生效角色（列表页唯一入口，避免循环里再拼一份优先级）。
+
+    `workspace_roles` 可传 `{workspace_id: role}`（调用方通常已查过本人全部
+    Workspace 成员关系）；不传则按本次项目集合补一条查询。
+    """
+    projects = list(projects)
+    if not projects or not user.is_authenticated:
+        return {}
+    member_roles = dict(
+        ProjectMember.objects.filter(
+            user=user, project_id__in=[p.id for p in projects]
+        ).values_list("project_id", "role")
+    )
+    workspace_ids = {p.workspace_id for p in projects if p.workspace_id is not None}
+    if workspace_roles is None:
+        workspace_roles = dict(
+            WorkspaceMember.objects.filter(user=user, workspace_id__in=workspace_ids).values_list(
+                "workspace_id", "role"
+            )
+        )
+    return {
+        p.id: combine_effective_role(
+            is_owner=str(p.owner_id) == str(user.id),
+            project_role=member_roles.get(p.id),
+            workspace_role=workspace_roles.get(p.workspace_id),
+        )
+        for p in projects
+    }
 
 
 def get_effective_project_role(user, project) -> int | None:

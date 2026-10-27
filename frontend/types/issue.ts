@@ -65,7 +65,7 @@ export interface MyIssue extends Issue {
   workspace_slug: string | null;
 }
 
-/** GET /api/v1/issues/mine/ 的 scope。 */
+/** GET /api/v1/tasks/mine/ 的 scope。 */
 export type MyIssuesScope = "all" | "assigned" | "created";
 
 /* ---------------- create / update payloads ---------------- */
@@ -96,17 +96,6 @@ export interface UpdateIssuePayload {
   label_ids?: string[];
   /** `null` 脱离 Stage。 */
   stage_id?: string | null;
-}
-
-export interface CreateLabelPayload {
-  name: string;
-  /** Omit → "#64748b". Must match #RRGGBB. */
-  color?: string;
-}
-
-export interface UpdateLabelPayload {
-  name?: string;
-  color?: string;
 }
 
 /* ---------------- list query ---------------- */

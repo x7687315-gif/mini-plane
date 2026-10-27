@@ -44,6 +44,16 @@ export interface ProjectEngineering {
   today_logs: number;
   /** 是否有运行中的 Agent 会话（Sprint 13）。 */
   agent_running: boolean;
+  /** 最近完成的任务标题（最多 3 条，真实记录）。 */
+  recent_done: string[];
+  /** 最新工程日志（实际做过什么、结论如何）。 */
+  latest_log: { title: string; summary: string; date: string } | null;
+  /** 运行中 Agent 会话上报的 STEP / HOW（没有则为 null，不推测）。 */
+  agent_step: string | null;
+  agent_step_index: number | null;
+  agent_step_total: number | null;
+  agent_method: string | null;
+  agent_session_title: string | null;
   last_activity: string | null;
 }
 
@@ -135,17 +145,14 @@ export interface CreateProjectPayload {
   /** 2–5 uppercase alphanumerics, unique within the workspace. */
   identifier: string;
   description?: string;
+  /** 团队工程：显式指定目标工作区；省略 = 私人工程。 */
+  workspace_id?: string;
 }
 
 export interface UpdateProjectPayload {
   name?: string;
   identifier?: string;
   description?: string;
-}
-
-export interface AddProjectMemberPayload {
-  user_id: string;
-  role: number;
 }
 
 /** Paginated list envelope (docs/api/00-conventions.md §3). */

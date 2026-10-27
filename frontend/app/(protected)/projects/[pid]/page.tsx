@@ -13,15 +13,22 @@ import { AnatomyPlate } from "@/components/anatomy/AnatomyPlate";
 import {
   useAddStage,
   useDeleteProject,
+  useDetachProject,
   useMyProjects,
   usePlan,
   useProject,
   useProjectMembers,
   useProjectStates,
+  useShareProject,
   useUpdateProject,
   useUpdateStage,
   useWorklogs,
 } from "@/features/project";
+import { useWorkspaces } from "@/features/workspace";
+import { useAuthStore } from "@/stores/auth";
+import { ApiError } from "@/lib/api";
+import { flattenErrors } from "@/types/auth";
+import { canWrite } from "@/types/workspace";
 import { useCreateIssue, useIssues, useLabels } from "@/features/task";
 import { useProjectActivities } from "@/features/activity";
 import { useProjectRealtime } from "@/features/realtime";
@@ -139,7 +146,8 @@ function WorkbenchRoute() {
   useChrome({
     topbar: {
       project: project ? `${project.name} · ${project.identifier}` : undefined,
-      role: project?.current_user_role,
+      // 个人工程不展示协作角色徽标；只有团队工程才需要这个信息。
+      role: project?.workspace ? project.current_user_role : undefined,
     },
     hideAside: true,
   });
@@ -159,6 +167,8 @@ function WorkbenchRoute() {
         identifier={project?.identifier ?? ""}
         projectName={project?.name ?? ""}
         role={project?.current_user_role ?? null}
+        workspaceId={project?.workspace ?? null}
+        ownerId={project?.owner ?? null}
         states={states?.results ?? []}
         labels={labels?.results ?? []}
         members={members?.results ?? []}
@@ -193,6 +203,8 @@ function Workbench({
   identifier,
   projectName,
   role,
+  workspaceId,
+  ownerId,
   states,
   labels,
   members,
@@ -222,6 +234,8 @@ function Workbench({
   identifier: string;
   projectName: string;
   role: number | null | undefined;
+  workspaceId: string | null;
+  ownerId: string | null;
   states: IssueState[];
   labels: Label[];
   members: ProjectMember[];
@@ -547,6 +561,7 @@ function Workbench({
           labels={labels}
           members={members}
           onClearSelection={() => setSelected(new Set())}
+          showAssignee={Boolean(workspaceId)}
         />
       )}
 
@@ -692,6 +707,13 @@ function Workbench({
               aria-label="标识符"
             />
           </div>
+          <CollaborationPanel
+            pid={pid}
+            workspaceId={workspaceId}
+            ownerId={ownerId}
+            projectName={projectName}
+          />
+
           <div className="flex items-center justify-between">
             <button
               type="button"
@@ -732,9 +754,104 @@ function Workbench({
         issueId={drawerIssueId}
         states={states}
         role={role}
+        isTeamProject={Boolean(workspaceId)}
         tab={drawerTab}
         onTabChange={(t) => onParam("tab", t)}
       />
+    </div>
+  );
+}
+
+function CollaborationPanel({
+  pid,
+  workspaceId,
+  ownerId,
+  projectName,
+}: {
+  pid: string;
+  workspaceId: string | null;
+  ownerId: string | null;
+  projectName: string;
+}) {
+  const shareProject = useShareProject(pid);
+  const detachProject = useDetachProject(pid);
+  const { data: workspacePage } = useWorkspaces();
+  const me = useAuthStore((s) => s.user);
+  const [shareTarget, setShareTarget] = useState("");
+  const isOwner = Boolean(me && ownerId && me.id === ownerId);
+  const shareCandidates = (workspacePage?.results ?? []).filter((w) => canWrite(w.current_role));
+  const err = shareProject.error ?? detachProject.error;
+  const error =
+    err instanceof ApiError
+      ? (flattenErrors(err.body).form ?? `请求失败（HTTP ${err.status}）`)
+      : null;
+
+  if (!isOwner) return null;
+
+  return (
+    <div className="mb-3 border-t border-dashed border-[color:var(--color-rule)] pt-3">
+      <p className="mb-2 font-medium text-[9px] uppercase tracking-[0.18em] text-[color:var(--color-ink-3)]">
+        协作
+      </p>
+      {workspaceId ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[11.5px] text-[color:var(--color-ink-2)]">
+            当前是团队工程；脱离后其他成员将失去访问权。
+          </span>
+          <button
+            type="button"
+            className="text-[11.5px] text-[color:var(--color-urgent)] hover:underline disabled:opacity-40"
+            disabled={detachProject.isPending}
+            onClick={() => {
+              if (confirm(`把「${projectName}」脱离团队协作并转为私人工程？`)) {
+                detachProject.mutate();
+              }
+            }}
+          >
+            {detachProject.isPending ? "脱离中…" : "脱离协作（转为私人）"}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={shareTarget}
+            onChange={(e) => setShareTarget(e.target.value)}
+            aria-label="选择要加入的工作区"
+            className="border border-[color:var(--color-rule)] bg-[color:var(--color-paper)] px-2 py-1 text-[11.5px]"
+          >
+            <option value="">选择工作区…</option>
+            {shareCandidates.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name} / {w.slug}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="v2-ia disabled:opacity-40"
+            disabled={!shareTarget || shareProject.isPending}
+            onClick={() => {
+              const target = shareCandidates.find((w) => w.id === shareTarget);
+              if (!target) return;
+              if (confirm(`把「${projectName}」加入「${target.name}」？`)) {
+                shareProject.mutate(shareTarget);
+              }
+            }}
+          >
+            {shareProject.isPending ? "共享中…" : "加入团队协作"}
+          </button>
+          {shareCandidates.length === 0 && (
+            <span className="text-[11.5px] text-[color:var(--color-ink-3)]">
+              还没有可加入的工作区——先在底栏「协作」里创建一个。
+            </span>
+          )}
+        </div>
+      )}
+      {error && (
+        <p className="mt-2 text-[11.5px] text-[color:var(--color-urgent)]" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
