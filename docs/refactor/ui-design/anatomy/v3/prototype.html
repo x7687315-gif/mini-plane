@@ -246,8 +246,8 @@
       color: var(--ink-3);
     }
     .canvas-scroll {
-      overflow-x: auto;
-      overflow-y: hidden;
+      overflow: auto;
+      max-height: 70vh;
     }
     #scene {
       display: block;
@@ -266,6 +266,7 @@
       letter-spacing: .04em;
       color: var(--ink-3);
     }
+    .pan-hint { display: none; color: var(--accent); }
     .legend {
       display: inline-flex;
       align-items: center;
@@ -510,9 +511,11 @@
       .canvas-topline { padding-top: 7px; }
       #scene { min-height: 0; }
       .canvas-panel[data-mode="structure"] .canvas-scroll { overflow-x: auto; }
-      .canvas-panel[data-mode="structure"] #scene { min-width: 900px; }
+      .canvas-panel[data-mode="structure"] #scene { min-width: 820px; }
+      .canvas-panel[data-mode="structure"] .pan-hint { display: inline; }
       .canvas-panel[data-mode="growth"] .svg-label { display: none; }
       .canvas-panel[data-mode="growth"] .svg-order { display: inline; }
+      .canvas-scroll { max-height: none; overflow-y: visible; }
       .detail { border-left: 0; border-top: 1px solid var(--rule); }
       .task-list { max-height: 300px; }
     }
@@ -580,6 +583,7 @@
             <span class="legend"><i class="done"></i>已完成</span>
             <span class="legend"><i class="cancelled"></i>已取消</span>
             <span>点击阶段查看详情 · Tab + Enter 可达</span>
+            <span class="pan-hint">横向滑动查看全部构件 →</span>
           </div>
         </section>
 
@@ -794,13 +798,13 @@
     function renderGrowth() {
       const stages = project.stages;
       const W = 1060;
-      const H = 720;
-      const centerX = 590;
-      const baseY = 610;
-      const step = 94;
-      const w = 300;
-      const d = 170;
-      const h = 26;
+      const H = 860;
+      const centerX = 560;
+      const baseY = 700;
+      const step = 112;
+      const w = 380;
+      const d = 220;
+      const h = 30;
       const parts = [];
 
       // faint construction axis
@@ -847,16 +851,16 @@
 
         // left-side index annotation
         parts.push(line(
-          { x: 330, y: topY - 5 },
+          { x: 282, y: topY - 5 },
           { x: left - 10, y: topY - 5 },
           selected || current ? "var(--accent)" : "var(--rule)",
           selected || current ? 1 : 0.7,
           "2 3"
         ));
-        parts.push(`<circle cx="330" cy="${(topY - 5).toFixed(1)}" r="${selected || current ? 3 : 2}" fill="${selected || current ? "var(--accent)" : "var(--ink-3)"}" />`);
+        parts.push(`<circle cx="282" cy="${(topY - 5).toFixed(1)}" r="${selected || current ? 3 : 2}" fill="${selected || current ? "var(--accent)" : "var(--ink-3)"}" />`);
         parts.push(`<text class="svg-order" x="${(left - 14).toFixed(1)}" y="${(topY - 2).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${String(stage.order).padStart(2, "0")}</text>`);
-        parts.push(`<text class="svg-label stage-label" x="318" y="${(topY - 2).toFixed(1)}" text-anchor="end" font-size="${selected ? 20 : 18}" fill="${current ? "var(--accent)" : "var(--ink)"}">${String(stage.order).padStart(2, "0")} ${esc(stage.name)}</text>`);
-        parts.push(`<text class="svg-label mono" x="318" y="${(topY + 13).toFixed(1)}" text-anchor="end" font-size="8.5" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${stage.progress}% · W${stage.weight} · ${counts.total} TASK${current ? " · CURRENT" : ""}</text>`);
+        parts.push(`<text class="svg-label stage-label" x="270" y="${(topY - 2).toFixed(1)}" text-anchor="end" font-size="${selected ? 21 : 19}" fill="${current ? "var(--accent)" : "var(--ink)"}">${String(stage.order).padStart(2, "0")} ${esc(stage.name)}</text>`);
+        parts.push(`<text class="svg-label mono" x="270" y="${(topY + 14).toFixed(1)}" text-anchor="end" font-size="9" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${stage.progress}% · W${stage.weight} · ${counts.total} TASK${current ? " · CURRENT" : ""}</text>`);
 
         if (current) {
           const tag = projectPoint(origin, w / 2 + 16, -d / 2, z + h);
@@ -874,47 +878,62 @@
       parts.push(`<text x="988" y="${((topY + bottomY) / 2).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8.5" letter-spacing="1.2" fill="var(--ink-3)" transform="rotate(-90 988 ${((topY + bottomY) / 2).toFixed(1)})">STAGE 01 → 05 · GROWTH</text>`);
 
       // unassigned tray, neutral and separate
-      parts.push(renderLooseTray({ x: 870, y: 590 }, 130, 70, 8));
+      parts.push(renderLooseTray({ x: 900, y: 700 }, 130, 70, 8));
 
       return { content: parts.join(""), viewBox: `0 0 ${W} ${H}` };
     }
 
     function renderStructure() {
       const stages = project.stages;
-      const W = 1200;
-      const H = 610;
-      const startX = 120;
-      const step = 220;
-      const baseY = 330;
-      const w = 150;
-      const d = 96;
-      const h = 26;
+      const W = 1280;
+      const H = 760;
+      const ghostX = 190;
+      const ghostY = 540;
+      const ghostStep = 34;
+      const ghostW = 240;
+      const ghostD = 130;
+      const ghostH = 10;
+      const startX = 455;
+      const step = 185;
+      const baseY = 300;
+      const w = 120;
+      const d = 76;
+      const h = 22;
       const parts = [];
 
-      // Shared project envelope: a low-contrast plinth behind all modules,
-      // so horizontal separation still reads as one engineering object.
-      const envelopeOrigin = { x: W / 2, y: baseY + 26 };
-      const ep = (x, y, z) => projectPoint(envelopeOrigin, x, y, z);
-      const envelope = [
-        ep(-W / 2 + 54, -d * 0.9, -30),
-        ep(W / 2 - 54, -d * 0.9, -30),
-        ep(W / 2 - 54, d * 0.9, -30),
-        ep(-W / 2 + 54, d * 0.9, -30)
-      ];
-      parts.push(polygon(envelope, `fill="var(--paper-2)" stroke="var(--rule)" stroke-width="0.6" stroke-dasharray="6 6" opacity="0.42"`));
-      parts.push(`<text x="100" y="198" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.2" fill="var(--ink-3)" opacity="0.75">PROJECT ENVELOPE · 05 STAGE MODULES</text>`);
+      // The whole object, kept assembled as a ghost stack on the left.
+      // Parts are exploded to the right; dashed lines point back to their origin.
+      parts.push(`<g opacity="0.58">`);
+      stages.forEach((stage, index) => {
+        const z = index * ghostStep;
+        const current = stage.current;
+        const selected = state.selectedId === stage.id;
+        const origin = { x: ghostX, y: ghostY };
+        const stroke = current || selected ? "var(--accent)" : "var(--ink-3)";
+        const topFill = current || selected ? "var(--accent-soft)" : "var(--paper-2)";
+        parts.push(box(origin, -ghostW / 2, -ghostD / 2, z, ghostW, ghostD, ghostH, topFill, "var(--paper-2)", stroke, 0.7));
+        const labelY = projectPoint(origin, 0, 0, z + ghostH).y;
+        parts.push(`<text x="${(ghostX + ghostW * 0.62 + 8).toFixed(1)}" y="${(labelY + 3).toFixed(1)}" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${String(stage.order).padStart(2, "0")}</text>`);
+      });
+      parts.push(`<text class="svg-label stage-label" x="62" y="380" font-size="19" fill="var(--ink-2)">Project whole</text>`);
+      parts.push(`<text class="svg-label mono" x="62" y="395" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.2" fill="var(--ink-3)">05 STAGE LAYERS</text>`);
+      parts.push(`</g>`);
+      parts.push(`<text class="svg-label mono" x="${startX}" y="226" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.2" fill="var(--ink-3)">EXPLODED STAGE MODULES / HORIZONTAL</text>`);
 
       stages.forEach((stage, index) => {
         const selected = state.selectedId === stage.id;
         const current = stage.current;
         const lift = selected ? 22 : 0;
-        const origin = { x: startX + index * step, y: baseY + (index % 2 === 0 ? -8 : 24) - lift };
+        const origin = { x: startX + index * step, y: baseY + (index % 2 === 0 ? -8 : 34) - lift };
         const topFill = selected || current ? "var(--accent-soft)" : "var(--paper)";
         const sideFill = "var(--paper-2)";
         const stroke = selected || current ? "var(--accent)" : "var(--ink-2)";
         const strokeWidth = selected || current ? 1.5 : 0.85;
         const counts = stageCounts(stage);
+        const ghostCenter = projectPoint({ x: ghostX, y: ghostY }, 0, 0, index * ghostStep + ghostH);
+        const moduleCenter = projectPoint(origin, 0, 0, 0);
 
+        parts.push(line(ghostCenter, moduleCenter, selected ? "var(--accent)" : "var(--rule)", selected ? 0.9 : 0.65, "2 5"));
         parts.push(`<g class="stage-hit" role="button" tabindex="0" data-stage="${esc(stage.id)}" aria-label="阶段 ${String(stage.order).padStart(2, "0")}：${esc(stage.name)}，记录进度 ${stage.progress}%，${counts.total} 个任务" aria-pressed="${selected}">`);
         parts.push(`<title>阶段 ${String(stage.order).padStart(2, "0")} · ${esc(stage.name)} · ${stage.progress}% · ${counts.total} 任务</title>`);
         parts.push(box(origin, -w / 2, -d / 2, 0, w, d, h, topFill, sideFill, stroke, strokeWidth));
@@ -928,42 +947,33 @@
         shown.forEach((task, taskIndex) => {
           const col = taskIndex % cols;
           const row = Math.floor(taskIndex / cols);
-          const size = Math.max(7, Math.min(11, spanX / (cols + 1.4), spanY / (rows + 1.2)));
+          const size = Math.max(6, Math.min(9, spanX / (cols + 1.4), spanY / (rows + 1.2)));
           const x = -spanX / 2 + (cols === 1 ? spanX / 2 : (col / (cols - 1)) * spanX) - size / 2;
           const y = -spanY / 2 + (rows === 1 ? spanY / 2 : (row / (rows - 1)) * spanY) - size / 2;
           parts.push(cube(origin, x, y, h, size, task.tone));
         });
         if (stage.tasks.length > shown.length) {
-          const over = projectPoint(origin, spanX / 2 + 13, 0, h + 8);
-          parts.push(`<text x="${over.x.toFixed(1)}" y="${over.y.toFixed(1)}" font-family="JetBrains Mono, monospace" font-size="8" fill="var(--ink-3)">+${stage.tasks.length - shown.length}</text>`);
+          const over = projectPoint(origin, spanX / 2 + 10, 0, h + 7);
+          parts.push(`<text x="${over.x.toFixed(1)}" y="${over.y.toFixed(1)}" font-family="JetBrains Mono, monospace" font-size="7.5" fill="var(--ink-3)">+${stage.tasks.length - shown.length}</text>`);
         }
 
-        const labelY = origin.y + d * 0.5 + 48;
-        parts.push(`<line x1="${origin.x - 20}" y1="${(labelY - 33).toFixed(1)}" x2="${origin.x}" y2="${(labelY - 25).toFixed(1)}" stroke="${selected ? "var(--accent)" : "var(--rule)"}" stroke-width="0.7" />`);
-        parts.push(`<text class="svg-label stage-label" x="${origin.x}" y="${labelY}" text-anchor="middle" font-size="${selected ? 18 : 17}" fill="${current ? "var(--accent)" : "var(--ink)"}">${String(stage.order).padStart(2, "0")} ${esc(stage.name)}</text>`);
-        parts.push(`<text class="svg-label mono" x="${origin.x}" y="${labelY + 14}" text-anchor="middle" font-size="8" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${stage.progress}% · W${stage.weight} · ${counts.total} TASK</text>`);
+        const labelY = origin.y + d * 0.5 + 50;
+        parts.push(`<text class="svg-label stage-label" x="${origin.x}" y="${labelY}" text-anchor="middle" font-size="${selected ? 17 : 16}" fill="${current ? "var(--accent)" : "var(--ink)"}">${String(stage.order).padStart(2, "0")} ${esc(stage.name)}</text>`);
+        parts.push(`<text class="svg-label mono" x="${origin.x}" y="${labelY + 13}" text-anchor="middle" font-size="7.5" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${stage.progress}% · W${stage.weight} · ${counts.total} TASK</text>`);
 
         if (current) {
-          parts.push(`<text x="${origin.x}" y="${origin.y - d * 0.5 - 18}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.2" fill="var(--accent)">CURRENT</text>`);
+          parts.push(`<text x="${origin.x}" y="${origin.y - d * 0.5 - 16}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.2" fill="var(--accent)">CURRENT</text>`);
         }
         parts.push(`</g>`);
       });
 
       // horizontal stage-order axis (not dependencies)
-      parts.push(line({ x: 90, y: 442 }, { x: 1140, y: 442 }, "var(--ink-3)", 0.8, "3 5"));
-      parts.push(`<polygon points="1133,438 1133,446 1140,442" fill="var(--ink-3)" />`);
-      parts.push(`<text x="615" y="458" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" letter-spacing="1.2" fill="var(--ink-3)">STAGE ORDER · NOT TASK DEPENDENCIES</text>`);
+      parts.push(line({ x: 420, y: 600 }, { x: 1230, y: 600 }, "var(--ink-3)", 0.8, "3 5"));
+      parts.push(`<polygon points="1223,596 1223,604 1230,600" fill="var(--ink-3)" />`);
+      parts.push(`<text x="825" y="618" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" letter-spacing="1.2" fill="var(--ink-3)">STAGE ORDER · NOT TASK DEPENDENCIES</text>`);
+      parts.push(`<text x="62" y="625" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1" fill="var(--ink-3)">DASHED · ORIGINAL POSITION</text>`);
 
-      // selected drop line to the axis
-      const selectedStage = stages.find((stage) => stage.id === state.selectedId);
-      if (selectedStage) {
-        const index = stages.indexOf(selectedStage);
-        const selectedOrigin = { x: startX + index * step, y: baseY + (index % 2 === 0 ? -8 : 24) - 22 };
-        const foot = projectPoint(selectedOrigin, 0, d / 2, 0);
-        parts.push(line({ x: foot.x, y: foot.y + 4 }, { x: foot.x, y: 438 }, "var(--accent)", 0.7, "2 4"));
-      }
-
-      parts.push(renderLooseTray({ x: 600, y: 525 }, 230, 58, 8));
+      parts.push(renderLooseTray({ x: 1050, y: 660 }, 190, 58, 8));
 
       return { content: parts.join(""), viewBox: `0 0 ${W} ${H}` };
     }
@@ -1060,7 +1070,7 @@
       document.getElementById("canvasMeta").textContent =
         `${allTaskCount()} TASKS · ${project.looseTasks.length} UNASSIGNED`;
       document.getElementById("canvasModeLabel").textContent =
-        state.view === "growth" ? "GROWTH / VERTICAL ACCUMULATION" : "STRUCTURE / HORIZONTAL SEPARATION";
+        state.view === "growth" ? "GROWTH / VERTICAL ACCUMULATION" : "STRUCTURE / EXPLODED ASSEMBLY";
       canvasPanel.dataset.mode = state.view;
 
       document.querySelectorAll("[data-view]").forEach((button) => {
