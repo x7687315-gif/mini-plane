@@ -1,5 +1,9 @@
 # 给 Mini Plane AI Agent 的执行指令
 
+> **历史状态（2026-10-28）**：本文是 V1 概念阶段的启动指令，已被后续实现取代。
+> 当前生产实现见 [`v2/README.md`](v2/README.md)；下一轮构图方向（生长/结构双视图）见
+> [`v3/README.md`](v3/README.md)。不要继续按本文“只做三个草图、不接生产”的约束开工。
+
 请先完整阅读 [`MINI_PLANE_PROJECT_ANATOMY_SPEC.md`](MINI_PLANE_PROJECT_ANATOMY_SPEC.md)，再打开 `references/00-concept-direction.png`，并阅读 `references/01-previous-anatomy-proposal.md` 和 `references/02-legacy-html-prototype-do-not-copy-layout.html`。
 
 本轮严格处于**概念设计阶段**。用户明确要求不要沿用旧 HTML 构图，也不要立即开始生产代码。请先审查仓库真实的数据模型、API、设计系统和可复用组件，然后制作三个真正不同的静态概念草图（A 空间爆炸图、B 轴测剖切图、C 工程图纸版式），比较后提出推荐方向。草图可采用独立 SVG/HTML，但不得接入生产路由，不得修改现有生产代码、API、数据库或 CSS。

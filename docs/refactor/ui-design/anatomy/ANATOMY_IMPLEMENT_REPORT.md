@@ -1,7 +1,11 @@
 # 项目解剖图 · 实施报告（Round 2-4 · 复合 PLATE 视图）
 
+> **历史状态（2026-10-28）**：本文记录 V2 之前的 Round 2–4 实现，已被
+> [`v2/README.md`](v2/README.md) 的 Phase 0–5 取代；下一轮构图方向见
+> [`v3/README.md`](v3/README.md)。不要把本文的组件结构当作当前生产契约。
+>
 > 依据：`ANATOMY_REVIEW.md` 三维审查结论（复合 PLATE 9.2 分采纳）。
-> 状态：**MVP 已实现并实测**。分支 `refactor/personal-first-domain`。
+> 状态：**历史实现记录**。分支 `refactor/personal-first-domain`。
 
 ## Round 2 · 组件层（7e5c9b7）
 

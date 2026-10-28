@@ -2,6 +2,7 @@
 
 > 方向：同一个项目对象的结构、精密观察与演进痕迹，共用一套 React SVG 渲染系统。
 > 最高约束：[技术调研报告](MINI_PLANE_ANATOMY_TECHNICAL_RESEARCH.md) + [ADR-003](../../../../decisions/ADR-003-anatomy-v2-object-language.md)。
+> **2026-10-28**：V3 重新构图（生长 / 结构双视图）的独立原型见 [`../v3/README.md`](../v3/README.md)；生产仍使用 V2，待样稿确认后再切换。
 
 ## 阶段状态
 
