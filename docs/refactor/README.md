@@ -17,6 +17,7 @@
 | 7 Agent / Realtime | [PHASE7_REPORT.md](PHASE7_REPORT.md) · [08-realtime.md](../api/08-realtime.md) |
 | 8 Island / 桌面 | [PHASE8_REPORT.md](PHASE8_REPORT.md) |
 | 9 文档 / 发布 | [PHASE9_REPORT.md](PHASE9_REPORT.md) · [TECH_DEBT.md](TECH_DEBT.md) |
+| **Anatomy V3（新构图）** | [v3/README.md](ui-design/anatomy/v3/README.md) · [Phase 1 审计](ui-design/anatomy/v3/PHASE1_AUDIT.md) · [Phase 2 原型](ui-design/anatomy/v3/PHASE2_PROTOTYPE.md) · [Preflight](ui-design/anatomy/v3/PREFLIGHT.md) |
 
 ## 调研与输入
 

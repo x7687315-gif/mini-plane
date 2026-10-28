@@ -1,0 +1,1113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mini Plane · Anatomy V3 Prototype</title>
+  <style>
+    :root {
+      --paper: #f4f1ea;
+      --paper-2: #ebe7dd;
+      --paper-3: #d9d4c2;
+      --ink: #1b1a17;
+      --ink-2: #5a5851;
+      --ink-3: #8c887e;
+      --rule: #c8c3b4;
+      --accent: #1f3fa8;
+      --accent-2: #4f6fd6;
+      --accent-soft: #e2e7f5;
+      --warning: #a96d1e;
+      --success: #2f6b4f;
+      --danger: #a33a32;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 22px 24px 32px;
+    }
+
+    .masthead {
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+      padding: 2px 2px 14px;
+      border-bottom: 1px solid var(--ink);
+    }
+    .brand {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 30px;
+      font-style: italic;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .brand span { opacity: .55; }
+    .mast-meta {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .mast-links {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      letter-spacing: .12em;
+      color: var(--ink-3);
+    }
+    .demo-badge {
+      border: 1px solid var(--rule);
+      padding: 3px 7px;
+      color: var(--accent);
+    }
+
+    .sheet {
+      margin-top: 18px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+    }
+
+    .sheet-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: end;
+      padding: 18px 20px 15px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .eyebrow {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .project-title {
+      margin: 6px 0 0;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: clamp(30px, 4vw, 48px);
+      font-weight: 500;
+      font-style: italic;
+      line-height: 1;
+      letter-spacing: -.025em;
+    }
+    .project-line {
+      margin-top: 7px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+      color: var(--ink-2);
+    }
+    .project-line b { color: var(--accent); font-weight: 500; }
+    .view-switch {
+      display: flex;
+      border: 1px solid var(--rule);
+    }
+    .view-switch button {
+      appearance: none;
+      border: 0;
+      border-right: 1px solid var(--rule);
+      background: transparent;
+      color: var(--ink-2);
+      padding: 9px 15px;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .view-switch button:last-child { border-right: 0; }
+    .view-switch button[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .view-switch button:focus-visible,
+    .index-item:focus-visible,
+    .task-row:focus-visible,
+    .stage-hit:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .plate {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr) 308px;
+      min-height: 620px;
+    }
+
+    .index {
+      border-right: 1px solid var(--rule);
+      padding: 15px 12px;
+      background: var(--paper-2);
+      min-width: 0;
+    }
+    .index-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      padding: 0 2px 9px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .index-list { padding-top: 7px; }
+    .index-item {
+      appearance: none;
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 5px;
+      width: 100%;
+      border: 0;
+      border-bottom: 1px dashed var(--rule);
+      background: transparent;
+      padding: 9px 2px;
+      color: var(--ink-2);
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+    }
+    .index-item:hover { background: var(--accent-soft); }
+    .index-item[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); }
+    .index-item .no {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      color: var(--ink-3);
+    }
+    .index-item .name {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 16px;
+      font-style: italic;
+      line-height: 1.15;
+    }
+    .index-item .sub {
+      display: flex;
+      justify-content: space-between;
+      gap: 7px;
+      margin-top: 3px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      letter-spacing: .04em;
+      color: var(--ink-3);
+    }
+    .index-item .sub b {
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .index-note {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--rule);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      line-height: 1.7;
+      color: var(--ink-3);
+    }
+
+    .canvas-panel {
+      min-width: 0;
+      position: relative;
+      background:
+        linear-gradient(rgba(200, 195, 180, .2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200, 195, 180, .2) 1px, transparent 1px);
+      background-size: 32px 32px;
+      background-position: -1px -1px;
+    }
+    .canvas-topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 14px 0;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .canvas-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    #scene {
+      display: block;
+      width: 100%;
+      height: auto;
+      min-height: 530px;
+      touch-action: manipulation;
+    }
+    .canvas-foot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      padding: 0 14px 11px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      letter-spacing: .04em;
+      color: var(--ink-3);
+    }
+    .legend {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .legend i {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--ink-2);
+      background: var(--paper);
+    }
+    .legend i.done { background: var(--accent); border-color: var(--accent); }
+    .legend i.active { background: var(--accent-soft); border-color: var(--accent); }
+    .legend i.cancelled { border-style: dashed; background: var(--paper); }
+
+    .detail {
+      border-left: 1px solid var(--rule);
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--paper);
+    }
+    .detail-head {
+      padding: 15px 15px 12px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .detail-kicker {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .detail-kicker b { color: var(--accent); font-weight: 500; }
+    .detail-title {
+      margin: 7px 0 4px;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 28px;
+      font-style: italic;
+      font-weight: 500;
+      line-height: 1.05;
+    }
+    .detail-goal {
+      min-height: 34px;
+      color: var(--ink-2);
+      font-size: 11.5px;
+      line-height: 1.55;
+    }
+    .detail-progress {
+      margin-top: 11px;
+      height: 5px;
+      background: var(--paper-3);
+      position: relative;
+    }
+    .detail-progress span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+    }
+    .detail-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 5px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      color: var(--ink-3);
+    }
+
+    .counts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-bottom: 1px solid var(--rule);
+    }
+    .count {
+      padding: 11px 12px 10px;
+      border-right: 1px solid var(--rule);
+    }
+    .count:last-child { border-right: 0; }
+    .count span {
+      display: block;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .count b {
+      display: block;
+      margin-top: 2px;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 23px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .task-list {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 8px 15px 4px;
+    }
+    .task-list-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 2px 0 6px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .task-row {
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      gap: 7px;
+      align-items: baseline;
+      width: 100%;
+      padding: 7px 0;
+      border: 0;
+      border-bottom: 1px dashed var(--rule);
+      background: transparent;
+      color: var(--ink-2);
+      text-align: left;
+      font: inherit;
+      cursor: default;
+    }
+    .task-row .id {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      color: var(--ink-3);
+    }
+    .task-row .title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11.5px;
+    }
+    .task-row .state {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .task-row[data-tone="done"] .state { color: var(--accent); }
+    .task-row[data-tone="active"] .state { color: var(--success); }
+    .task-row[data-tone="cancelled"] .state { color: var(--ink-3); text-decoration: line-through; }
+
+    .detail-records {
+      border-top: 1px solid var(--rule);
+      padding: 10px 15px 14px;
+      background: var(--paper-2);
+    }
+    .detail-records h3 {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 0 0 5px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      font-weight: 500;
+    }
+    .record {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 7px;
+      padding: 5px 0;
+      border-bottom: 1px dashed var(--rule);
+      font-size: 10.5px;
+      color: var(--ink-2);
+    }
+    .record time {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8px;
+      color: var(--ink-3);
+    }
+    .record b { font-weight: 500; color: var(--ink); }
+    .record-note {
+      margin: 6px 0 0;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8px;
+      line-height: 1.5;
+      color: var(--ink-3);
+    }
+
+    .sheet-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 9px 14px;
+      border-top: 1px solid var(--rule);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 8.5px;
+      letter-spacing: .06em;
+      color: var(--ink-3);
+    }
+    .sheet-foot b { color: var(--ink-2); font-weight: 500; }
+
+    .stage-label { font-family: "Cormorant Garamond", Georgia, serif; font-style: italic; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+    .svg-order { display: none; }
+    .stage-hit { cursor: pointer; outline: none; }
+    .stage-hit .focus-ring { opacity: 0; }
+    .stage-hit:focus .focus-ring { opacity: .95; }
+
+    @media (max-width: 1120px) {
+      .plate { grid-template-columns: 166px minmax(0, 1fr) 282px; }
+      .index-item .name { font-size: 15px; }
+    }
+
+    @media (max-width: 900px) {
+      .app { padding: 14px 12px 24px; }
+      .masthead { flex-wrap: wrap; gap: 8px 14px; }
+      .mast-links { width: 100%; margin-left: 0; justify-content: space-between; }
+      .sheet-head { grid-template-columns: 1fr; align-items: start; }
+      .view-switch { width: max-content; }
+      .plate { grid-template-columns: 1fr; }
+      .index {
+        border-right: 0;
+        border-bottom: 1px solid var(--rule);
+        padding: 9px 12px;
+        overflow-x: auto;
+      }
+      .index-title { border-bottom: 0; padding-bottom: 5px; }
+      .index-list { display: flex; gap: 4px; padding-top: 3px; min-width: max-content; }
+      .index-item {
+        width: 150px;
+        border: 1px solid var(--rule);
+        border-bottom: 1px dashed var(--rule);
+        padding: 7px;
+      }
+      .index-note { display: none; }
+      .canvas-topline { padding-top: 7px; }
+      #scene { min-height: 0; }
+      .canvas-panel[data-mode="structure"] .canvas-scroll { overflow-x: auto; }
+      .canvas-panel[data-mode="structure"] #scene { min-width: 900px; }
+      .canvas-panel[data-mode="growth"] .svg-label { display: none; }
+      .canvas-panel[data-mode="growth"] .svg-order { display: inline; }
+      .detail { border-left: 0; border-top: 1px solid var(--rule); }
+      .task-list { max-height: 300px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="masthead">
+      <div class="brand">P<span>lane</span></div>
+      <div class="mast-meta">MINI · PROJECT ANATOMY · SHEET 01 · REV 03</div>
+      <div class="mast-links">
+        <span class="demo-badge">DEMO DATA · NOT PRODUCTION</span>
+        <span>Anatomy V3 prototype</span>
+      </div>
+    </header>
+
+    <main class="sheet">
+      <section class="sheet-head">
+        <div>
+          <div class="eyebrow">PROJECT ANATOMY · STRUCTURE / GROWTH</div>
+          <h1 class="project-title" id="projectTitle">Mini Plane</h1>
+          <div class="project-line">
+            <span>MP / <b>MINI PLANE</b></span>
+            <span id="projectSummary"></span>
+            <span>PROTOTYPE · 2026-10</span>
+          </div>
+        </div>
+        <div class="view-switch" role="group" aria-label="视图">
+          <button type="button" data-view="growth" aria-pressed="true">生长 / Growth</button>
+          <button type="button" data-view="structure" aria-pressed="false">结构 / Structure</button>
+        </div>
+      </section>
+
+      <div class="plate">
+        <aside class="index" aria-label="阶段索引">
+          <div class="index-title"><span>STAGE INDEX</span><span>01—05</span></div>
+          <div class="index-list" id="indexList"></div>
+          <p class="index-note">
+            竖向累积是生长，横向分离是结构。<br />
+            顺序只表达阶段次序，不画任务依赖。
+          </p>
+        </aside>
+
+        <section class="canvas-panel" id="canvasPanel" data-mode="growth" aria-label="工程图主视图">
+          <div class="canvas-topline">
+            <span id="canvasModeLabel">GROWTH / VERTICAL ACCUMULATION</span>
+            <span id="canvasMeta">MP · 05 STAGES · 18 TASKS</span>
+          </div>
+          <div class="canvas-scroll">
+            <svg id="scene" viewBox="0 0 1060 660" role="group" aria-labelledby="sceneTitle sceneDesc">
+              <title id="sceneTitle">Mini Plane 项目工程图</title>
+              <desc id="sceneDesc">演示项目：阶段、任务、进度与当前阶段。示意数据，不接生产 API。</desc>
+            </svg>
+          </div>
+          <div class="canvas-foot">
+            <span class="legend"><i></i>待处理 / 待规划</span>
+            <span class="legend"><i class="active"></i>进行中 / NOW</span>
+            <span class="legend"><i class="done"></i>已完成</span>
+            <span class="legend"><i class="cancelled"></i>已取消</span>
+            <span>点击阶段查看详情 · Tab + Enter 可达</span>
+          </div>
+        </section>
+
+        <aside class="detail" aria-live="polite" aria-label="当前构件详情">
+          <div class="detail-head">
+            <div class="detail-kicker"><span id="detailKicker">SELECTED / STAGE 04</span><span id="detailStatus">CURRENT</span></div>
+            <h2 class="detail-title" id="detailTitle">工作台与协作</h2>
+            <p class="detail-goal" id="detailGoal"></p>
+            <div class="detail-progress" aria-label="阶段记录进度"><span id="detailProgress"></span></div>
+            <div class="detail-meta"><span id="detailMeta"></span><span id="detailSource">STAGE RECORDED</span></div>
+          </div>
+
+          <div class="counts">
+            <div class="count"><span>任务总数</span><b id="countTotal">0</b></div>
+            <div class="count"><span>已完成</span><b id="countDone">0</b></div>
+            <div class="count"><span>进行中</span><b id="countActive">0</b></div>
+          </div>
+
+          <div class="task-list">
+            <div class="task-list-title"><span>TASKS IN STAGE</span><span id="taskCountLabel">00</span></div>
+            <div id="taskList"></div>
+          </div>
+
+          <div class="detail-records">
+            <h3><span>RECORDS / READ ONLY</span><span id="recordCount">02</span></h3>
+            <div id="recordList"></div>
+            <p class="record-note">演示记录，不是历史快照；没有快照就不回放完整历史。</p>
+          </div>
+        </aside>
+      </div>
+
+      <div class="sheet-foot">
+        <span><b>MINI PLANE</b> / ANATOMY V3 / DEMO DATA</span>
+        <span>生长方向：垂直累积 · 结构方向：水平展开 · 不画 Task↔Task 依赖</span>
+        <span>REV 0.1 · 2026-10</span>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /* ------------------------------------------------------------------
+       Prototype data — deliberately demo data, not API data.
+       Same shape as frontend/features/anatomy/model.ts:
+       recorded progress stays separate from task counts.
+    ------------------------------------------------------------------ */
+    const project = {
+      name: "Mini Plane",
+      identifier: "MP",
+      progress: 80,
+      progressSource: "plan",
+      agentRunning: true,
+      stages: [
+        {
+          id: "s1", order: 1, name: "调研与定义", progress: 100, weight: 2, current: false,
+          goal: "把问题、边界、成功标准和第一批真实使用场景写清楚。",
+          tasks: [
+            { seq: 1, title: "拆解真实使用场景", tone: "done", state: "DONE" },
+            { seq: 2, title: "核对现有数据模型", tone: "done", state: "DONE" },
+            { seq: 3, title: "确定产品边界与非目标", tone: "done", state: "DONE" },
+            { seq: 4, title: "记录基线测试结果", tone: "done", state: "DONE" }
+          ],
+          records: [
+            { date: "10-24", title: "问题、边界与成功标准冻结", kind: "WORKLOG" },
+            { date: "10-24", title: "非目标清单写入设计决策", kind: "ACTIVITY" }
+          ]
+        },
+        {
+          id: "s2", order: 2, name: "领域模型", progress: 100, weight: 2, current: false,
+          goal: "让 Project / Stage / Task / Worklog 的归属和状态各自只有一个事实源。",
+          tasks: [
+            { seq: 5, title: "Project owner 必填，Workspace 可空", tone: "done", state: "DONE" },
+            { seq: 6, title: "Task 可选关联 Stage", tone: "done", state: "DONE" },
+            { seq: 7, title: "Worklog 与 Activity 分列", tone: "done", state: "DONE" },
+            { seq: 8, title: "迁移旧数据并校验数量", tone: "cancelled", state: "CANCELLED" }
+          ],
+          records: [
+            { date: "10-24", title: "领域模型与删除行为冻结", kind: "WORKLOG" }
+          ]
+        },
+        {
+          id: "s3", order: 3, name: "统一契约", progress: 100, weight: 1, current: false,
+          goal: "规范路由只凭 Project ID；Agent 与用户写路径复用同一套服务。",
+          tasks: [
+            { seq: 9, title: "规范 /projects 与 /tasks 路由", tone: "done", state: "DONE" },
+            { seq: 10, title: "权限优先级收敛为纯函数", tone: "done", state: "DONE" },
+            { seq: 11, title: "OpenAPI 快照与 CI diff", tone: "done", state: "DONE" }
+          ],
+          records: [
+            { date: "10-27", title: "Agent 幂等与实时事件收敛", kind: "WORKLOG" }
+          ]
+        },
+        {
+          id: "s4", order: 4, name: "工作台与协作", progress: 62, weight: 2, current: true,
+          goal: "个人工程闭环先成立；团队协作作为可选叠加层，不反客为主。",
+          tasks: [
+            { seq: 12, title: "工作台状态行与 NOW", tone: "done", state: "DONE" },
+            { seq: 13, title: "任务筛选、搜索与分页写进 URL", tone: "done", state: "DONE" },
+            { seq: 14, title: "记一笔 Worklog 最小闭环", tone: "done", state: "DONE" },
+            { seq: 15, title: "share / detach 的确认与撤权", tone: "active", state: "NOW" },
+            { seq: 16, title: "个人工程隐藏团队字段", tone: "todo", state: "TODO" }
+          ],
+          records: [
+            { date: "10-28", title: "把确认流程写进设置页", kind: "WORKLOG" },
+            { date: "10-28", title: "membership.changed 触发项目 WS 关闭", kind: "ACTIVITY" }
+          ]
+        },
+        {
+          id: "s5", order: 5, name: "图纸与验收", progress: 18, weight: 1, current: false,
+          goal: "把项目变成一张可读、可探索、但不伪造历史的工程图。",
+          tasks: [
+            { seq: 17, title: "成长视图的垂直累积", tone: "active", state: "ACTIVE" },
+            { seq: 18, title: "结构视图的水平展开", tone: "todo", state: "TODO" },
+            { seq: 19, title: "固定详情区与键盘路径", tone: "todo", state: "TODO" },
+            { seq: 20, title: "高密度与缺失数据验收", tone: "todo", state: "TODO" }
+          ],
+          records: [
+            { date: "10-28", title: "重新确定视觉主体与空间组织", kind: "WORKLOG" }
+          ]
+        }
+      ],
+      looseTasks: [
+        { seq: 21, title: "补齐导出功能", tone: "todo", state: "TODO" },
+        { seq: 22, title: "检查移动端阅读密度", tone: "todo", state: "TODO" }
+      ]
+    };
+
+    const state = {
+      view: "growth",
+      selectedId: project.stages.find((stage) => stage.current)?.id ?? project.stages[0]?.id
+    };
+
+    const svg = document.getElementById("scene");
+    const canvasPanel = document.getElementById("canvasPanel");
+    const indexList = document.getElementById("indexList");
+    const taskList = document.getElementById("taskList");
+    const recordList = document.getElementById("recordList");
+
+    const TONE = {
+      done: { top: "var(--accent)", side: "var(--accent)", stroke: "var(--accent)" },
+      active: { top: "var(--accent-soft)", side: "var(--accent-soft)", stroke: "var(--accent)" },
+      todo: { top: "var(--paper)", side: "var(--paper-2)", stroke: "var(--ink-2)" },
+      cancelled: { top: "var(--paper)", side: "var(--paper-2)", stroke: "var(--ink-3)" }
+    };
+
+    const ISO_C = Math.cos(Math.PI / 6);
+    const ISO_S = 0.5;
+
+    function projectPoint(origin, x, y, z = 0) {
+      return {
+        x: origin.x + (x - y) * ISO_C,
+        y: origin.y + (x + y) * ISO_S - z
+      };
+    }
+
+    function pointsAttr(points) {
+      return points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    }
+
+    function esc(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function line(a, b, stroke = "var(--rule)", width = 0.8, dash = "") {
+      return `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${stroke}" stroke-width="${width}"${dash ? ` stroke-dasharray="${dash}"` : ""} />`;
+    }
+
+    function polygon(points, attrs = "") {
+      return `<polygon points="${pointsAttr(points)}" ${attrs} />`;
+    }
+
+    function box(origin, x, y, z, w, d, h, topFill, sideFill, stroke, strokeWidth, dash = "") {
+      const p = (px, py, pz) => projectPoint(origin, px, py, pz);
+      const top = [p(x, y, z + h), p(x + w, y, z + h), p(x + w, y + d, z + h), p(x, y + d, z + h)];
+      const right = [p(x + w, y, z + h), p(x + w, y + d, z + h), p(x + w, y + d, z), p(x + w, y, z)];
+      const front = [p(x, y + d, z + h), p(x + w, y + d, z + h), p(x + w, y + d, z), p(x, y + d, z)];
+      const dashAttr = dash ? ` stroke-dasharray="${dash}"` : "";
+      return [
+        polygon(right, `fill="${sideFill}" stroke="${stroke}" stroke-width="${strokeWidth}"${dashAttr}`),
+        polygon(front, `fill="${sideFill}" stroke="${stroke}" stroke-width="${strokeWidth}"${dashAttr}`),
+        polygon(top, `fill="${topFill}" stroke="${stroke}" stroke-width="${strokeWidth}"${dashAttr}`)
+      ].join("");
+    }
+
+    function cube(origin, x, y, z, size, tone) {
+      const palette = TONE[tone] || TONE.todo;
+      return box(origin, x, y, z, size, size, size * 0.72, palette.top, palette.side, palette.stroke, 0.7);
+    }
+
+    function stageCounts(stage) {
+      const counts = { total: stage.tasks.length, done: 0, active: 0, todo: 0, cancelled: 0 };
+      for (const task of stage.tasks) counts[task.tone] += 1;
+      return counts;
+    }
+
+    function allTaskCount() {
+      return project.stages.reduce((sum, stage) => sum + stage.tasks.length, 0) + project.looseTasks.length;
+    }
+
+    function focusRing(origin, x, y, z, w, d, h) {
+      const p = (px, py, pz) => projectPoint(origin, px, py, pz);
+      return polygon(
+        [p(x, y, z + h), p(x + w, y, z + h), p(x + w, y + d, z + h), p(x, y + d, z + h)],
+        `fill="none" stroke="var(--accent)" stroke-width="2.2" class="focus-ring" opacity="0"`
+      );
+    }
+
+    function renderGrowth() {
+      const stages = project.stages;
+      const W = 1060;
+      const H = 720;
+      const centerX = 590;
+      const baseY = 610;
+      const step = 94;
+      const w = 300;
+      const d = 170;
+      const h = 26;
+      const parts = [];
+
+      // faint construction axis
+      parts.push(`<line x1="${centerX}" y1="120" x2="${centerX}" y2="${baseY + 28}" stroke="var(--rule)" stroke-width="0.6" stroke-dasharray="2 7" opacity="0.55" />`);
+
+      stages.forEach((stage, index) => {
+        const z = index * step;
+        const selected = state.selectedId === stage.id;
+        const current = stage.current;
+        const origin = { x: centerX, y: baseY };
+        const topFill = selected || current ? "var(--accent-soft)" : "var(--paper)";
+        const sideFill = selected || current ? "var(--paper-2)" : "var(--paper-2)";
+        const stroke = selected || current ? "var(--accent)" : "var(--ink-2)";
+        const strokeWidth = selected || current ? 1.5 : 0.85;
+        const topY = projectPoint(origin, 0, 0, z).y;
+        const left = projectPoint(origin, -w / 2, 0, z + h).x;
+        const counts = stageCounts(stage);
+
+        parts.push(`<g class="stage-hit" role="button" tabindex="0" data-stage="${esc(stage.id)}" aria-label="阶段 ${String(stage.order).padStart(2, "0")}：${esc(stage.name)}，记录进度 ${stage.progress}%，${counts.total} 个任务" aria-pressed="${selected}">`);
+        parts.push(`<title>阶段 ${String(stage.order).padStart(2, "0")} · ${esc(stage.name)} · ${stage.progress}% · ${counts.total} 任务</title>`);
+        parts.push(box(origin, -w / 2, -d / 2, z, w, d, h, topFill, sideFill, stroke, strokeWidth));
+        parts.push(focusRing(origin, -w / 2, -d / 2, z, w, d, h));
+
+        // task density on the front edge: visible even when layers stack.
+        const shown = stage.tasks.slice(0, 14);
+        const startX = -w / 2 + 24;
+        const endX = w / 2 - 24;
+        shown.forEach((task, taskIndex) => {
+          const x = shown.length === 1 ? 0 : startX + (taskIndex / (shown.length - 1)) * (endX - startX);
+          const tone = TONE[task.tone] || TONE.todo;
+          const dash = task.tone === "cancelled" ? "2 2" : "";
+          parts.push(line(
+            projectPoint(origin, x, d / 2, z + 3),
+            projectPoint(origin, x, d / 2, z + h - 3),
+            tone.stroke,
+            task.tone === "active" ? 3.4 : 2.1,
+            dash
+          ));
+        });
+        if (stage.tasks.length > shown.length) {
+          const over = projectPoint(origin, endX + 8, d / 2, z + h / 2);
+          parts.push(`<text x="${over.x.toFixed(1)}" y="${over.y.toFixed(1)}" font-family="JetBrains Mono, monospace" font-size="8" fill="var(--ink-3)">+${stage.tasks.length - shown.length}</text>`);
+        }
+
+        // left-side index annotation
+        parts.push(line(
+          { x: 330, y: topY - 5 },
+          { x: left - 10, y: topY - 5 },
+          selected || current ? "var(--accent)" : "var(--rule)",
+          selected || current ? 1 : 0.7,
+          "2 3"
+        ));
+        parts.push(`<circle cx="330" cy="${(topY - 5).toFixed(1)}" r="${selected || current ? 3 : 2}" fill="${selected || current ? "var(--accent)" : "var(--ink-3)"}" />`);
+        parts.push(`<text class="svg-order" x="${(left - 14).toFixed(1)}" y="${(topY - 2).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${String(stage.order).padStart(2, "0")}</text>`);
+        parts.push(`<text class="svg-label stage-label" x="318" y="${(topY - 2).toFixed(1)}" text-anchor="end" font-size="${selected ? 20 : 18}" fill="${current ? "var(--accent)" : "var(--ink)"}">${String(stage.order).padStart(2, "0")} ${esc(stage.name)}</text>`);
+        parts.push(`<text class="svg-label mono" x="318" y="${(topY + 13).toFixed(1)}" text-anchor="end" font-size="8.5" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${stage.progress}% · W${stage.weight} · ${counts.total} TASK${current ? " · CURRENT" : ""}</text>`);
+
+        if (current) {
+          const tag = projectPoint(origin, w / 2 + 16, -d / 2, z + h);
+          parts.push(`<text x="${tag.x.toFixed(1)}" y="${tag.y.toFixed(1)}" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.4" fill="var(--accent)">CURRENT</text>`);
+        }
+        parts.push(`</g>`);
+      });
+
+      // growth dimension line
+      const topY = baseY - (stages.length - 1) * step - h - 18;
+      const bottomY = baseY + 22;
+      parts.push(line({ x: 1000, y: bottomY }, { x: 1000, y: topY }, "var(--ink-3)", 0.8, "3 4"));
+      parts.push(`<polygon points="996,${bottomY - 7} 1004,${bottomY - 7} 1000,${bottomY}" fill="var(--ink-3)" />`);
+      parts.push(`<polygon points="996,${topY + 7} 1004,${topY + 7} 1000,${topY}" fill="var(--ink-3)" />`);
+      parts.push(`<text x="988" y="${((topY + bottomY) / 2).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8.5" letter-spacing="1.2" fill="var(--ink-3)" transform="rotate(-90 988 ${((topY + bottomY) / 2).toFixed(1)})">STAGE 01 → 05 · GROWTH</text>`);
+
+      // unassigned tray, neutral and separate
+      parts.push(renderLooseTray({ x: 870, y: 590 }, 130, 70, 8));
+
+      return { content: parts.join(""), viewBox: `0 0 ${W} ${H}` };
+    }
+
+    function renderStructure() {
+      const stages = project.stages;
+      const W = 1200;
+      const H = 610;
+      const startX = 120;
+      const step = 220;
+      const baseY = 330;
+      const w = 150;
+      const d = 96;
+      const h = 26;
+      const parts = [];
+
+      // Shared project envelope: a low-contrast plinth behind all modules,
+      // so horizontal separation still reads as one engineering object.
+      const envelopeOrigin = { x: W / 2, y: baseY + 26 };
+      const ep = (x, y, z) => projectPoint(envelopeOrigin, x, y, z);
+      const envelope = [
+        ep(-W / 2 + 54, -d * 0.9, -30),
+        ep(W / 2 - 54, -d * 0.9, -30),
+        ep(W / 2 - 54, d * 0.9, -30),
+        ep(-W / 2 + 54, d * 0.9, -30)
+      ];
+      parts.push(polygon(envelope, `fill="var(--paper-2)" stroke="var(--rule)" stroke-width="0.6" stroke-dasharray="6 6" opacity="0.42"`));
+      parts.push(`<text x="100" y="198" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.2" fill="var(--ink-3)" opacity="0.75">PROJECT ENVELOPE · 05 STAGE MODULES</text>`);
+
+      stages.forEach((stage, index) => {
+        const selected = state.selectedId === stage.id;
+        const current = stage.current;
+        const lift = selected ? 22 : 0;
+        const origin = { x: startX + index * step, y: baseY + (index % 2 === 0 ? -8 : 24) - lift };
+        const topFill = selected || current ? "var(--accent-soft)" : "var(--paper)";
+        const sideFill = "var(--paper-2)";
+        const stroke = selected || current ? "var(--accent)" : "var(--ink-2)";
+        const strokeWidth = selected || current ? 1.5 : 0.85;
+        const counts = stageCounts(stage);
+
+        parts.push(`<g class="stage-hit" role="button" tabindex="0" data-stage="${esc(stage.id)}" aria-label="阶段 ${String(stage.order).padStart(2, "0")}：${esc(stage.name)}，记录进度 ${stage.progress}%，${counts.total} 个任务" aria-pressed="${selected}">`);
+        parts.push(`<title>阶段 ${String(stage.order).padStart(2, "0")} · ${esc(stage.name)} · ${stage.progress}% · ${counts.total} 任务</title>`);
+        parts.push(box(origin, -w / 2, -d / 2, 0, w, d, h, topFill, sideFill, stroke, strokeWidth));
+        parts.push(focusRing(origin, -w / 2, -d / 2, 0, w, d, h));
+
+        const shown = stage.tasks.slice(0, 12);
+        const cols = Math.min(5, Math.max(1, Math.ceil(Math.sqrt(shown.length))));
+        const rows = Math.ceil(shown.length / cols);
+        const spanX = w * 0.62;
+        const spanY = d * 0.46;
+        shown.forEach((task, taskIndex) => {
+          const col = taskIndex % cols;
+          const row = Math.floor(taskIndex / cols);
+          const size = Math.max(7, Math.min(11, spanX / (cols + 1.4), spanY / (rows + 1.2)));
+          const x = -spanX / 2 + (cols === 1 ? spanX / 2 : (col / (cols - 1)) * spanX) - size / 2;
+          const y = -spanY / 2 + (rows === 1 ? spanY / 2 : (row / (rows - 1)) * spanY) - size / 2;
+          parts.push(cube(origin, x, y, h, size, task.tone));
+        });
+        if (stage.tasks.length > shown.length) {
+          const over = projectPoint(origin, spanX / 2 + 13, 0, h + 8);
+          parts.push(`<text x="${over.x.toFixed(1)}" y="${over.y.toFixed(1)}" font-family="JetBrains Mono, monospace" font-size="8" fill="var(--ink-3)">+${stage.tasks.length - shown.length}</text>`);
+        }
+
+        const labelY = origin.y + d * 0.5 + 48;
+        parts.push(`<line x1="${origin.x - 20}" y1="${(labelY - 33).toFixed(1)}" x2="${origin.x}" y2="${(labelY - 25).toFixed(1)}" stroke="${selected ? "var(--accent)" : "var(--rule)"}" stroke-width="0.7" />`);
+        parts.push(`<text class="svg-label stage-label" x="${origin.x}" y="${labelY}" text-anchor="middle" font-size="${selected ? 18 : 17}" fill="${current ? "var(--accent)" : "var(--ink)"}">${String(stage.order).padStart(2, "0")} ${esc(stage.name)}</text>`);
+        parts.push(`<text class="svg-label mono" x="${origin.x}" y="${labelY + 14}" text-anchor="middle" font-size="8" fill="${current ? "var(--accent)" : "var(--ink-3)"}">${stage.progress}% · W${stage.weight} · ${counts.total} TASK</text>`);
+
+        if (current) {
+          parts.push(`<text x="${origin.x}" y="${origin.y - d * 0.5 - 18}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.2" fill="var(--accent)">CURRENT</text>`);
+        }
+        parts.push(`</g>`);
+      });
+
+      // horizontal stage-order axis (not dependencies)
+      parts.push(line({ x: 90, y: 442 }, { x: 1140, y: 442 }, "var(--ink-3)", 0.8, "3 5"));
+      parts.push(`<polygon points="1133,438 1133,446 1140,442" fill="var(--ink-3)" />`);
+      parts.push(`<text x="615" y="458" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" letter-spacing="1.2" fill="var(--ink-3)">STAGE ORDER · NOT TASK DEPENDENCIES</text>`);
+
+      // selected drop line to the axis
+      const selectedStage = stages.find((stage) => stage.id === state.selectedId);
+      if (selectedStage) {
+        const index = stages.indexOf(selectedStage);
+        const selectedOrigin = { x: startX + index * step, y: baseY + (index % 2 === 0 ? -8 : 24) - 22 };
+        const foot = projectPoint(selectedOrigin, 0, d / 2, 0);
+        parts.push(line({ x: foot.x, y: foot.y + 4 }, { x: foot.x, y: 438 }, "var(--accent)", 0.7, "2 4"));
+      }
+
+      parts.push(renderLooseTray({ x: 600, y: 525 }, 230, 58, 8));
+
+      return { content: parts.join(""), viewBox: `0 0 ${W} ${H}` };
+    }
+
+    function renderLooseTray(origin, w, d, h) {
+      const parts = [];
+      const p = (x, y, z) => projectPoint(origin, x, y, z);
+      const boxFaces = [
+        p(-w / 2, -d / 2, h), p(w / 2, -d / 2, h), p(w / 2, d / 2, h), p(-w / 2, d / 2, h)
+      ];
+      parts.push(polygon(boxFaces, `fill="none" stroke="var(--ink-3)" stroke-width="0.8" stroke-dasharray="4 4"`));
+      const shown = project.looseTasks.slice(0, 8);
+      const cols = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
+      shown.forEach((task, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const size = 9;
+        const x = -w * 0.32 + (col / Math.max(1, cols - 1)) * w * 0.64 - size / 2;
+        const y = -d * 0.22 + (row / Math.max(1, Math.ceil(shown.length / cols) - 1)) * d * 0.44 - size / 2;
+        parts.push(cube(origin, Number.isFinite(x) ? x : -size / 2, Number.isFinite(y) ? y : -size / 2, h, size, task.tone));
+      });
+      parts.push(`<text x="${origin.x}" y="${(origin.y + d * 0.5 + 17).toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1" fill="var(--ink-3)">UNASSIGNED · ${project.looseTasks.length}</text>`);
+      return parts.join("");
+    }
+
+    function renderSVG() {
+      const result = state.view === "growth" ? renderGrowth() : renderStructure();
+      svg.setAttribute("viewBox", result.viewBox);
+      svg.innerHTML = [
+        `<title id="sceneTitle">Mini Plane 项目工程图 · ${state.view === "growth" ? "生长视图" : "结构视图"}</title>`,
+        `<desc id="sceneDesc">演示数据：阶段以${state.view === "growth" ? "垂直累积" : "水平分离"}方式组织；未归属任务独立可见；不画任务依赖，不伪造历史。</desc>`,
+        result.content
+      ].join("");
+    }
+
+    function renderIndex() {
+      indexList.innerHTML = project.stages.map((stage) => {
+        const selected = state.selectedId === stage.id;
+        const counts = stageCounts(stage);
+        return `
+          <button type="button" class="index-item" data-stage="${esc(stage.id)}" aria-pressed="${selected}">
+            <span class="no">${String(stage.order).padStart(2, "0")}</span>
+            <span>
+              <span class="name">${esc(stage.name)}${stage.current ? " ·" : ""}</span>
+              <span class="sub"><span>${stage.progress}%</span><span>${counts.total} TASK</span></span>
+            </span>
+          </button>`;
+      }).join("");
+    }
+
+    function renderDetail() {
+      const stage = project.stages.find((item) => item.id === state.selectedId) ?? project.stages[0];
+      if (!stage) return;
+      const counts = stageCounts(stage);
+      document.getElementById("detailKicker").textContent = `SELECTED / STAGE ${String(stage.order).padStart(2, "0")}`;
+      document.getElementById("detailStatus").textContent = stage.current ? "CURRENT STAGE" : "SELECTED";
+      document.getElementById("detailTitle").textContent = stage.name;
+      document.getElementById("detailGoal").textContent = stage.goal || "（未填写阶段目标）";
+      document.getElementById("detailProgress").style.width = `${stage.progress}%`;
+      document.getElementById("detailMeta").textContent = `${stage.progress}% RECORDED · WEIGHT ${stage.weight}`;
+      document.getElementById("detailSource").textContent = "STAGE RECORDED";
+      document.getElementById("countTotal").textContent = String(counts.total).padStart(2, "0");
+      document.getElementById("countDone").textContent = String(counts.done).padStart(2, "0");
+      document.getElementById("countActive").textContent = String(counts.active).padStart(2, "0");
+      document.getElementById("taskCountLabel").textContent = String(counts.total).padStart(2, "0");
+
+      taskList.innerHTML = stage.tasks.length
+        ? stage.tasks.map((task) => `
+            <div class="task-row" data-tone="${task.tone}">
+              <span class="id">${project.identifier}-${String(task.seq).padStart(2, "0")}</span>
+              <span class="title">${esc(task.title)}</span>
+              <span class="state">${esc(task.state)}</span>
+            </div>`).join("")
+        : `<p class="record-note">该阶段还没有任务构件。</p>`;
+
+      const records = stage.records ?? [];
+      document.getElementById("recordCount").textContent = String(records.length).padStart(2, "0");
+      recordList.innerHTML = records.length
+        ? records.map((record) => `
+            <div class="record">
+              <time>${esc(record.date)}</time>
+              <span><b>${esc(record.title)}</b><br />${esc(record.kind)}</span>
+            </div>`).join("")
+        : `<p class="record-note">该阶段暂无记录。</p>`;
+    }
+
+    function renderAll() {
+      if (!project.stages.some((stage) => stage.id === state.selectedId)) {
+        state.selectedId = project.stages.find((stage) => stage.current)?.id ?? project.stages[0]?.id;
+      }
+      document.getElementById("projectTitle").textContent = project.name;
+      document.getElementById("projectSummary").textContent =
+        `${project.progress}% · ${project.progressSource.toUpperCase()} · ${project.stages.length} STAGES · ${allTaskCount()} TASKS`;
+      document.getElementById("canvasMeta").textContent =
+        `${allTaskCount()} TASKS · ${project.looseTasks.length} UNASSIGNED`;
+      document.getElementById("canvasModeLabel").textContent =
+        state.view === "growth" ? "GROWTH / VERTICAL ACCUMULATION" : "STRUCTURE / HORIZONTAL SEPARATION";
+      canvasPanel.dataset.mode = state.view;
+
+      document.querySelectorAll("[data-view]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.view === state.view));
+      });
+
+      renderSVG();
+      renderIndex();
+      renderDetail();
+    }
+
+    function selectStage(stageId, refocusSvg = false) {
+      state.selectedId = stageId;
+      renderAll();
+      if (refocusSvg) {
+        requestAnimationFrame(() => {
+          svg.querySelector(`[data-stage="${stageId}"]`)?.focus({ preventScroll: true });
+        });
+      }
+    }
+
+    document.querySelectorAll("[data-view]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.view = button.dataset.view;
+        renderAll();
+      });
+    });
+
+    indexList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-stage]");
+      if (button) selectStage(button.dataset.stage);
+    });
+
+    svg.addEventListener("click", (event) => {
+      const group = event.target.closest("[data-stage]");
+      if (group) selectStage(group.dataset.stage);
+    });
+
+    svg.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const group = event.target.closest("[data-stage]");
+      if (!group) return;
+      event.preventDefault();
+      selectStage(group.dataset.stage, true);
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
