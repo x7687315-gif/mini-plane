@@ -32,6 +32,7 @@ from pathlib import Path
 # Island V3（2026-10-21）：单窗两态，触发把手退役（见 island.py 模块 docstring）。
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import job_object  # noqa: E402
 from island import create_island_window, island_enabled  # noqa: E402
 from window_manager import DesktopApi, WindowManager, set_notify  # noqa: E402
 from window_watch import watch_main_window_gone  # noqa: E402
@@ -164,13 +165,17 @@ def kill_tree(proc: subprocess.Popen | None) -> None:
 def stop_services(procs: list[subprocess.Popen], *, hard_exit: bool = False) -> None:
     """停掉后端 / 前端子进程（杀整棵进程树）。
 
-    `hard_exit=True` 时连带**结束本进程**：给"主窗口关闭"那条通路用。
+    `hard_exit=True` 时连带结束本进程：给"主窗口关闭"那条通路用。
 
-    为什么需要 hard_exit（2026-10-04 实测）：Windows 上 pywebview 把 GUI 放在**子进程**里，
-    父进程持有的 Window 对象指挥不动它 —— `events.closed` 不触发、`island.destroy()` 也不生效
-    （日志里能看到两者都执行了，窗口却还在）。既然拿不到 GUI 的控制权，
-    就让父进程自己动手：先 taskkill /T 掉整棵子进程树（后端、前端、GUI 子进程都在里面），
-    再自己退出。效果就是用户要的"关掉界面，后台进程直接全退"。
+    两层清理：
+    1. 显式 `taskkill /T` 每个由本 launcher 启动的子进程；
+    2. Windows 上启动时已把本进程放进 kill-on-close Job Object，Job 内所有后代
+       （包括 WebView2 与它 fork 的 msedgewebview2.exe）会在 launcher 退出时由内核回收。
+
+    第 2 层覆盖"launcher 被任务管理器强杀 / 崩溃 / 没走到 finally"的情况；
+    `os._exit(0)` 只是最后保证本进程不再执行任何 Python 收尾。
+    不再假设 GUI 在独立子进程里——pywebview 6.2.1 的 GUI 循环跑在主线程，
+    但 WebView2 的浏览器进程是后代进程，仍需要整树回收。
     """
     for p in procs:
         kill_tree(p)
@@ -180,7 +185,7 @@ def stop_services(procs: list[subprocess.Popen], *, hard_exit: bool = False) -> 
         except Exception:
             pass
         # 后端/前端已各自 kill_tree 过；这里再杀一次**以自己为根**的整棵树，
-        # 覆盖 pywebview 的 GUI 子进程（它不在 procs 里，否则会残留成"界面关了后台还在跑"）。
+        # 覆盖此前不在 procs 里的 WebView2 后代。Job Object 会在句柄关闭时再兜底一次。
         try:
             subprocess.run(
                 ["taskkill", "/T", "/F", "/PID", str(os.getpid())],
@@ -193,6 +198,28 @@ def stop_services(procs: list[subprocess.Popen], *, hard_exit: bool = False) -> 
             pass
         # 兜底：无论如何都要结束自己（社区给的干净退出方式，Discussions #1415）
         os._exit(0)
+
+
+def reuse_services_enabled() -> bool:
+    """是否允许复用 8000/3000 上已有的服务。
+
+    默认**不允许**。默认复用是 2026-10-29 复现出的残留根因：
+    复用的进程不在 `procs` 里，关窗时不会被杀；下一次启动又继续复用，
+    后端/前端就会永久留在后台。开发调试确实需要复用时显式设置
+    `MINIPLANE_REUSE_SERVICES=1`，并自行负责停止它们。
+    """
+    return os.environ.get("MINIPLANE_REUSE_SERVICES") == "1"
+
+
+def port_conflict_message(port: int, service: str) -> str:
+    return (
+        f"端口 {port} 已被其它程序占用，桌面版不会隐式复用已有{service}。\n\n"
+        "这是为了避免“关掉窗口后后台还留着上一轮/开发模式的服务”，"
+        "也避免接上另一套数据库。\n\n"
+        "请先关闭占用该端口的程序，再重新打开 Mini Plane。\n"
+        "开发调试确实要复用时，设置 MINIPLANE_REUSE_SERVICES=1；"
+        "被复用的服务不会随窗口关闭。"
+    )
 
 
 def port_listening(port: int) -> bool:
@@ -347,8 +374,9 @@ def _log(msg: str) -> None:
 
 def _fatal(msg: str, exc_text: str | None = None) -> int:
     _log("启动失败：\n" + msg + (("\n--- 详细堆栈 ---\n" + exc_text) if exc_text else ""))
-    # Windows 一律弹窗（冻结版没控制台，弹窗是用户唯一能看到的错误渠道）
-    if os.name == "nt":
+    # Windows 弹窗（冻结版没控制台，弹窗是用户唯一能看到的错误渠道）。
+    # MINIPLANE_NO_WINDOW=1 是 CI/无桌面自检模式，不能弹一个没人点的模态框。
+    if os.name == "nt" and os.environ.get("MINIPLANE_NO_WINDOW") != "1":
         try:
             import ctypes
 
@@ -422,6 +450,15 @@ def main() -> int:
         print("已有一个 Mini Plane 在运行，本次启动直接退出。")
         return 0
 
+    # OS 级兜底：launcher 被强杀/崩溃时，Job 内所有子进程仍由内核回收。
+    # 必须在启动后端/前端/WebView2 之前建立，子进程才会继承这个 Job。
+    if os.environ.get("MINIPLANE_DISABLE_JOB") == "1":
+        _log("[job] 已按 MINIPLANE_DISABLE_JOB=1 跳过 kill-on-close Job")
+    elif job_object.enable_kill_on_close_job() is not None:
+        _log("[job] kill-on-close Job 已启用：launcher 退出时内核回收整棵进程树")
+    else:
+        _log("[job] kill-on-close Job 不可用（可能在受限父 Job 中）；退回 taskkill 清理")
+
     ad = app_dir()
     py = venv_python()
 
@@ -448,26 +485,29 @@ def main() -> int:
         # 每次启动都确保 schema 最新（幂等；删除 2026-10-17 前的一次性标记逻辑）
         ensure_migrated()
 
-        # 端口被占用时**先验明正身**再复用：必须是"本项目 + 用内嵌 SQLite 的桌面后端"。
-        # 否则宁可直接失败也不要默默接上去 —— 接错数据库会让用户看到另一套数据，
-        # 而他完全不知情（2026-10-03 事故就是这个）。
+        # 默认不复用已有端口。复用过的进程不在 procs 里，关窗时不会被杀；
+        # 下一轮又接着复用，就会形成“界面关了、后台永远在跑”的残留链。
+        # 开发调试需要复用时，必须显式设置 MINIPLANE_REUSE_SERVICES=1。
         if port_listening(BACKEND_PORT):
+            if not reuse_services_enabled():
+                return _fatal(port_conflict_message(BACKEND_PORT, "后端"))
             if not backend_is_our_desktop(BACKEND_PORT):
                 return _fatal(
                     f"端口 {BACKEND_PORT} 已被其它程序占用，而且那不是本软件的桌面后端。\n\n"
-                    "请先关闭占用该端口的程序"
-                    "（例如开发模式下的 dev.cmd 或 manage.py runserver），"
-                    "再重新打开 Mini Plane。\n\n"
-                    "为什么不自动接管：那个服务可能连着**另一套数据库**（开发库），"
-                    "接上去会让你看到另一套账户与数据，却没有任何提示。",
+                    "请先关闭占用该端口的程序（例如开发模式下的 dev.cmd 或 manage.py runserver），"
+                    "再重新打开 Mini Plane。"
                 )
-            print("backend already up (ours), reuse")
+            _log("[services] 复用已有桌面后端（MINIPLANE_REUSE_SERVICES=1；不会随窗口关闭）")
         else:
             procs.append(start_backend())
+            _log(f"[services] 后端已启动 pid={procs[-1].pid}")
         if port_listening(FRONTEND_PORT):
-            print("frontend already up, reuse")
+            if not reuse_services_enabled():
+                return _fatal(port_conflict_message(FRONTEND_PORT, "前端"))
+            _log("[services] 复用已有前端（MINIPLANE_REUSE_SERVICES=1；不会随窗口关闭）")
         else:
             procs.append(start_frontend())
+            _log(f"[services] 前端已启动 pid={procs[-1].pid}")
 
         ok_b = wait_ready(BACKEND_PORT, "/api/v1/health/")
         ok_f = wait_ready(FRONTEND_PORT, "/login")
@@ -555,11 +595,10 @@ def open_window(url: str, procs: list[subprocess.Popen]) -> int:
                 _log(f"[island] Island 窗口创建失败，本次不带它启动：{exc!r}")
 
         # 关掉主窗口 = 退出整个应用：走 stop_services 硬退出（taskkill 整棵树 +
-        # os._exit(0)），让 start() 之后的 finally 停掉后端与前端（否则它们会一直占着端口）。
-        # 两条退出通路，缺一不可：
-        #   1) events.closed —— 某些版本/平台会触发，作为快路径（Windows 上不触发，
-        #      主窗口属于 exe 派生的 GUI 子进程，父进程里的回调收不到）
-        #   2) 窗口标题监视 —— 真机实测的主力通路：主窗口一消失就停服退出
+        # kill-on-close Job + os._exit(0)），让 start() 之后的 finally 停掉后端与前端。
+        # 两条退出通路（互为兜底）：
+        #   1) events.closed —— pywebview 6.2.1 本机实测会触发，作为快路径；
+        #   2) 窗口标题监视 —— 跨版本/跨后端的兜底，主窗口一消失就停服退出。
         # ⚠️ 退出回调里**不能 destroy 窗口**（Spike 坑 8：工作线程 destroy 与 GUI 线程
         # 互等挂死）——进程直接没，窗口自然没。
         windows.bind_main_window(main_window, lambda: stop_services(procs, hard_exit=True))

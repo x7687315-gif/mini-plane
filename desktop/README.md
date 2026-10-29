@@ -34,8 +34,55 @@ launcher.py        编排主窗 + Island、注入 js_api、关主窗停服
 2. 子进程拉起后端（Django Daphne ASGI，同时给 HTTP + WebSocket）与前端
    （复用 `scripts/package.py` 产出的 Next standalone `server.js`）；
 3. 二者就绪后，用 **pywebview 开一个原生窗口**（Windows 走 WebView2）载入界面；
-4. **关窗即干净停服**（`taskkill /T` 杀整棵子进程树）——修掉了旧 `start.cmd`
-   "关浏览器窗口不停服务、端口还占着" 的老毛病。
+4. **关窗即干净停服**：`taskkill /T` 杀自己的子进程树，启动时建立的
+   kill-on-close Job Object 再由内核兜底——即使 launcher 被强杀/崩溃，
+   Django、Node、WebView2 也不会留成孤儿。
+
+## 进程生命周期（2026-10-29 修复残留）
+
+### 默认不复用已有服务
+
+旧版发现 8000/3000 在监听就直接复用，但复用进程**不在 launcher 的 `procs` 里**，
+关窗时不会被杀；下一次启动又会继续复用，残留会累积。
+
+现在默认**拒绝复用**：端口被占用就启动失败并提示先关闭占用程序。
+这既避免“界面关了后台还在跑”，也避免接上另一套数据库。
+
+开发调试确实需要复用时显式打开逃生门：
+
+```bat
+set MINIPLANE_REUSE_SERVICES=1
+```
+
+被复用的服务不会随窗口关闭，需自行停止。
+
+### 强杀兜底
+
+`desktop/job_object.py` 在 Windows 上创建一个
+`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` Job，把 launcher 自己放进去；
+之后启动的后端、前端、WebView2 后代默认继承。launcher 的 Job 句柄关闭时
+（正常退出、崩溃、任务管理器强杀），Windows 内核回收整棵树。
+若进程处于不允许嵌套 Job 的父环境中，会记录日志并退回 `taskkill` 清理。
+
+### 验证
+
+```bat
+:: 正常关窗
+backend\.venv\Scripts\python.exe desktop\verify_quit.py
+
+:: 模拟任务管理器强杀（验证 Job Object 兜底）
+backend\.venv\Scripts\python.exe desktop\verify_quit.py --force
+```
+
+检查范围不是只看端口：脚本记录启动时的所有后代 PID（含
+`msedgewebview2.exe`），关闭后逐个确认退出。关键日志在 `runtime/launcher.log`：
+
+```text
+[job] kill-on-close Job 已启用
+[services] 后端已启动 pid=…
+[services] 前端已启动 pid=…
+[quit] 主窗口已关闭：停掉后端与前端，并结束整个进程树
+```
 
 安全基线：只绑 `127.0.0.1`、`DEBUG=False`、`SECRET_KEY` 持久化在 `runtime/`、页面(3000)与
 API(8000) 同 host（`127.0.0.1`）以规避会话 Cookie / CSRF 跨站失效。

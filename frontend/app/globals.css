@@ -357,12 +357,27 @@ body {
 .v2-fchip:hover { color: var(--color-ink); }
 .v2-fchip[aria-pressed="true"] { color: var(--color-ink); border-bottom-color: var(--color-accent); font-weight: 500; }
 
-/* Anatomy V2：空间切换只动 transform / opacity；减少动效时瞬时完成 */
+/* Anatomy V3：图纸画布的背景网格（低对比，不抢构件） */
+.anatomy-canvas {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-rule) 32%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-rule) 32%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+}
+
+/* Anatomy V3：可交互 SVG 的焦点环；不依赖 box-shadow（SVG 上不可靠） */
+.an-focus-ring,
+.an-cube-focus { opacity: 0; transition: opacity 120ms var(--ease-out); }
+.an-stage:focus-visible .an-focus-ring,
+.an-task:focus-visible .an-cube-focus { opacity: 1; }
+
+/* Anatomy：空间切换只动 transform / opacity；减少动效时瞬时完成 */
 .an-stage { transition: transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1),
   opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 .an-cell { transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @media (prefers-reduced-motion: reduce) {
-  .an-stage, .an-cell { transition: none !important; }
+  .an-stage, .an-cell, .an-focus-ring, .an-cube-focus { transition: none !important; }
 }
 
 /* Anatomy V2：真实新增/状态变化的微小标记（只做一次淡入，不重复播放） */

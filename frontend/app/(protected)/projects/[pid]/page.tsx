@@ -29,10 +29,14 @@ import { useAuthStore } from "@/stores/auth";
 import { ApiError } from "@/lib/api";
 import { flattenErrors } from "@/types/auth";
 import { canWrite } from "@/types/workspace";
-import { useCreateIssue, useIssues, useLabels } from "@/features/task";
+import { useAllIssues, useCreateIssue, useIssues, useLabels } from "@/features/task";
 import { useProjectActivities } from "@/features/activity";
 import { useProjectRealtime } from "@/features/realtime";
-import { spatialStateFromQuery, spatialStateToQuery, type SpatialState } from "@/features/anatomy";
+import {
+  anatomyViewStateFromQuery,
+  anatomyViewStateToQuery,
+  type AnatomyViewState,
+} from "@/features/anatomy";
 import { useChrome } from "@/stores/chrome";
 import { useQuickLogStore } from "@/stores/quicklog";
 import type { IssueState, ProjectMember, Worklog } from "@/types/project";
@@ -98,15 +102,21 @@ function WorkbenchRoute() {
   const issueId = searchParams.get("issue");
   const tab = normalizeDrawerTab(searchParams.get("tab"));
   const view = searchParams.get("view") === "plate" ? "plate" : "bench";
-  const initialSpatial = spatialStateFromQuery(searchParams.get("stage"), searchParams.get("expand"));
+  const anatomyViewState = anatomyViewStateFromQuery(
+    searchParams.get("mode"),
+    searchParams.get("stage"),
+    searchParams.get("expand"),
+  );
 
-  function handleSpatialChange(state: SpatialState) {
+  function handleAnatomyViewChange(state: AnatomyViewState) {
     const sp = new URLSearchParams(searchParams.toString());
-    const query = spatialStateToQuery(state);
+    const query = anatomyViewStateToQuery(state);
+    if (query.mode) sp.set("mode", query.mode);
+    else sp.delete("mode");
     if (query.stage) sp.set("stage", query.stage);
     else sp.delete("stage");
-    if (query.expand) sp.set("expand", query.expand);
-    else sp.delete("expand");
+    // V2 的展开语义已并入结构视图，清掉旧参数避免地址栏两套状态并存。
+    sp.delete("expand");
     const qs = sp.toString();
     router.replace(`/projects/${pid}${qs ? `?${qs}` : ""}`, { scroll: false });
   }
@@ -137,6 +147,13 @@ function WorkbenchRoute() {
   const rawPage = Number(searchParams.get("page"));
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
   const { data: taskPage } = useIssues("", pid, { per_page: 100, page });
+  // 图纸需要全部任务；工作台列表仍按页取（互不影响）。
+  const {
+    data: allTaskData,
+    isPending: allTasksPending,
+    isError: allTasksError,
+    refetch: refetchAllTasks,
+  } = useAllIssues("", pid, { enabled: view === "plate" });
   const { data: mine } = useMyProjects();
   const { data: activityPage } = useProjectActivities("", pid);
 
@@ -173,6 +190,13 @@ function WorkbenchRoute() {
         labels={labels?.results ?? []}
         members={members?.results ?? []}
         tasks={taskPage?.results ?? []}
+        anatomyTasks={allTaskData?.issues ?? taskPage?.results ?? []}
+        anatomyTasksTotal={allTaskData?.total ?? taskPage?.count ?? null}
+        anatomyTasksComplete={Boolean(allTaskData && !allTaskData.truncated)}
+        anatomyTasksLoading={view === "plate" && allTasksPending}
+        anatomyTasksError={view === "plate" && allTasksError}
+        anatomyTasksTruncated={Boolean(allTaskData?.truncated)}
+        onRetryAnatomyTasks={() => void refetchAllTasks()}
         activities={activityPage?.results ?? []}
         taskCount={taskPage?.count ?? 0}
         hasNext={Boolean(taskPage?.next)}
@@ -191,8 +215,8 @@ function WorkbenchRoute() {
         onParam={handleParam}
         onFilterParam={(key, value) => handleParam(key, value, true)}
         onCloseDrawer={closeDrawer}
-        initialSpatial={initialSpatial}
-        onSpatialChange={handleSpatialChange}
+        anatomyViewState={anatomyViewState}
+        onAnatomyViewChange={handleAnatomyViewChange}
       />
     </>
   );
@@ -209,6 +233,13 @@ function Workbench({
   labels,
   members,
   tasks,
+  anatomyTasks,
+  anatomyTasksTotal,
+  anatomyTasksComplete,
+  anatomyTasksLoading,
+  anatomyTasksError,
+  anatomyTasksTruncated,
+  onRetryAnatomyTasks,
   activities,
   taskCount,
   hasNext,
@@ -227,8 +258,8 @@ function Workbench({
   onParam,
   onFilterParam,
   onCloseDrawer,
-  initialSpatial,
-  onSpatialChange,
+  anatomyViewState,
+  onAnatomyViewChange,
 }: {
   pid: string;
   identifier: string;
@@ -240,6 +271,13 @@ function Workbench({
   labels: Label[];
   members: ProjectMember[];
   tasks: Issue[];
+  anatomyTasks: Issue[];
+  anatomyTasksTotal: number | null;
+  anatomyTasksComplete: boolean;
+  anatomyTasksLoading: boolean;
+  anatomyTasksError: boolean;
+  anatomyTasksTruncated: boolean;
+  onRetryAnatomyTasks: () => void;
   activities: Activity[];
   taskCount: number;
   hasNext: boolean;
@@ -258,8 +296,8 @@ function Workbench({
   onParam: (key: string, value: string | null) => void;
   onFilterParam: (key: string, value: string | null) => void;
   onCloseDrawer: () => void;
-  initialSpatial: SpatialState;
-  onSpatialChange: (state: SpatialState) => void;
+  anatomyViewState: AnatomyViewState;
+  onAnatomyViewChange: (state: AnatomyViewState) => void;
 }) {
   const router = useRouter();
   const openQuickLog = useQuickLogStore((s) => s.openWith);
@@ -310,7 +348,7 @@ function Workbench({
   };
 
   return (
-    <div className={view === "plate" ? "max-w-6xl" : "max-w-4xl"}>
+    <div className={view === "plate" ? "max-w-[1400px]" : "max-w-4xl"}>
       {/* 头：serif 名 + 安静链接 */}
       <div className="flex items-baseline">
         <h1 className="font-serif italic text-[28px] text-[color:var(--color-ink)]">
@@ -386,7 +424,7 @@ function Workbench({
             identifier={identifier}
             projectName={projectName}
             stages={plan?.stages ?? []}
-            tasks={tasks}
+            tasks={anatomyTasks}
             activities={activities}
             worklogs={logs}
             plan={plan ?? null}
@@ -394,9 +432,14 @@ function Workbench({
             agentRunning={agentRunning}
             projectProgress={projectProgress}
             progressSource={progressSource}
-            initialSpatial={initialSpatial}
-            onSpatialChange={onSpatialChange}
-            escapeEnabled={!drawerIssueId}
+            viewState={anatomyViewState}
+            onViewStateChange={onAnatomyViewChange}
+            tasksComplete={anatomyTasksComplete}
+            tasksLoading={anatomyTasksLoading}
+            tasksError={anatomyTasksError}
+            tasksTruncated={anatomyTasksTruncated}
+            tasksTotal={anatomyTasksTotal}
+            onRetryTasks={onRetryAnatomyTasks}
             onOpenTask={(id) => onParam("issue", id)}
           />
         </div>

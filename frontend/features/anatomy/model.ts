@@ -47,6 +47,14 @@ export interface AnatomyViewModel {
   progressSource: AnatomyProgressSource | null;
 }
 
+export interface AnatomyStageCounts {
+  total: number;
+  done: number;
+  active: number;
+  todo: number;
+  cancelled: number;
+}
+
 export interface AnatomyInput {
   projectName?: string;
   identifier: string;
@@ -155,6 +163,28 @@ export function stageById(
 ): AnatomyStage | null {
   if (!stageId) return null;
   return viewModel.stages.find((stage) => stage.id === stageId) ?? null;
+}
+
+/** 仅统计已加载的 Task 状态；不参与项目进度计算。 */
+export function stageTaskCounts(stage: AnatomyStage): AnatomyStageCounts {
+  const counts: AnatomyStageCounts = {
+    total: stage.tasks.length,
+    done: 0,
+    active: 0,
+    todo: 0,
+    cancelled: 0,
+  };
+  for (const task of stage.tasks) counts[task.tone] += 1;
+  return counts;
+}
+
+/** 详情区默认选中：当前 Stage → 第一个 Stage → 无。 */
+export function defaultStageId(viewModel: AnatomyViewModel): string | null {
+  return (
+    viewModel.stages.find((stage) => stage.isCurrent)?.id ??
+    viewModel.stages[0]?.id ??
+    null
+  );
 }
 
 export function nowTaskOf(viewModel: AnatomyViewModel): AnatomyTask | null {

@@ -22,6 +22,7 @@
 | 日期 | 主题 | 日志 |
 |------|------|------|
 | 2026-10-25 | Phase 5.5 稳定化：首页双壳、项目 WS、canonical 成员、批量轮询、Anatomy 安全、TD-01/TD-10、CI e2e | [2026-10-25-phase5-stabilization.md](2026-10-25-phase5-stabilization.md) |
+| 2026-10-29 | 桌面版关窗残留：拒绝隐式复用 + kill-on-close Job Object + 真机强杀验证 | [2026-10-29-desktop-residual-processes.md](2026-10-29-desktop-residual-processes.md) |
 
 ## MVP 后加固（Hardening）
 

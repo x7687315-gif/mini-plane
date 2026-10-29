@@ -1,87 +1,69 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { anatomyFixtures } from "../fixtures/anatomy-fixtures.mts";
 import {
-  computeAnatomyLayout,
-  isInside,
-  normalizeSpatialState,
-  selectAnatomyViewModel,
-  spatialStateFromQuery,
-  spatialStateToQuery,
-  transitionSpatialState,
-  type SpatialState,
+  anatomyViewStateFromQuery,
+  anatomyViewStateToQuery,
+  normalizeViewState,
+  transitionViewState,
+  type AnatomyViewState,
 } from "@/features/anatomy";
 
 const ids = ["s1", "s2", "s3"];
-const overview: SpatialState = { mode: "overview" };
-const focus: SpatialState = { mode: "focus", stageId: "s2" };
-const exploded: SpatialState = { mode: "exploded", stageId: "s2" };
+const growth: AnatomyViewState = { mode: "growth", selectedStageId: "s2" };
 
-test("overview → focus → exploded → focus → overview", () => {
-  const a = transitionSpatialState(overview, { type: "FOCUS_STAGE", stageId: "s2" }, ids);
-  assert.deepEqual(a, focus);
-  const b = transitionSpatialState(a, { type: "EXPLODE_STAGE", stageId: "s2" }, ids);
-  assert.deepEqual(b, exploded);
-  const c = transitionSpatialState(b, { type: "COLLAPSE_STAGE" }, ids);
-  assert.deepEqual(c, focus);
-  const d = transitionSpatialState(c, { type: "RESTORE_OVERVIEW" }, ids);
-  assert.deepEqual(d, overview);
+test("选择 Stage 与切换视图互不丢失", () => {
+  const selected = transitionViewState(growth, { type: "SELECT_STAGE", stageId: "s3" }, ids, "s1");
+  assert.deepEqual(selected, { mode: "growth", selectedStageId: "s3" });
+
+  const structure = transitionViewState(selected, { type: "SET_VIEW", mode: "structure" }, ids, "s1");
+  assert.deepEqual(structure, { mode: "structure", selectedStageId: "s3" });
+
+  const back = transitionViewState(structure, { type: "SET_VIEW", mode: "growth" }, ids, "s1");
+  assert.deepEqual(back, { mode: "growth", selectedStageId: "s3" });
 });
 
-test("再次点击当前 Stage 回到 overview；选择另一个 Stage 只切换焦点", () => {
-  assert.deepEqual(
-    transitionSpatialState(focus, { type: "TOGGLE_STAGE", stageId: "s2" }, ids),
-    overview,
+test("未知 Stage 退化为当前/第一个；空项目为 null", () => {
+  const fallback = transitionViewState(
+    { mode: "structure", selectedStageId: "missing" },
+    { type: "SELECT_STAGE", stageId: "also-missing" },
+    ids,
+    "s2",
   );
-  assert.deepEqual(
-    transitionSpatialState(focus, { type: "TOGGLE_STAGE", stageId: "s3" }, ids),
-    { mode: "focus", stageId: "s3" },
-  );
+  assert.deepEqual(fallback, { mode: "structure", selectedStageId: "s2" });
+
+  const first = normalizeViewState({ mode: "growth", selectedStageId: null }, ids, null);
+  assert.deepEqual(first, { mode: "growth", selectedStageId: "s1" });
+
+  const empty = normalizeViewState({ mode: "structure", selectedStageId: "s1" }, [], null);
+  assert.deepEqual(empty, { mode: "structure", selectedStageId: null });
 });
 
-test("未知 Stage 不产生不可达状态；normalize 清理旧选择", () => {
-  assert.deepEqual(
-    transitionSpatialState(focus, { type: "EXPLODE_STAGE", stageId: "missing" }, ids),
-    overview,
-  );
-  assert.deepEqual(normalizeSpatialState(exploded, ["s1"]), overview);
-  assert.deepEqual(normalizeSpatialState(focus, ids), focus);
-});
-
-test("URL 只保存空间焦点；overview 不写默认参数", () => {
-  assert.deepEqual(spatialStateToQuery(overview), {});
-  assert.deepEqual(spatialStateToQuery(focus), { stage: "s2" });
-  assert.deepEqual(spatialStateToQuery(exploded), { stage: "s2", expand: "1" });
-  assert.deepEqual(spatialStateFromQuery("s2", null), focus);
-  assert.deepEqual(spatialStateFromQuery("s2", "1"), exploded);
-  assert.deepEqual(spatialStateFromQuery(null, "1"), overview);
-});
-
-test("exploded 布局：选中 Stage 的任务抬升、有锚点，其他 Stage 幽灵化", () => {
-  const fixture = anatomyFixtures.mixed;
-  const vm = selectAnatomyViewModel({
-    identifier: fixture.identifier,
-    stages: fixture.stages,
-    tasks: fixture.tasks,
-    plan: fixture.plan,
-    nowTaskId: fixture.nowTaskId,
-    projectProgress: fixture.projectProgress,
-    progressSource: fixture.progressSource,
+test("URL 只保存视图与选中 Stage；growth 不写默认 mode", () => {
+  assert.deepEqual(anatomyViewStateToQuery({ mode: "growth", selectedStageId: null }), {});
+  assert.deepEqual(anatomyViewStateToQuery(growth), { stage: "s2" });
+  assert.deepEqual(anatomyViewStateToQuery({ mode: "structure", selectedStageId: "s2" }), {
+    mode: "structure",
+    stage: "s2",
   });
-  const stageId = vm.stages[1]!.id;
-  const layout = computeAnatomyLayout(vm, { mode: "exploded", stageId });
-  const selected = layout.stages.find((stage) => stage.stageId === stageId)!;
-  assert.equal(selected.exploded, true);
-  assert.ok(selected.tasks.length > 0);
-  for (const cell of selected.tasks) {
-    assert.equal(cell.exploded, true);
-    assert.notEqual(cell.anchor, null);
-    assert.equal(isInside(cell.bounds, layout.viewBox), true);
-  }
-  for (const stage of layout.stages.filter((item) => item.stageId !== stageId)) {
-    assert.equal(stage.thin, true);
-    assert.equal(stage.exploded, false);
-    assert.equal(stage.tasks.length, 0);
-  }
+
+  assert.deepEqual(anatomyViewStateFromQuery(null, null), {
+    mode: "growth",
+    selectedStageId: null,
+  });
+  assert.deepEqual(anatomyViewStateFromQuery("structure", "s2"), {
+    mode: "structure",
+    selectedStageId: "s2",
+  });
+});
+
+test("V2 的 expand=1 兼容读作结构视图", () => {
+  assert.deepEqual(anatomyViewStateFromQuery(null, "s2", "1"), {
+    mode: "structure",
+    selectedStageId: "s2",
+  });
+  assert.deepEqual(anatomyViewStateFromQuery(null, "s2", null), {
+    mode: "growth",
+    selectedStageId: "s2",
+  });
 });

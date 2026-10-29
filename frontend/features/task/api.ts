@@ -54,6 +54,53 @@ export async function listIssues(
   return api<Paginated<Issue>>(`${issuesBase(slug, projectId)}${qs ? `?${qs}` : ""}`);
 }
 
+export interface AllIssuesResult {
+  issues: Issue[];
+  /** 后端返回的真实总数，不依赖前端是否取完。 */
+  total: number;
+  /** 超过分页上限时为 true；此时 issues 只是前 N 页。 */
+  truncated: boolean;
+}
+
+/** 单次取全量任务的上限；按 100/页最多 50 次请求。 */
+const ALL_ISSUES_MAX_PAGES = 50;
+
+/**
+ * 取项目全部 Task。
+ *
+ * 工程台的任务列表有自己的分页；图纸必须看到全部构件，否则 Stage 计数、
+ * 未归属数和 NOW 归属都会错。这里顺序翻页并去重，超过上限时显式标记截断，
+ * 不假装拿到了全量。
+ */
+export async function listAllIssues(
+  slug: string,
+  projectId: string,
+): Promise<AllIssuesResult> {
+  const issues: Issue[] = [];
+  const seen = new Set<string>();
+  let total = 0;
+  let page = 1;
+  let truncated = false;
+
+  for (;;) {
+    const data = await listIssues(slug, projectId, { per_page: 100, page });
+    total = data.count;
+    for (const issue of data.results) {
+      if (seen.has(issue.id)) continue;
+      seen.add(issue.id);
+      issues.push(issue);
+    }
+    if (!data.next || data.results.length === 0) break;
+    if (page >= ALL_ISSUES_MAX_PAGES) {
+      truncated = true;
+      break;
+    }
+    page += 1;
+  }
+
+  return { issues, total, truncated };
+}
+
 export async function getIssue(
   slug: string,
   projectId: string,

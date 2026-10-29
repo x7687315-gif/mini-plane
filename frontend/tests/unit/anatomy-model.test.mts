@@ -4,10 +4,9 @@ import test from "node:test";
 import { anatomyFixtures, type AnatomyFixture } from "../fixtures/anatomy-fixtures.mts";
 import {
   anatomyCounts,
-  computeAnatomyLayout,
-  isInside,
-  overlapArea,
+  defaultStageId,
   selectAnatomyViewModel,
+  stageTaskCounts,
 } from "@/features/anatomy";
 
 function view(fixture: AnatomyFixture) {
@@ -100,85 +99,18 @@ test("F6：长文本/特殊字符在模型中不被改写", () => {
   assert.match(vm.looseTasks[0]!.title, /<b>不是 HTML<\/b>/);
 });
 
-test("布局确定性：相同输入两次输出完全一致", () => {
-  for (const fixture of Object.values(anatomyFixtures)) {
-    const vm = view(fixture);
-    assert.deepEqual(computeAnatomyLayout(vm), computeAnatomyLayout(vm), fixture.name);
-  }
-});
-
-test("Stage 数量 0/1/3/8/16 均生成稳定布局并在 viewBox 内", () => {
-  const cases = [
-    anatomyFixtures.empty,
-    anatomyFixtures.oneStage,
-    anatomyFixtures.small,
-    anatomyFixtures.dense,
-    anatomyFixtures.large,
-    anatomyFixtures.stress,
-  ];
-  for (const fixture of cases) {
-    const vm = view(fixture);
-    const layout = computeAnatomyLayout(vm);
-    assert.equal(layout.stages.length, vm.stages.length, fixture.name);
-    for (const stage of layout.stages) {
-      assert.equal(isInside(stage.bounds, layout.viewBox), true, `${fixture.name} ${stage.stageId}`);
-    }
-    if (layout.loose) {
-      assert.equal(isInside(layout.loose.bounds, layout.viewBox), true, `${fixture.name} loose`);
-      for (const stage of layout.stages) {
-        assert.equal(overlapArea(stage.bounds, layout.loose.bounds), 0, `${fixture.name} tray`);
-      }
-    }
-    if (layout.emptyBase) {
-      assert.equal(isInside(layout.emptyBase.bounds, layout.viewBox), true, `${fixture.name} empty`);
-    }
-  }
-});
-
-test("300 Task 不丢数据：每个 Task 都映射为构件", () => {
-  const fixture = anatomyFixtures.stress;
-  const vm = view(fixture);
-  const layout = computeAnatomyLayout(vm);
-  const cells = layout.stages.flatMap((stage) => stage.tasks);
-  assert.equal(cells.length, fixture.tasks.length);
-  assert.equal(new Set(cells.map((cell) => cell.taskId)).size, fixture.tasks.length);
-  assert.equal(cells.every((cell) => cell.size >= 3), true);
-});
-
-test("Stage 包围盒互不重叠（overview）", () => {
-  for (const fixture of [anatomyFixtures.small, anatomyFixtures.dense, anatomyFixtures.large]) {
-    const layout = computeAnatomyLayout(view(fixture));
-    for (let i = 0; i < layout.stages.length; i += 1) {
-      for (let j = i + 1; j < layout.stages.length; j += 1) {
-        assert.equal(
-          overlapArea(layout.stages[i]!.bounds, layout.stages[j]!.bounds),
-          0,
-          `${fixture.name}: ${layout.stages[i]!.stageId} × ${layout.stages[j]!.stageId}`,
-        );
-      }
-    }
-  }
-});
-
-test("聚焦：只展开选中 Stage，其他 Stage 变轻且不画任务，画布仍包含全部包围盒", () => {
+test("Stage 任务计数按真实状态分列；记录进度不参与", () => {
   const vm = view(anatomyFixtures.mixed);
-  const focusedId = vm.stages[1]!.id;
-  const layout = computeAnatomyLayout(vm, { mode: "focus", stageId: focusedId });
-  assert.equal(layout.stages.length, 3);
-  const selected = layout.stages.find((stage) => stage.stageId === focusedId)!;
-  assert.equal(selected.tasks.length, 2);
-  assert.equal(selected.opacity, 1);
-  for (const stage of layout.stages.filter((item) => item.stageId !== focusedId)) {
-    assert.equal(stage.tasks.length, 0);
-    assert.equal(stage.thin, true);
-    assert.ok(stage.opacity < 0.2);
-  }
-  assert.equal(isInside(selected.bounds, layout.viewBox), true);
+  const counts = stageTaskCounts(vm.stages[1]!);
+  assert.equal(counts.total, 2);
+  assert.equal(counts.done + counts.active + counts.todo + counts.cancelled, 2);
+  assert.equal(vm.stages[1]!.recordedProgress, 45);
 });
 
-test("未知 focus id 退化为 overview（不产生空白布局）", () => {
-  const vm = view(anatomyFixtures.small);
-  const overview = computeAnatomyLayout(vm);
-  const fallback = computeAnatomyLayout(vm, { mode: "focus", stageId: "missing" });
-  assert.deepEqual(fallback, overview);
+test("默认选中当前 Stage；没有当前 Stage 时选第一个；空项目为 null", () => {
+  const mixed = view(anatomyFixtures.mixed);
+  assert.equal(defaultStageId(mixed), mixed.stages.find((stage) => stage.isCurrent)!.id);
+  const one = view(anatomyFixtures.oneStage);
+  assert.equal(defaultStageId(one), one.stages[0]!.id);
+  assert.equal(defaultStageId(view(anatomyFixtures.empty)), null);
 });

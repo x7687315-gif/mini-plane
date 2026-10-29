@@ -1,8 +1,9 @@
 # 给 Mini Plane AI Agent 的执行指令
 
 > **历史状态（2026-10-28）**：本文是 V1 概念阶段的启动指令，已被后续实现取代。
-> 当前生产实现见 [`v2/README.md`](v2/README.md)；下一轮构图方向（生长/结构双视图）见
-> [`v3/README.md`](v3/README.md)。不要继续按本文“只做三个草图、不接生产”的约束开工。
+> 当前生产实现见 [`v3/README.md`](v3/README.md)（生长/结构双视图）；
+> V2 的 Phase 0–5 记录见 [`v2/README.md`](v2/README.md)。
+> 不要继续按本文“只做三个草图、不接生产”的约束开工。
 
 请先完整阅读 [`MINI_PLANE_PROJECT_ANATOMY_SPEC.md`](MINI_PLANE_PROJECT_ANATOMY_SPEC.md)，再打开 `references/00-concept-direction.png`，并阅读 `references/01-previous-anatomy-proposal.md` 和 `references/02-legacy-html-prototype-do-not-copy-layout.html`。
 

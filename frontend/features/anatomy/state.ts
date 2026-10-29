@@ -1,81 +1,86 @@
 /**
- * Anatomy V2 空间状态机（Phase 2）。
+ * Anatomy V3 视图状态。
  *
- * 空间状态与时间状态分开；Phase 2 只有 current 时间态。
- * 非法 stage id 一律退化到 overview，避免渲染一个不存在的选择。
+ * 两种视图共享同一个选中 Stage：切换生长/结构不丢选择。
+ * 非法 stage id 退化为当前 Stage（或第一个 Stage），不渲染不存在的选择。
  */
 
-export type SpatialState =
-  | { mode: "overview" }
-  | { mode: "focus"; stageId: string }
-  | { mode: "exploded"; stageId: string };
+export type AnatomyViewMode = "growth" | "structure";
 
-export type TemporalState = { mode: "current" };
+export interface AnatomyViewState {
+  mode: AnatomyViewMode;
+  selectedStageId: string | null;
+}
 
-export type SpatialAction =
-  | { type: "TOGGLE_STAGE"; stageId: string }
-  | { type: "FOCUS_STAGE"; stageId: string }
-  | { type: "EXPLODE_STAGE"; stageId: string }
-  | { type: "COLLAPSE_STAGE" }
-  | { type: "RESTORE_OVERVIEW" }
-  | { type: "SYNC"; state: SpatialState };
+export type AnatomyViewAction =
+  | { type: "SET_VIEW"; mode: AnatomyViewMode }
+  | { type: "SELECT_STAGE"; stageId: string }
+  | { type: "SYNC"; state: AnatomyViewState };
 
-export function transitionSpatialState(
-  state: SpatialState,
-  action: SpatialAction,
-  stageIds?: readonly string[],
-): SpatialState {
-  const valid = (stageId: string) => !stageIds || stageIds.includes(stageId);
+/** 选中 Stage 必须存在；否则退回调用方给的当前 Stage / 第一个 Stage。 */
+export function normalizeViewState(
+  state: AnatomyViewState,
+  stageIds: readonly string[],
+  fallbackStageId: string | null = null,
+): AnatomyViewState {
+  const fallback =
+    (fallbackStageId && stageIds.includes(fallbackStageId)
+      ? fallbackStageId
+      : stageIds[0]) ?? null;
+  const selected =
+    state.selectedStageId && stageIds.includes(state.selectedStageId)
+      ? state.selectedStageId
+      : fallback;
+  if (selected === state.selectedStageId) return state;
+  return { mode: state.mode, selectedStageId: selected };
+}
+
+export function transitionViewState(
+  state: AnatomyViewState,
+  action: AnatomyViewAction,
+  stageIds: readonly string[],
+  fallbackStageId: string | null = null,
+): AnatomyViewState {
   switch (action.type) {
-    case "TOGGLE_STAGE": {
-      if (!valid(action.stageId)) return { mode: "overview" };
-      const current = state.mode !== "overview" && state.stageId === action.stageId;
-      return current ? { mode: "overview" } : { mode: "focus", stageId: action.stageId };
+    case "SET_VIEW":
+      return normalizeViewState(
+        { ...state, mode: action.mode },
+        stageIds,
+        fallbackStageId,
+      );
+    case "SELECT_STAGE": {
+      if (!stageIds.includes(action.stageId)) {
+        return normalizeViewState(state, stageIds, fallbackStageId);
+      }
+      return { ...state, selectedStageId: action.stageId };
     }
-    case "FOCUS_STAGE": {
-      if (!valid(action.stageId)) return { mode: "overview" };
-      return { mode: "focus", stageId: action.stageId };
-    }
-    case "EXPLODE_STAGE": {
-      if (!valid(action.stageId)) return { mode: "overview" };
-      return { mode: "exploded", stageId: action.stageId };
-    }
-    case "COLLAPSE_STAGE":
-      return state.mode === "exploded" ? { mode: "focus", stageId: state.stageId } : state;
-    case "RESTORE_OVERVIEW":
-      return { mode: "overview" };
     case "SYNC":
-      return normalizeSpatialState(action.state, stageIds ?? []);
+      return normalizeViewState(action.state, stageIds, fallbackStageId);
   }
 }
 
-export function normalizeSpatialState(
-  state: SpatialState,
-  stageIds: readonly string[],
-): SpatialState {
-  if (state.mode === "overview") return state;
-  return stageIds.includes(state.stageId) ? state : { mode: "overview" };
+export function selectedStageId(state: AnatomyViewState): string | null {
+  return state.selectedStageId;
 }
 
-export function focusedStageId(state: SpatialState): string | null {
-  return state.mode === "overview" ? null : state.stageId;
+/** URL 只保存视图与选中 Stage；growth 是默认值，不写进查询串。 */
+export function anatomyViewStateToQuery(
+  state: AnatomyViewState,
+): { mode?: "structure"; stage?: string } {
+  const query: { mode?: "structure"; stage?: string } = {};
+  if (state.mode === "structure") query.mode = "structure";
+  if (state.selectedStageId) query.stage = state.selectedStageId;
+  return query;
 }
 
-export function isExploded(state: SpatialState): boolean {
-  return state.mode === "exploded";
-}
-
-/** URL 只保存空间焦点；时间历史不混入查询串。 */
-export function spatialStateToQuery(state: SpatialState): { stage?: string; expand?: string } {
-  if (state.mode === "overview") return {};
-  return state.mode === "exploded"
-    ? { stage: state.stageId, expand: "1" }
-    : { stage: state.stageId };
-}
-
-export function spatialStateFromQuery(rawStage: string | null, rawExpand: string | null): SpatialState {
-  if (!rawStage) return { mode: "overview" };
-  return rawExpand === "1"
-    ? { mode: "exploded", stageId: rawStage }
-    : { mode: "focus", stageId: rawStage };
+export function anatomyViewStateFromQuery(
+  rawMode: string | null,
+  rawStage: string | null,
+  rawExpand: string | null = null,
+): AnatomyViewState {
+  // 兼容 V2 分享链接：?stage=…&expand=1 读作结构视图。
+  return {
+    mode: rawMode === "structure" || rawExpand === "1" ? "structure" : "growth",
+    selectedStageId: rawStage || null,
+  };
 }

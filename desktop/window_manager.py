@@ -398,9 +398,9 @@ class WindowManager:
 
         **为什么回调里不 destroy 窗口**（Spike 新坑 8）：工作线程 `destroy()`
         与 GUI 线程互等挂死。退出走 `on_app_quit`（launcher 的
-        `stop_services(procs, hard_exit=True)`：taskkill 整棵树 + os._exit(0)），
-        进程没了窗口自然没了。Windows 上这条事件其实不触发（GUI 在子进程，
-        见 window_watch 文档），真正的退出通路是标题监视；这里只是其他平台的快路径。
+        `stop_services(procs, hard_exit=True)`：taskkill 整棵树 + Job Object +
+        os._exit(0)），进程没了窗口自然没了。`events.closed` 在 pywebview 6.2.1
+        本机实测会触发，作为快路径；标题监视在 window_watch 里兜底。
         """
 
         def _on_main_closed(*_args: Any) -> None:
