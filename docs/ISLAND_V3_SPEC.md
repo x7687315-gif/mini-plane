@@ -99,8 +99,8 @@ Spike 实测裁定（2026-10-21，数据在决策简报 §10）：
 2. **运行期禁止 `destroy()`**（§1.1 坑 8）。关机通路：
    - 主力：`watch_main_window_gone(APP_TITLE, …, on_quit=stop_services(hard_exit=True))`
      —— Win32 按标题监视，主窗口消失即 taskkill 整棵树 + `os._exit(0)`；
-   - 快路径：`events.closed`（Windows 上不触发，GUI 在子进程），回调里同样走
-     `on_app_quit`，**不 destroy**。
+   - 快路径：`events.closed`（pywebview 6.2.1 本机实测会触发；GUI 循环在主线程），
+     回调里同样走 `on_app_quit`，**不 destroy**；标题监视作为跨版本/异常路径兜底。
 3. Island 窗口被用户关掉（Alt+F4）≠ 退出应用：pywebview 不允许 `start()` 之后
    建窗，故本次会话 Island 退场，API 调用如实返回「已关闭，重启应用后恢复」，
    主窗口不受影响。

@@ -1,5 +1,6 @@
 # Personal-first 重构索引（Phase 0–9）
 
+> **下一周期执行入口：[`NEXT_CYCLE_PLAN.md`](NEXT_CYCLE_PLAN.md)（2026-10-29）。**
 > 当前状态：Phase 0–9 已完成（2026-10-28）。
 > 产品事实源：[`docs/PRODUCT_PRINCIPLES.md`](../PRODUCT_PRINCIPLES.md) ·
 > 领域模型：[`docs/DOMAIN_MODEL.md`](../DOMAIN_MODEL.md) ·
