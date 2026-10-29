@@ -39,14 +39,14 @@
 | 1 | Anatomy Growth ↔ Structure 快速反向 | 同一事件循环内点 Structure → Growth | 最终 URL 为 growth，选中 Stage 保留，无旧状态覆盖 | ✅ 通过，无需重构 |
 | 2 | Anatomy 详情 → Task 抽屉 → Esc | 聚焦详情任务，Enter 开抽屉，Esc 关闭 | 关闭后 `document.activeElement` 为 `BODY`，丢失原任务焦点 | **阻碍连续性**，Phase 4 修 |
 | 3 | Island 收起/展开快速反向 | 原生桥接 + Python 状态机；现有单测/真机冒烟 | 规格要求继续验证；本轮 Phase 2 只做视觉原型，不改窗口模型 | 待 Phase 4 验证 |
-| 4 | Anatomy Structure 标签可读性 | 1440 宽 5 Stage | 模块下方 16px 标题被缩放到约 10px，8px 辅助行约 5px；信息在索引/详情已有 | **阻碍理解**，Phase 1 最小修复 |
+| 4 | Anatomy Structure 标签可读性 | 1440 宽 5 Stage / 120 Task | 标题此前缩放到约 10px、`+N` 几乎不可见；已在 Phase 1 放大标题并把 `+N` 并入标题行 | ✅ 已修复 |
 
 ## 4. 阶段执行清单
 
 | Phase | 交付 | 状态 |
 |---|---|---|
 | 0 | 本文件、preflight 台账、基线截图、文档差异 | ✅ 进行中 |
-| 1 | Anatomy 视觉验收 + 最小修复 + 前后截图 + 测试 | ⏳ 待开始 |
+| 1 | Anatomy 视觉验收 + 最小修复 + 前后截图 + 测试 | ✅ 已完成（[报告](next-cycle/PHASE1_ANATOMY.md)） |
 | 2 | Island Blueprint Dock 独立原型（收起/展开/长内容/空加载）+ 对比 | ⏳ 待开始 |
 | 3 | 移动端 A/B/C 决策报告 + 安全边界；不改网络/认证 | ⏳ 待开始 |
 | 4 | 高频路径焦点/连续性最小修复 + 回归测试 | ⏳ 待开始 |
