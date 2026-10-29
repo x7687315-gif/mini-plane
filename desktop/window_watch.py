@@ -1,18 +1,19 @@
 """桌面端：主窗口一关，整个应用立刻退出（用户 2026-10-03 明确要求）。
 
-## 为什么不能只靠 pywebview 的 events.closed
+## 为什么要保留两条退出通路
 
-实测（desktop/verify_quit.py）：主窗口属于 **exe 派生的子进程**（GUI 进程），
-而 `create_window()` 返回的 Window 对象在父进程。给 `events.closed` 挂的回调
-**在子进程里不会触发** —— 真机验证里 WM_CLOSE 送达了主窗口，进程与端口都纹丝不动。
+2026-10-29 用 pywebview 6.2.1 复核：`start()` 在主线程跑 GUI 循环，
+`events.closed` 在本机**会**触发（立即关窗也能触发）。但旧版本 / 某些后端 /
+异常关闭路径并不保证，所以保留标题监视作为跨版本兜底。
 
-## 现在用的机制：监视窗口标题
+## 标题监视
 
 窗口标题是我们自己的常量（`APP_TITLE` / `ISLAND_TITLE`），用 Win32 `EnumWindows`
-按标题找可见窗口，跨进程有效。标题消失 = 用户关掉了主窗口 → 销毁 Island 窗口 →
-pywebview 的最后一个窗口没了 → `start()` 返回 → launcher 的 `finally` 停掉后端与前端。
+按标题找可见窗口，跨进程有效。标题消失 = 用户关掉了主窗口 →
+停止后端/前端（`on_quit`）→ launcher 退出。
 
-`events.closed` 仍保留作为快路径（万一某个平台/版本它真的触发了，能更快退出）。
+`events.closed` 是快路径；标题监视是兜底。两者都指向同一个
+`stop_services(procs, hard_exit=True)`，不会出现两套退出语义。
 """
 
 from __future__ import annotations

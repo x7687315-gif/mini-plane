@@ -92,6 +92,17 @@
 
 **形态**：本地运行的单机软件。服务只绑 `127.0.0.1`、DEBUG 关闭、SECRET_KEY 首跑随机生成并存本机、桌面版用内嵌 SQLite（无需安装数据库）。
 
+### 1.1 这套产品的独特设计
+
+| 设计 | 为什么不同 |
+|---|---|
+| **个人优先，团队是叠加层** | 第一次打开不需要工作区、成员或角色；协作入口只在确实属于某个 Workspace 时出现 |
+| **工程图纸，而不是图表** | 图纸不是装饰插画：生长视图看阶段如何累积，结构视图看整体如何拆成局部；两种视图共享同一份真实 Task 数据与选中 Stage |
+| **Task 是计划，Worklog 是证据** | 不用任务完成率伪造历史；没有快照就不提供“历史回放”，Worklog 与 Activity 分栏只读 |
+| **URL 即状态** | 筛选、分页、选中 Stage、生长/结构视图都写进地址栏；复制链接就是复制当前视图 |
+| **Island 是实时投影** | 桌面常驻一张可收起/固定的工程浮页，直接回答“现在到哪了”，不是又一个小窗列表 |
+| **本地单机 + 进程生命周期** | 数据与密钥不出本机；关闭主窗后，后端、前端、WebView2 整棵进程树退出；默认不复用已有服务，强杀由 Windows Job Object 兜底 |
+
 ---
 
 ## 2. 界面导览（逐屏）
@@ -198,6 +209,10 @@
 - **安全与可访问**：文本由 React JSX 渲染，不拼 SVG/HTML 字符串；Stage / Task 支持 Tab + Enter 与显式 SVG 焦点环，尊重 `prefers-reduced-motion`；
 - **密度与上限**：视觉上每 Stage 最多画 14 条生长任务线 / 12 个结构立方体，超出显示 `+N`；计数与详情仍按全量 Task 计算。
 
+<p align="center">
+  <img src="docs/refactor/ui-design/anatomy/v3/production-structure.png" width="920" alt="Anatomy V3 结构视图：整体 ghost + 爆炸 Stage 模块">
+</p>
+
 ### 2.9 团队层（工作区 · 成员 · 角色）
 
 团队能力完整保留，只是从"产品中心"降级为"协作基础设施"：
@@ -252,7 +267,17 @@
 | **图钉固定** | `pinned` 后面板常驻置顶，`Esc` 与关闭都不收起（防止误关）；取消固定**不自动收起** |
 | **拖动 / 缩放** | 把手条整条是拖动区；展开态边缘热区缩放（`easy_drag` 在 Windows 后端未实现，故为 JS 桥接） |
 | **位置记忆** | 拖动后位置、展开态尺寸都落盘；收起态**不**被 360×44 污染 |
-| **退出干净** | 关掉主窗口 → Island、后端、前端**全部退出**，端口释放（运行期不 `destroy()`，避免工作线程互等挂死） |
+| **退出干净** | 关掉主窗口 → Island、后端、前端、WebView2 **整棵进程树退出**，端口释放（运行期不 `destroy()`，避免工作线程互等挂死） |
+
+**进程生命周期（2026-10-29 修复残留）**：
+
+| 机制 | 行为 |
+|---|---|
+| 默认不复用已有服务 | 8000/3000 被占用时启动失败并提示，不接管“上一轮/开发模式”的进程；避免关窗后留下别人的后端/前端 |
+| 开发逃生门 | 显式设置 `MINIPLANE_REUSE_SERVICES=1` 才允许复用；日志明确提示“不会随窗口关闭” |
+| kill-on-close Job Object | Windows 内核级兜底：launcher 正常退出、崩溃或被强杀，Job 内的后端、前端、`msedgewebview2.exe` 全部回收 |
+| 双退出通路 | `events.closed` 快路径 + 主窗口标题监视兜底，都指向同一个 `stop_services()` |
+| 真机验证 | `desktop/verify_quit.py`（正常关窗）与 `--force`（模拟任务管理器强杀）逐个核对后代 PID 与端口 |
 
 ### 2.12 记一笔：Worklog
 
@@ -334,10 +359,10 @@
 | **图纸视图（Anatomy V3）** | 生长 / 结构双视图 · 全量 Task · 固定索引/详情 · 散件托盘 · NEW/UPD · 记录浏览 · 120 Task 实机回归 | ✅ |
 | **实时协作** | WebSocket：issue / comment / agent / worklog / stage / project / membership；断线退避重连、撤权关闭 | ✅ |
 | **Engineering Island** | 单窗两态（360×44 / 520×420）· 多项目总览（六问 + AGENT）· 单一 overview 连接 · LIVE/离线诚实 | ✅ |
-| **桌面窗口（V3）** | 首启展开 · 折叠动画 · 图钉常驻 · 拖动/缩放 · 位置/尺寸持久化 · 关主窗即全退 | ✅ |
+| **桌面窗口（V3）** | 首启展开 · 折叠动画 · 图钉常驻 · 拖动/缩放 · 位置/尺寸持久化 · 关主窗即全退 · 强杀由 Job Object 兜底 | ✅ |
 | **Agent Local API** | Token 一次性明文 · 5 个 scope · 项目 ID 定位 · `Idempotency-Key`（409/TTL）· Session/实时投影 | ✅ |
 | **个人 / 协作导航** | 左侧个人四项常驻 · 协作区按需出现 · URL 即状态 · 无工作区时不出现团队噪音 | ✅ |
-| **桌面 App** | pywebview + WebView2 · 内嵌 SQLite · 会话持久化 · 关窗停服 · PyInstaller 便携包 | ✅ |
+| **桌面 App** | pywebview + WebView2 · 内嵌 SQLite · 会话持久化 · 关窗停服 · 默认不复用服务 · Job Object 强杀兜底 · PyInstaller 便携包 | ✅ |
 | **工程化** | GitHub Actions 三 job · OpenAPI 快照 · ruff 全目录 · Playwright E2E · SQLite/Postgres 迁移 | ✅ |
 | Markdown → Worklog 自动导入 | 解析 `docs/devlog/*.md` 写入 Worklog | ⏳ 二期 |
 | Blocker 独立实体 | 目前是 Worklog 的字段，尚未升为一级概念 | ⏳ 待定 |
@@ -524,6 +549,7 @@ mini-plane/
 | 前端单测 | **175** | `cd frontend && pnpm test`（`node --test`，零依赖） |
 | 桌面单测 | **20** | `backend/.venv/Scripts/python.exe desktop/tests/test_island_config.py`（另跑 `test_island_window_manager.py`） |
 | 浏览器 E2E | **39**（+setup 40） | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
+| 生产依赖审计 | **Next 16.4.3 已修 critical/high**；剩 1 条 zod high（已评估，见 devlog） | `pnpm audit --prod --registry=https://registry.npmjs.org` |
 
 CI（`.github/workflows/ci.yml`，三个 job 全绿才可合并）：
 
@@ -567,7 +593,10 @@ E2E 覆盖：昵称登录/注册、首页、工程台筛选与 URL 往返、任�
 必须重跑 `python scripts/package.py`，再 `desktop/build.py --portable`。`dist/` 不入库，不会自动跟随源码。
 
 **Q：8000/3000 被占用？**
-`scripts\dev.cmd status` 看状态，`scripts\dev.cmd down` 停掉；桌面启动器发现端口被非本软件进程占用时会明确拒绝，避免连到另一套数据库。
+`scripts\dev.cmd status` 看状态，`scripts\dev.cmd down` 停掉。桌面启动器**默认不复用**已有服务（避免关窗后留下别人的后端/前端）；开发调试确实要复用，设置 `MINIPLANE_REUSE_SERVICES=1`，并自行停止被复用的服务。
+
+**Q：关掉桌面窗口后，后台还有残留进程吗？**
+正常关窗会停掉后端、前端与 WebView2 整棵进程树；默认不复用已有服务，避免“上一轮残留被再次接管”。即使 launcher 被任务管理器强杀，`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` Job 也会由 Windows 内核回收子进程。可用 `desktop\verify_quit.py` 与 `--force` 真机验证；日志见 `runtime/launcher.log`。
 
 **Q：Workspace 删除被拒绝？**
 工作区里仍有工程时后端返回 400。先删除工程，或把工程「脱离协作」转为私人工程，再删工作区。系统不会静默级联清空工程。
@@ -608,6 +637,7 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
       Phase 5.5 稳定化（回归/E2E/安全）      ✅ 2026-10-25
       Anatomy V2 Phase 0–5（对象/空间交互）  ✅ 2026-10-26
       Anatomy V3 双视图（生长/结构 + 全量 Task）✅ 2026-10-29
+      桌面进程残留修复（拒绝隐式复用 + Job Object）✅ 2026-10-29
       Phase 6 团队模式降级与兼容              ✅ 2026-10-28
       Phase 7 Agent API / Realtime 收敛        ✅ 2026-10-28
       Phase 8 Island 数据对齐 + 桌面验收       ✅ 2026-10-28
@@ -634,6 +664,7 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
 | **Engineering Island V3 规格**（单窗两态 / 工程浮页，窗口模型唯一事实源） | [`docs/ISLAND_V3_SPEC.md`](docs/ISLAND_V3_SPEC.md) |
 | **Engineering Island V2 规格**（信息设计 / 实时方案；窗口模型部分已被 V3 取代） | [`docs/ISLAND_V2_SPEC.md`](docs/ISLAND_V2_SPEC.md) |
 | **接手本项目 / 当前进度 / 踩坑** | [`docs/HANDOVER.md`](docs/HANDOVER.md) |
+| **桌面关闭残留进程复盘**（preflight + 复现 + Job Object） | [`docs/devlog/2026-10-29-desktop-residual-processes.md`](docs/devlog/2026-10-29-desktop-residual-processes.md) |
 | **v1.0.0 目标达成审计**（计划逐条对照） | [`docs/v1.0.0-goal-audit.md`](docs/v1.0.0-goal-audit.md) |
 | 分角色使用说明 | [`docs/使用指南.md`](docs/使用指南.md) |
 | 接口契约（前后端唯一事实源） | [`docs/API.md`](docs/API.md) 与 [`docs/api/`](docs/api/) |

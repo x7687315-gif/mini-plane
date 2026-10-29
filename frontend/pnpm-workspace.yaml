@@ -3,3 +3,8 @@
 # Approving it is safe — it only compiles its own Rust binding.
 allowBuilds:
   unrs-resolver: true
+
+# pnpm 11 起，overrides 从 package.json 的 pnpm 字段迁到 workspace 设置。
+# source-map-js <1.2.2 是 Next→postcss 的传递依赖，生产审计 high；用补丁版覆盖。
+overrides:
+  source-map-js: 1.2.2
