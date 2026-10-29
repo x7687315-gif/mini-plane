@@ -16,6 +16,7 @@ import {
   createIssue,
   deleteIssue,
   getIssue,
+  listAllIssues,
   listIssues,
   listLabels,
   listMyIssues,
@@ -58,6 +59,25 @@ export function useIssues(
     enabled: Boolean(projectId),
     // Keep the previous page visible while the next one loads (no layout jump).
     placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * 图纸专用：一次取全量 Task。
+ *
+ * 任务列表页继续用 useIssues 的分页；只有需要完整构件/计数的图纸使用本 hook。
+ * 放在 taskKeys.list 前缀下，创建/更新/删除后的既有失效会同时刷新它。
+ */
+export function useAllIssues(
+  slug: string | undefined,
+  projectId: string | undefined,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: [...taskKeys.list(projectId ?? ""), "all"],
+    queryFn: () => listAllIssues(slug!, projectId!),
+    enabled: Boolean(projectId) && (options.enabled ?? true),
+    staleTime: 15_000,
   });
 }
 

@@ -1,6 +1,7 @@
 # Anatomy V3 · Phase 2 高保真原型记录
 
 > 日期：2026-10-28 · 分支 `feat/anatomy-v3`
+> **生产接入已完成（2026-10-29），结果见 [`PHASE3_REPORT.md`](PHASE3_REPORT.md)。**
 > 产物：[`prototype.html`](prototype.html)（独立 HTML + SVG，不接生产路由、不改 API/数据库）
 > 依据：[Phase 1 审计](PHASE1_AUDIT.md) · [技术 Preflight](PREFLIGHT.md) · 用户草图与文字规划
 

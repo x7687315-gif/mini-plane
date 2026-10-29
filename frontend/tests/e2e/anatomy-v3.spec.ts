@@ -2,8 +2,9 @@ import { test, expect } from "@playwright/test";
 import { apiClient, expectWriteOk } from "./helpers";
 
 /**
- * Anatomy V2 Phase 1 验收：
- * - ?view=plate 静态对象、Stage Index、聚焦、任务抽屉
+ * Anatomy V3 验收：
+ * - ?view=plate 双视图（生长 / 结构）、固定索引与详情
+ * - 视图切换保留选中 Stage；选中写进 URL；键盘可达
  * - 长文本/特殊字符由 React JSX 安全呈现（不注入 markup）
  *
  * 用独立私人项目造数，避免污染共享 E2E 工程；finally 删除。
@@ -13,7 +14,7 @@ async function createProject(api: Awaited<ReturnType<typeof apiClient>>, suffix:
   // 每轮唯一：私人工程的 identifier 只按 owner 唯一，固定值会在重复跑时撞 400。
   const token = Math.random().toString(36).slice(2, 5).toUpperCase().padEnd(3, "X");
   const response = await api.write("POST", "/api/v1/projects/", {
-    name: `Anatomy V2 E2E ${suffix} ${token}`,
+    name: `Anatomy V3 E2E ${suffix} ${token}`,
     identifier: `AN${token}`,
   });
   await expectWriteOk(response, "创建 Anatomy 测试工程");
@@ -40,25 +41,27 @@ async function createStage(
 async function createTask(
   api: Awaited<ReturnType<typeof apiClient>>,
   projectId: string,
-  stageId: string,
+  stageId: string | null,
   title: string,
 ) {
   const response = await api.write("POST", `/api/v1/projects/${projectId}/tasks/`, {
     title,
-    stage_id: stageId,
+    ...(stageId ? { stage_id: stageId } : {}),
   });
   await expectWriteOk(response, "创建 Task");
   return response.json() as Promise<{ id: string; sequence_id: number; title: string }>;
 }
 
-test.describe("Anatomy V2 · 静态对象与安全文本", () => {
-  test("plate 渲染 → 索引聚焦 → 任务抽屉", async ({ page }) => {
+test.describe("Anatomy V3 · 双视图与安全文本", () => {
+  test("plate 渲染 → 双视图切换 → 选中保留 → 任务抽屉", async ({ page }) => {
     test.setTimeout(60_000);
     const api = await apiClient();
     const project = await createProject(api, "focus");
     try {
-      const stage = await createStage(api, project.id, "阶段聚焦验收");
-      const task = await createTask(api, project.id, stage.id, "构件抽屉验收");
+      const stage1 = await createStage(api, project.id, "阶段聚焦验收");
+      const stage2 = await createStage(api, project.id, "阶段二验收");
+      await createTask(api, project.id, stage1.id, "构件抽屉验收");
+      const task2 = await createTask(api, project.id, stage2.id, "阶段二任务验收");
 
       await page.goto(`/projects/${project.id}?view=plate`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
@@ -66,26 +69,27 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
       });
       await expect(page.getByText("Stage Index", { exact: false })).toBeVisible();
 
-      // 视觉 Stage 本身可点击（不是只有索引表可点）
-      await page.getByRole("button", { name: /^阶段 1：阶段聚焦验收/ }).click();
-      await expect(page.getByText("Stage 01 构件", { exact: true })).toBeVisible();
+      const detail = page.locator("aside[aria-label='当前构件详情']");
+      // 默认选中当前 Stage（最后创建的 stage2）
+      await expect(detail.locator("h2")).toHaveText("阶段二验收");
 
-      // focus → exploded → focus → overview；空间状态写进 URL
-      await page.getByRole("button", { name: "展开", exact: true }).click();
-      await expect(page).toHaveURL(/expand=1/);
-      await expect(page.getByRole("button", { name: "收拢", exact: true })).toBeVisible();
-      await page.getByRole("button", { name: "收拢", exact: true }).click();
-      await expect(page).not.toHaveURL(/expand=1/);
+      // 索引选择 stage1，选中写入 URL
+      await page.getByRole("button", { name: "选择阶段 阶段聚焦验收" }).click();
+      await expect(detail.locator("h2")).toHaveText("阶段聚焦验收");
       await expect(page).toHaveURL(/stage=/);
 
-      await page.keyboard.press("Escape");
-      await expect(page).not.toHaveURL(/stage=/);
-      await expect(page.getByText("Stage 01 构件", { exact: true })).toHaveCount(0);
+      // 切到结构视图，选中不丢
+      await page.getByRole("button", { name: "结构 / Structure" }).click();
+      await expect(page).toHaveURL(/mode=structure/);
+      await expect(detail.locator("h2")).toHaveText("阶段聚焦验收");
 
-      // 重新聚焦并打开任务抽屉（URL ?issue=，既有组件）
-      await page.getByRole("button", { name: /^聚焦阶段 阶段聚焦验收/ }).click();
-      const aside = page.locator("aside");
-      await aside.getByRole("button", { name: new RegExp(task.title) }).click();
+      // 键盘：聚焦 SVG Stage 2 并 Enter
+      await page.getByRole("button", { name: /^阶段 2：阶段二验收/ }).focus();
+      await page.keyboard.press("Enter");
+      await expect(detail.locator("h2")).toHaveText("阶段二验收");
+
+      // 详情任务列表 → 抽屉
+      await detail.getByRole("button", { name: new RegExp(task2.title) }).click();
       await expect(page).toHaveURL(/issue=/);
       await expect(page.getByRole("dialog")).toBeVisible({ timeout: 15_000 });
     } finally {
@@ -94,7 +98,7 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
     }
   });
 
-  test("减少动态效果：聚焦/展开仍完成，信息不丢失", async ({ page }) => {
+  test("减少动态效果：视图切换与选中仍完成，信息不丢失", async ({ page }) => {
     test.setTimeout(60_000);
     await page.emulateMedia({ reducedMotion: "reduce" });
     const api = await apiClient();
@@ -106,10 +110,12 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
       await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
         timeout: 30_000,
       });
-      await page.getByRole("button", { name: /^聚焦阶段 减少动效阶段/ }).click();
-      await expect(page.getByText("Stage 01 构件", { exact: true })).toBeVisible();
-      await page.getByRole("button", { name: "展开", exact: true }).click();
-      await expect(page.getByRole("button", { name: "收拢", exact: true })).toBeVisible();
+      const detail = page.locator("aside[aria-label='当前构件详情']");
+      await page.getByRole("button", { name: "选择阶段 减少动效阶段" }).click();
+      await expect(detail.locator("h2")).toHaveText("减少动效阶段");
+      await page.getByRole("button", { name: "结构 / Structure" }).click();
+      await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible();
+      await expect(detail.locator("h2")).toHaveText("减少动效阶段");
     } finally {
       await api.write("DELETE", `/api/v1/projects/${project.id}/`);
       await api.dispose();
@@ -137,18 +143,18 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
         timeout: 30_000,
       });
       await page.getByRole("button", { name: /记录 ·/ }).click();
-      const aside = page.locator("aside");
-      await expect(aside.getByText("Records · 只读", { exact: true })).toBeVisible();
+      const detail = page.locator("aside[aria-label='当前构件详情']");
+      await expect(detail.getByText("Records · 只读", { exact: true })).toBeVisible();
 
-      await expect(aside.getByText("补记：实现记录浏览器", { exact: true })).toBeVisible();
-      await expect(aside.getByText("2026-10-01", { exact: true })).toBeVisible();
-      await expect(aside.getByText("人工", { exact: true })).toBeVisible();
-      await expect(aside.getByText(/日期是业务归属日/)).toBeVisible();
+      await expect(detail.getByText("补记：实现记录浏览器", { exact: true })).toBeVisible();
+      await expect(detail.getByText("2026-10-01", { exact: true })).toBeVisible();
+      await expect(detail.getByText("人工", { exact: true })).toBeVisible();
+      await expect(detail.getByText(/日期是业务归属日/)).toBeVisible();
 
-      await page.getByRole("button", { name: /审计事件/ }).click();
-      await expect(aside.getByText(/创建了任务/).first()).toBeVisible();
-      await expect(aside.getByText(/不是完整历史/)).toBeVisible();
-      await expect(aside.getByText(/不提供旧结构回放/)).toBeVisible();
+      await detail.getByRole("button", { name: /审计事件/ }).click();
+      await expect(detail.getByText(/创建了任务/).first()).toBeVisible();
+      await expect(detail.getByText(/不是完整历史/)).toBeVisible();
+      await expect(detail.getByText(/不提供旧结构回放/)).toBeVisible();
       // task 变量用于确认造数成功，Activity 文案本身不重复标题
       expect(task.title).toBeTruthy();
     } finally {
@@ -168,7 +174,8 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
         timeout: 30_000,
       });
       await expect(page.getByRole("banner")).toContainText(/已连接/, { timeout: 20_000 });
-      await expect(page.getByText("Recent · Activity", { exact: true })).toHaveCount(0);
+      const detail = page.locator("aside[aria-label='当前构件详情']");
+      await expect(detail.getByText("Recent · Activity", { exact: true })).toHaveCount(0);
 
       const title = `变化任务 ${Date.now().toString(36)}`;
       const created = await api.write("POST", `/api/v1/projects/${project.id}/tasks/`, {
@@ -187,12 +194,11 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
       });
       await expectWriteOk(updated, "推进变化任务");
 
-      const aside = page.locator("aside");
-      await expect(aside.getByText("Recent · Activity", { exact: true })).toBeVisible({
+      await expect(detail.getByText("Recent · Activity", { exact: true })).toBeVisible({
         timeout: 20_000,
       });
-      await expect(aside.getByText("NEW", { exact: true }).first()).toBeVisible();
-      await expect(aside.getByText(title, { exact: false }).first()).toBeVisible();
+      await expect(detail.getByText("NEW", { exact: true }).first()).toBeVisible();
+      await expect(detail.getByText(title, { exact: false }).first()).toBeVisible();
     } finally {
       await api.write("DELETE", `/api/v1/projects/${project.id}/`);
       await api.dispose();
@@ -210,11 +216,12 @@ test.describe("Anatomy V2 · 静态对象与安全文本", () => {
       await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
         timeout: 30_000,
       });
-      await expect(page.locator("aside").getByText(special, { exact: false })).toBeVisible();
+      const detail = page.locator("aside[aria-label='当前构件详情']");
+      await expect(detail.getByText(special, { exact: false })).toBeVisible();
       // 顶栏状态行本来就用 <b> 包阶段名；这里只证明 SVG/索引没有把文本
       // 当成 markup 解析（否则会出现 svg 内的 b 元素）。
       await expect(page.locator("svg b")).toHaveCount(0);
-      await expect(page.locator("aside b")).toHaveCount(0);
+      await expect(detail.locator("b")).toHaveCount(0);
     } finally {
       await api.write("DELETE", `/api/v1/projects/${project.id}/`);
       await api.dispose();
