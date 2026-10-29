@@ -91,7 +91,13 @@ test.describe("Anatomy V3 · 双视图与安全文本", () => {
       // 详情任务列表 → 抽屉
       await detail.getByRole("button", { name: new RegExp(task2.title) }).click();
       await expect(page).toHaveURL(/issue=/);
-      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("dialog", { name: /任务详情/ })).toBeVisible({ timeout: 15_000 });
+
+      // 关闭抽屉后，焦点回到触发它的任务行，而不是落到 BODY。
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const restoredFocus = await page.evaluate(() => document.activeElement?.textContent ?? "");
+      expect(restoredFocus).toContain(task2.title);
     } finally {
       await api.write("DELETE", `/api/v1/projects/${project.id}/`);
       await api.dispose();

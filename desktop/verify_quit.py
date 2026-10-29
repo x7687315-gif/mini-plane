@@ -27,6 +27,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXE = ROOT / "dist" / "MiniPlane" / "MiniPlane.exe"
+# 必须与 launcher.APP_TITLE 完全一致：浏览器标签里也可能出现 "Mini Plane"，
+# 用子串匹配会把浏览器窗口当成主窗口（2026-10-29 实测踩到）。
+MAIN_TITLE = "Mini Plane  ·  本地单机版"
 WM_CLOSE = 0x0010
 user32 = ctypes.windll.user32
 EnumWindowsProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -130,7 +133,7 @@ def windows() -> list[tuple[int, int, str, bool]]:
 def wait_main_window(timeout: float) -> tuple[int, int, str] | None:
     deadline = time.time() + timeout
     while time.time() < deadline:
-        hits = [w for w in windows() if "Mini Plane" in w[2] and "Island" not in w[2] and w[3]]
+        hits = [w for w in windows() if w[2] == MAIN_TITLE and w[3]]
         if hits:
             hwnd, pid, title, _visible = hits[0]
             return hwnd, pid, title

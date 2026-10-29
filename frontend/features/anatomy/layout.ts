@@ -383,14 +383,16 @@ export function computeGrowthLayout(
     const topCenterY = project(origin, 0, 0, z + h).y;
     const labelX = centerX - (w / 2 + d / 2) * ISO_COS - 26;
     const labelMaxWidth = 250;
+    const hiddenTaskCount = Math.max(0, stage.tasks.length - GROWTH_MAX_MARKS);
+    const hiddenSuffix = hiddenTaskCount ? ` +${hiddenTaskCount}` : "";
     const labelText = `${String(stage.order).padStart(2, "0")} ${truncateToWidth(
       stage.name,
-      labelMaxWidth - 34,
+      labelMaxWidth - 34 - estimateTextWidth(hiddenSuffix, 19),
       19,
-    )}`;
+    )}${hiddenSuffix}`;
     const progressText = `${stage.recordedProgress}% · w${stage.weight} · ${stage.tasks.length} TASK${
-      current ? " · CURRENT" : ""
-    }`;
+      hiddenTaskCount ? ` · +${hiddenTaskCount}` : ""
+    }${current ? " · CURRENT" : ""}`;
     const label: StageLabelLayout = {
       x: labelX,
       y: topCenterY + 4,
@@ -439,7 +441,7 @@ export function computeGrowthLayout(
       current,
       label,
       taskMarks,
-      hiddenTaskCount: Math.max(0, stage.tasks.length - shown.length),
+      hiddenTaskCount,
       bounds: unionBounds([
         { ...box, y: box.y - z, h: box.h },
         rectOfLabel(label),
@@ -550,20 +552,27 @@ export function computeStructureLayout(
       ghostLayer.z + ghostH,
     );
     const to = project(origin, -w / 2, d / 2, h / 2);
+    const shown = stage.tasks.slice(0, STRUCTURE_MAX_CELLS);
+    const hiddenTaskCount = Math.max(0, stage.tasks.length - shown.length);
     const labelY = origin.y + d * ISO_SIN + 50;
-    const labelMaxWidth = STRUCTURE_STEP - 20;
+    const labelMaxWidth = STRUCTURE_STEP - 10;
+    const hiddenSuffix = hiddenTaskCount ? ` +${hiddenTaskCount}` : "";
+    const nameBudget = Math.max(
+      24,
+      labelMaxWidth - 24 - estimateTextWidth(hiddenSuffix, 19),
+    );
     const labelText = `${String(stage.order).padStart(2, "0")} ${truncateToWidth(
       stage.name,
-      labelMaxWidth - 24,
-      16,
-    )}`;
+      nameBudget,
+      19,
+    )}${hiddenSuffix}`;
     const progressText = `${stage.recordedProgress}% · w${stage.weight} · ${stage.tasks.length} TASK`;
     const label: StageLabelLayout = {
       x: origin.x,
       y: labelY,
       width: Math.min(
         labelMaxWidth,
-        Math.max(estimateTextWidth(labelText, 16), estimateTextWidth(progressText, 8)),
+        Math.max(estimateTextWidth(labelText, 19), estimateTextWidth(progressText, 8)),
       ),
       height: 30,
       text: labelText,
@@ -571,7 +580,6 @@ export function computeStructureLayout(
       anchor: "middle",
     };
 
-    const shown = stage.tasks.slice(0, STRUCTURE_MAX_CELLS);
     const cells = taskCells(
       origin,
       w,
@@ -594,7 +602,7 @@ export function computeStructureLayout(
       current,
       label,
       tasks: cells,
-      hiddenTaskCount: Math.max(0, stage.tasks.length - shown.length),
+      hiddenTaskCount,
       connector: { from, to },
       bounds: unionBounds([box, rectOfLabel(label), ...cells.map((cell) => cell.bounds)]),
     };

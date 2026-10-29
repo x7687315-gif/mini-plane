@@ -265,11 +265,13 @@ function StageLabel({
   serifSize,
   monoSize,
   accent,
+  showProgress = true,
 }: {
   label: StageLabelLayout;
   serifSize: number;
   monoSize: number;
   accent: boolean;
+  showProgress?: boolean;
 }) {
   return (
     <g pointerEvents="none">
@@ -284,17 +286,19 @@ function StageLabel({
       >
         {label.text}
       </text>
-      <text
-        x={label.x}
-        y={label.y + 15}
-        textAnchor={label.anchor}
-        fontFamily="JetBrains Mono, monospace"
-        fontSize={monoSize}
-        letterSpacing={0.4}
-        fill={accent ? "var(--color-accent)" : "var(--color-ink-3)"}
-      >
-        {label.progressText}
-      </text>
+      {showProgress && (
+        <text
+          x={label.x}
+          y={label.y + 15}
+          textAnchor={label.anchor}
+          fontFamily="JetBrains Mono, monospace"
+          fontSize={monoSize}
+          letterSpacing={0.4}
+          fill={accent ? "var(--color-accent)" : "var(--color-ink-3)"}
+        >
+          {label.progressText}
+        </text>
+      )}
     </g>
   );
 }
@@ -430,7 +434,6 @@ function GrowthStage({
   const { select, key } = stageInteraction(stage.stageId, onSelectStage);
   const leftX = project(origin, -w / 2, 0, z + h).x;
   const currentTag = project(origin, w / 2 + 16, -d / 2, z + h);
-  const overflow = project(origin, w / 2 + 4, d / 2, z + h / 2);
 
   return (
     <g
@@ -488,18 +491,6 @@ function GrowthStage({
           pointerEvents="none"
         >
           CURRENT
-        </text>
-      )}
-      {stage.hiddenTaskCount > 0 && (
-        <text
-          x={overflow.x}
-          y={overflow.y}
-          fontFamily="JetBrains Mono, monospace"
-          fontSize={8}
-          fill="var(--color-ink-3)"
-          pointerEvents="none"
-        >
-          {`+${stage.hiddenTaskCount}`}
         </text>
       )}
       {stage.taskMarks.map((mark) => (
@@ -733,18 +724,6 @@ function StructureStage({
           onOpenTask={onOpenTask}
         />
       ))}
-      {stage.hiddenTaskCount > 0 && (
-        <text
-          x={origin.x + w * 0.31 + 10}
-          y={origin.y + d * ISO_SIN + h + 7}
-          fontFamily="JetBrains Mono, monospace"
-          fontSize={7.5}
-          fill="var(--color-ink-3)"
-          pointerEvents="none"
-        >
-          {`+${stage.hiddenTaskCount}`}
-        </text>
-      )}
       {stage.current && (
         <text
           x={origin.x}
@@ -761,9 +740,10 @@ function StructureStage({
       )}
       <StageLabel
         label={stage.label}
-        serifSize={stage.selected ? 17 : 16}
-        monoSize={8}
+        serifSize={stage.selected ? 20 : 19}
+        monoSize={9}
         accent={stage.current}
+        showProgress={false}
       />
     </g>
   );

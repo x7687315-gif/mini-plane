@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DimProgress } from "@/components/ui/v2";
 import type { Activity } from "@/types/activity";
@@ -183,6 +183,11 @@ export function AnatomyPlate({
   // 页面挂载时刻：早于它的事件只作为历史，不标“刚刚新增”。
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [mountedAt] = useState(() => Date.now());
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const scrollByMode = useRef<Record<AnatomyViewMode, { top: number; left: number }>>({
+    growth: { top: 0, left: 0 },
+    structure: { top: 0, left: 0 },
+  });
   const changes = useMemo(
     () => deriveAnatomyChanges(activities, mountedAt, tasks),
     [activities, mountedAt, tasks],
@@ -229,8 +234,25 @@ export function AnatomyPlate({
     onViewStateChange({ ...effectiveState, selectedStageId: stageId });
   };
   const changeMode = (mode: AnatomyViewMode) => {
+    // 先记住当前视图的滚动位置；结构图高度通常更小，切换时浏览器会把
+    // growth 的 scrollTop 夹回 0，切回来就丢上下文。
+    const el = canvasRef.current;
+    if (el) {
+      scrollByMode.current[effectiveState.mode] = {
+        top: el.scrollTop,
+        left: el.scrollLeft,
+      };
+    }
     onViewStateChange({ ...effectiveState, mode });
   };
+
+  useLayoutEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const saved = scrollByMode.current[effectiveState.mode];
+    el.scrollTop = saved.top;
+    el.scrollLeft = saved.left;
+  }, [effectiveState.mode]);
 
   const loadedLabel =
     tasksTotal == null ? String(tasks.length) : `${tasks.length} / ${tasksTotal}`;
@@ -293,7 +315,10 @@ export function AnatomyPlate({
               </div>
             )}
 
-            <div className="anatomy-canvas mt-1 max-h-[70vh] overflow-auto max-lg:max-h-none">
+            <div
+              ref={canvasRef}
+              className="anatomy-canvas mt-1 max-h-[70vh] overflow-auto max-lg:max-h-none"
+            >
               <AnatomyScene
                 layout={layout}
                 identifier={viewModel.identifier}

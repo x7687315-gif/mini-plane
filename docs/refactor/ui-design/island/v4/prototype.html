@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Engineering Island · Blueprint Dock prototype</title>
+<style>
+  :root {
+    --paper: #f4f1ea;
+    --paper-2: #ebe7dd;
+    --ink: #1b1a17;
+    --ink-2: #5a5851;
+    --ink-3: #8c887e;
+    --rule: #c8c3b4;
+    --accent: #1f3fa8;
+    --accent-2: #4f6fd6;
+    --accent-soft: #e2e7f5;
+    --sans: Inter, "Noto Sans SC", "Segoe UI", sans-serif;
+    --serif: "Cormorant Garamond", "Noto Serif SC", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    background-image:
+      linear-gradient(to right, transparent 0, transparent calc(100% - 1px), rgba(200,195,180,.55) calc(100% - 1px)),
+      linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), rgba(200,195,180,.55) calc(100% - 1px));
+    background-size: 32px 32px;
+  }
+  .proto-tools {
+    position: fixed; left: 18px; top: 16px; z-index: 10;
+    display: flex; flex-wrap: wrap; gap: 6px; max-width: 420px;
+    font: 400 10px/1.4 var(--mono); color: var(--ink-3);
+  }
+  .proto-tools button {
+    border: 1px solid var(--rule); background: var(--paper); color: var(--ink-2);
+    padding: 4px 8px; font: inherit; cursor: pointer; border-radius: 2px;
+  }
+  .proto-tools button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .stage { min-height: 100vh; display: grid; place-items: center; padding: 64px 20px; }
+  .island {
+    width: 520px; height: 420px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    box-shadow: 0 10px 30px -22px rgba(27,26,23,.5);
+    overflow: hidden;
+    transition: width 220ms cubic-bezier(.2,.8,.2,1), height 220ms cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column;
+  }
+  .island[data-state="collapsed"] { width: 360px; height: 44px; }
+  .island::before {
+    content: ""; height: 1px; flex: none;
+    background: linear-gradient(to right, var(--accent), var(--accent-2) 34%, transparent 80%);
+    opacity: .7;
+  }
+  .dockbar {
+    height: 43px; display: flex; align-items: center; gap: 10px;
+    padding: 0 11px; cursor: pointer; user-select: none;
+  }
+  .dockbar:hover { background: rgba(235,231,221,.55); }
+  .dock-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
+  .micro { font: 400 8px/1 var(--mono); letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); }
+  .dock-brand .micro { font-size: 7px; letter-spacing: .12em; }
+  .dock-title { font: italic 15px/1 var(--serif); white-space: nowrap; color: var(--ink); }
+  .dock-sep { width: 1px; height: 14px; background: var(--rule); flex: none; }
+  .dock-count { font: 400 9px/1 var(--mono); color: var(--ink-2); white-space: nowrap; }
+  .live { display: inline-flex; align-items: center; gap: 4px; font: 400 8px/1 var(--mono); letter-spacing: .1em; color: var(--accent); white-space: nowrap; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .dock-actions { display: flex; align-items: center; gap: 3px; flex: none; margin-left: auto; }
+  .icon-btn {
+    border: 1px solid transparent; background: transparent; color: var(--ink-2);
+    width: 22px; height: 22px; padding: 0; display: grid; place-items: center;
+    border-radius: 2px; cursor: pointer; font: 400 12px/1 var(--mono);
+  }
+  .icon-btn:hover { border-color: var(--rule); color: var(--ink); }
+  .expand-btn { border: 1px solid var(--rule); border-radius: 2px; background: transparent; color: var(--ink-2); padding: 3px 7px; font: 400 9px/1 var(--mono); cursor: pointer; }
+  .expand-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .expanded { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  .island-header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 12px 7px; border-bottom: 1px solid var(--rule); }
+  .header-left { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .island-title { font: italic 18px/1.1 var(--serif); white-space: nowrap; }
+  .header-meta { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+  .header-actions { display: flex; align-items: center; gap: 3px; }
+  .list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+  .project { display: grid; grid-template-columns: 24px minmax(0,1fr); border-bottom: 1px solid var(--rule); padding: 9px 12px 8px; }
+  .project:last-child { border-bottom: 0; }
+  .project-index { font: 400 9px/1 var(--mono); color: var(--ink-3); padding-top: 3px; }
+  .project-main { min-width: 0; }
+  .project-top { display: flex; align-items: baseline; gap: 8px; }
+  .project-id { font: 400 8px/1 var(--mono); letter-spacing: .1em; color: var(--ink-3); white-space: nowrap; }
+  .project-name { font: italic 17px/1.15 var(--serif); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .project-pct { margin-left: auto; font: 400 12px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--accent); }
+  .dim { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--ink-3); font: 400 8px/1 var(--mono); }
+  .dim-track { position: relative; flex: 1; height: 1px; background: var(--rule); }
+  .dim-track i { position: absolute; left: 0; top: -1px; height: 3px; background: var(--accent); }
+  .dim-track b { position: absolute; top: -3px; width: 1px; height: 7px; background: var(--ink-3); }
+  .stage-line { margin-top: 5px; font: 400 9px/1.3 var(--mono); color: var(--ink-2); }
+  .stage-line span { color: var(--ink-3); }
+  .questions { margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; }
+  .q { display: flex; gap: 6px; align-items: baseline; min-width: 0; font-size: 10.5px; line-height: 1.35; }
+  .q > .micro { flex: none; width: 30px; }
+  .q > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+  .q.now > span { border-left: 2px solid var(--accent); padding-left: 5px; color: var(--ink); }
+  .project-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 5px; padding-top: 4px; border-top: 1px solid var(--rule); font: 400 8px/1.2 var(--mono); color: var(--ink-3); }
+  .agent { display: inline-flex; align-items: center; gap: 4px; }
+  .agent i { width: 4px; height: 4px; border: 1px solid var(--ink-3); border-radius: 50%; }
+  .agent.running { color: var(--accent); } .agent.running i { background: var(--accent); border-color: var(--accent); }
+  .empty, .loading { padding: 30px 18px; }
+  .empty-title { font: italic 22px/1.1 var(--serif); color: var(--ink-2); margin: 7px 0 4px; }
+  .empty-copy { font-size: 11px; line-height: 1.55; color: var(--ink-3); max-width: 300px; }
+  .skeleton { height: 11px; background: var(--paper-2); margin: 7px 0; }
+  .skeleton.short { width: 38%; } .skeleton.medium { width: 66%; }
+  .skeleton.tall { height: 54px; margin-top: 12px; }
+  .note { margin-top: 8px; font: 400 8px/1.5 var(--mono); color: var(--ink-3); }
+  @media (prefers-reduced-motion: reduce) { .island { transition: none; } }
+</style>
+</head>
+<body>
+  <div class="proto-tools" data-prototype-controls>
+    <button type="button" data-mode="collapsed">Collapsed</button>
+    <button type="button" data-mode="expanded">Expanded</button>
+    <button type="button" data-mode="long">Long content</button>
+    <button type="button" data-mode="empty">Empty</button>
+    <button type="button" data-mode="loading">Loading</button>
+    <span>Visual prototype · not production</span>
+  </div>
+  <main class="stage">
+    <section class="island" id="island-frame" data-state="expanded" aria-label="Engineering Island prototype"></section>
+  </main>
+  <script>
+    const projects = [
+      {
+        id: "AVXD4", name: "Anatomy V3 · 演示工程", stage: "工作台与协作", progress: 63,
+        now: "结构视图：整体与爆炸模块", next: "图纸全量任务读取", done: "3 项已完成",
+        step: "整理下一轮调研清单", how: "把确认流程写进设置页", agent: false, live: true
+      },
+      {
+        id: "E2E", name: "E2E Project", stage: "Backlog", progress: 0,
+        now: "E2E 任务 C", next: "E2E 任务 A", done: "暂无完成记录",
+        step: "", how: "", agent: false, live: true
+      },
+      {
+        id: "MOB", name: "跨设备访问与每日记录：一个用来验证长项目名的工程", stage: "移动端研究", progress: 18,
+        now: "整理手机访问的真实场景", next: "比较 Tailscale Serve 与窄屏适配", done: "1 项已完成",
+        step: "收集三种路线", how: "先做决策报告，不改监听地址", agent: true, live: false
+      }
+    ];
+
+    const frame = document.getElementById("island-frame");
+    let mode = "expanded";
+    let pinned = false;
+
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const micro = (t) => `<span class="micro">${esc(t)}</span>`;
+    const dock = () => `
+      <div class="dockbar" data-action="toggle" role="button" tabindex="0" aria-label="Engineering Island · 2 个项目 · 点击展开">
+        <div class="dock-brand">
+          <span class="micro">ISLAND / 02</span>
+          <span class="dock-title">Island</span>
+        </div>
+        <span class="dock-sep"></span>
+        <span class="dock-count">2 PROJECTS</span>
+        <span class="live"><i class="dot"></i>LIVE</span>
+        <div class="dock-actions">
+          <button class="icon-btn" type="button" data-action="pin" aria-pressed="${pinned}" aria-label="固定 Island">⌖</button>
+          <button class="expand-btn" type="button" data-action="toggle">展开</button>
+        </div>
+      </div>`;
+
+    const progress = (pct) => `
+      <div class="dim"><div class="dim-track"><i style="width:${pct}%"></i><b style="left:0"></b><b style="left:${pct}%"></b></div><span>${pct}%</span></div>`;
+
+    const project = (p, i) => `
+      <article class="project" aria-label="${esc(p.name)}">
+        <div class="project-index">${String(i + 1).padStart(2, "0")}</div>
+        <div class="project-main">
+          <div class="project-top">
+            <span class="project-id">${esc(p.id)}</span>
+            <span class="project-name">${esc(p.name)}</span>
+            <span class="project-pct">${p.progress}%</span>
+          </div>
+          ${progress(p.progress)}
+          <div class="stage-line">${micro("STAGE")} ${esc(p.stage)}</div>
+          <div class="questions">
+            <div class="q now">${micro("NOW")}<span>${esc(p.now)}</span></div>
+            <div class="q">${micro("NEXT")}<span>${esc(p.next)}</span></div>
+            <div class="q">${micro("DONE")}<span>${esc(p.done)}</span></div>
+            <div class="q">${micro("STEP")}<span>${p.step ? esc(p.step) : "—"}</span></div>
+          </div>
+          <div class="project-foot">
+            <span class="agent ${p.agent ? "running" : ""}"><i></i>AGENT ${p.agent ? "RUNNING" : "IDLE"}</span>
+            <span>${p.live ? "LIVE" : "OFFLINE"} · ${micro("FIG / ISLAND")}</span>
+          </div>
+        </div>
+      </article>`;
+
+    const expanded = (list = projects) => `
+      <div class="expanded">
+        <header class="island-header">
+          <div class="header-left">
+            <span class="micro">ENGINEERING ISLAND / 02</span>
+            <span class="island-title">Island</span>
+            <span class="header-meta">${micro("2 PROJECTS")}<span class="live"><i class="dot"></i>LIVE</span></span>
+          </div>
+          <div class="header-actions">
+            <button class="icon-btn" type="button" data-action="pin" aria-pressed="${pinned}" aria-label="固定 Island">⌖</button>
+            <button class="expand-btn" type="button" data-action="toggle">收起</button>
+          </div>
+        </header>
+        <div class="list">${list.length ? list.map(project).join("") : ""}</div>
+        ${list.length ? "" : `
+          <div class="empty">
+            <div class="micro">FIG · EMPTY</div>
+            <div class="empty-title">还没有工程</div>
+            <p class="empty-copy">先创建一个项目，Island 会把它的阶段、进度、NOW / NEXT 投影在这里。</p>
+          </div>`}
+      </div>`;
+
+    const loading = () => `
+      <div class="expanded">
+        <header class="island-header">
+          <div class="header-left"><span class="micro">ENGINEERING ISLAND / 02</span><span class="island-title">Island</span></div>
+          <span class="micro">LOADING</span>
+        </header>
+        <div class="loading" aria-busy="true">
+          <div class="skeleton short"></div><div class="skeleton medium"></div>
+          <div class="skeleton tall"></div><div class="skeleton tall"></div>
+          <p class="note">稳定骨架 · 不使用 spinner</p>
+        </div>
+      </div>`;
+
+    function render(nextMode = mode) {
+      mode = nextMode;
+      frame.dataset.state = mode === "collapsed" ? "collapsed" : "expanded";
+      frame.innerHTML = mode === "collapsed" ? dock()
+        : mode === "loading" ? loading()
+        : mode === "empty" ? expanded([])
+        : mode === "long" ? expanded([projects[0], projects[2]])
+        : expanded(projects);
+      frame.querySelectorAll('[data-action="toggle"]').forEach((el) => {
+        el.addEventListener("click", (e) => { e.stopPropagation(); render(mode === "collapsed" ? "expanded" : "collapsed"); });
+        el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); render(mode === "collapsed" ? "expanded" : "collapsed"); } });
+      });
+      frame.querySelectorAll('[data-action="pin"]').forEach((el) => el.addEventListener("click", (e) => {
+        e.stopPropagation(); pinned = !pinned; el.setAttribute("aria-pressed", String(pinned));
+      }));
+      document.querySelectorAll("[data-prototype-controls] button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+    }
+
+    document.querySelectorAll("[data-prototype-controls] button").forEach((b) => b.addEventListener("click", () => render(b.dataset.mode)));
+    const initial = new URLSearchParams(location.search).get("state");
+    render(["collapsed", "expanded", "long", "empty", "loading"].includes(initial) ? initial : "expanded");
+  </script>
+</body>
+</html>

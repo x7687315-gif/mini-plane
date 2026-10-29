@@ -201,6 +201,7 @@ export function IssueDrawer({
       open={open}
       onClose={onClose}
       width={660}
+      ariaLabel={`${identifier} 任务详情`}
       crumb={
         <>
           {identifier} / WORK ITEM &middot;{" "}
