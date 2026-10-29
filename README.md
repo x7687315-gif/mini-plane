@@ -657,6 +657,7 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
 |---------|--------|
 | **产品原则**（唯一事实源） | [`docs/PRODUCT_PRINCIPLES.md`](docs/PRODUCT_PRINCIPLES.md) · 领域模型 [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md) |
 | **个人优先重构**（Phase 0–9 已完成） | [`docs/refactor/`](docs/refactor/) · Phase 6–9 报告 [`PHASE6_REPORT.md`](docs/refactor/PHASE6_REPORT.md) … [`PHASE9_REPORT.md`](docs/refactor/PHASE9_REPORT.md) · 决策记录 [`docs/decisions/`](docs/decisions/) |
+| **下一周期执行入口**（轻量化 / 流畅性 / 日常便捷性） | [`docs/refactor/NEXT_CYCLE_PLAN.md`](docs/refactor/NEXT_CYCLE_PLAN.md) · [Phase 5 交付](docs/refactor/next-cycle/PHASE5_DELIVERY.md) |
 | **项目解剖图 V3**（生产：生长/结构双视图 · 全量 Task · 固定三栏 · 120 Task 回归） | [`docs/refactor/ui-design/anatomy/v3/README.md`](docs/refactor/ui-design/anatomy/v3/README.md) · [Phase 3 报告](docs/refactor/ui-design/anatomy/v3/PHASE3_REPORT.md) |
 | **项目解剖图 V2**（历史：Phase 0–5 的 React SVG 对象 / 空间交互 / 演进痕迹） | [`docs/refactor/ui-design/anatomy/v2/README.md`](docs/refactor/ui-design/anatomy/v2/README.md) |
 | 原始计划 / 设计输入（只作溯源，非事实源） | [`docs/refactor/inputs/`](docs/refactor/inputs/) |

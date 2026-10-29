@@ -50,7 +50,7 @@
 | 2 | Island Blueprint Dock 独立原型（收起/展开/长内容/空加载）+ 对比 | ✅ 原型完成，待视觉确认（[报告](next-cycle/PHASE2_ISLAND.md)） |
 | 3 | 移动端 A/B/C 决策报告 + 安全边界；不改网络/认证 | ✅ 已完成（[报告](next-cycle/PHASE3_MOBILE.md)） |
 | 4 | 高频路径焦点/连续性最小修复 + 回归测试 | ✅ 已完成（[报告](next-cycle/PHASE4_CONTINUITY.md)） |
-| 5 | 全量回归、桌面打包、最终报告、commit/push | ⏳ 待开始 |
+| 5 | 全量回归、桌面打包、最终报告、commit/push | ✅ 已完成（[交付报告](next-cycle/PHASE5_DELIVERY.md)） |
 
 ## 5. 基线命令（已核实可用）
 
@@ -81,6 +81,9 @@ backend\.venv\Scripts\python.exe -m ruff format --config backend/pyproject.toml 
 - 移动端不默认改监听地址，不把服务暴露到 `0.0.0.0`。
 - 不清理用户未跟踪文件，不重写历史文档。
 
-## 7. Phase 0 结论
+## 7. 最终结论（Phase 5）
 
-项目可以进入 Phase 1：Anatomy V3 的布局/状态/全量数据能力已经成立；本轮最明确的可读性问题在 Structure 标签层级，最明确的连续性问题在 Task 抽屉关闭后的焦点恢复。Island 的视觉冲突与移动端路线分别在 Phase 2/3 处理。
+Anatomy V3 已完成视觉验收与最小修复；Island Blueprint Dock 已有独立原型，等待视觉确认；
+移动端已形成 A/B/C 决策但不改网络边界；高频路径的焦点与滚动连续性已修复。
+最终门禁：前端 175 单测/40 E2E/typecheck/lint/build，后端 406 测试，桌面正常/强杀均干净。
+Zod high 与 Island 原生快速反转仍作为下一轮明确待办，未写成已完成。
