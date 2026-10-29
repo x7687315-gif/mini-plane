@@ -49,7 +49,7 @@
 | 1 | Anatomy 视觉验收 + 最小修复 + 前后截图 + 测试 | ✅ 已完成（[报告](next-cycle/PHASE1_ANATOMY.md)） |
 | 2 | Island Blueprint Dock 独立原型（收起/展开/长内容/空加载）+ 对比 | ✅ 原型完成，待视觉确认（[报告](next-cycle/PHASE2_ISLAND.md)） |
 | 3 | 移动端 A/B/C 决策报告 + 安全边界；不改网络/认证 | ✅ 已完成（[报告](next-cycle/PHASE3_MOBILE.md)） |
-| 4 | 高频路径焦点/连续性最小修复 + 回归测试 | ⏳ 待开始 |
+| 4 | 高频路径焦点/连续性最小修复 + 回归测试 | ✅ 已完成（[报告](next-cycle/PHASE4_CONTINUITY.md)） |
 | 5 | 全量回归、桌面打包、最终报告、commit/push | ⏳ 待开始 |
 
 ## 5. 基线命令（已核实可用）

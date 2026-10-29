@@ -35,6 +35,8 @@ export interface DrawerProps {
   footer?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Accessible name when `crumb` is a ReactNode rather than plain text. */
+  ariaLabel?: string;
 }
 
 export function Drawer({
@@ -45,8 +47,10 @@ export function Drawer({
   footer,
   children,
   className,
+  ariaLabel,
 }: DrawerProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef<HTMLElement | null>(null);
 
   // Esc to close
   useEffect(() => {
@@ -58,9 +62,18 @@ export function Drawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // Focus trap (basic — focus the panel when it opens)
+  // Focus the panel on open, and return focus to the trigger on close.
   useEffect(() => {
-    if (open && ref.current) ref.current.focus();
+    if (!open) return;
+    const previously = document.activeElement;
+    if (previously instanceof HTMLElement) restoreFocus.current = previously;
+    const frame = requestAnimationFrame(() => ref.current?.focus());
+    return () => {
+      cancelAnimationFrame(frame);
+      const target = restoreFocus.current;
+      restoreFocus.current = null;
+      if (target?.isConnected) target.focus({ preventScroll: true });
+    };
   }, [open]);
 
   if (typeof document === "undefined") return null;
@@ -71,7 +84,7 @@ export function Drawer({
       className="fixed inset-0 z-50 flex"
       role="dialog"
       aria-modal
-      aria-label={typeof crumb === "string" ? crumb : undefined}
+      aria-label={ariaLabel ?? (typeof crumb === "string" ? crumb : "面板")}
     >
       {/* Backdrop */}
       <div
