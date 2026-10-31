@@ -1,0 +1,59 @@
+name: Release
+
+# Tag push builds the stable local package and publishes it as a GitHub Release.
+# Uses the repository-scoped GITHUB_TOKEN; no personal token is stored in the repo.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build local package
+        run: python scripts/package.py
+
+      - name: Zip package
+        run: |
+          set -euo pipefail
+          package_dir="$(find dist -maxdepth 1 -type d -name 'mini-plane-*-local' | sort | tail -n 1)"
+          test -n "$package_dir"
+          version="$(basename "$package_dir")"
+          python - "$package_dir" "dist/${version}.zip" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          src = Path(sys.argv[1])
+          dst = Path(sys.argv[2])
+          with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zf:
+              for path in src.rglob("*"):
+                  zf.write(path, path.relative_to(src.parent))
+          print(dst)
+          PY
+          test -s "dist/${version}.zip"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          package_dir="$(find dist -maxdepth 1 -type d -name 'mini-plane-*-local' | sort | tail -n 1)"
+          version="$(basename "$package_dir")"
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/${version}.zip" \
+            --title "Mini Plane ${GITHUB_REF_NAME} — Phase I 稳定版" \
+            --notes-file docs/releases/v1.0.1.md \
+            --verify-tag

@@ -61,6 +61,9 @@ README 标签页当成主窗口；现改为 launcher 的精确标题 `Mini Plane
 
 ## 6. Phase I 最终收尾补验（2026-10-31）
 
+> 代码质量报告：[`PHASE_I_CODE_CHECK.md`](../PHASE_I_CODE_CHECK.md) ·
+> 发布说明：[`docs/releases/v1.0.1.md`](../../releases/v1.0.1.md)。
+
 - **Anatomy**：滚动恢复新增 E2E（12 Stage）；空项目 E2E；任务接口 500 的 partial 错误 E2E。
 - **Drawer**：新增 Tab/Shift+Tab 焦点陷阱，E2E 与焦点恢复一起通过。
 - **Island**：最终 exe 用 `desktop/verify_island_rapid.py` 实测快速反向；

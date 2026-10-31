@@ -4,7 +4,6 @@ export {
   computeGrowthLayout,
   computeStructureLayout,
   isInside,
-  labelProgress,
   overlapArea,
   type AnatomyLayout,
   type EmptyBaseLayout,
