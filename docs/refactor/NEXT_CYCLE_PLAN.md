@@ -1,6 +1,7 @@
 # Mini Plane 下一周期执行入口（2026-10-29）
 
 > 事实源：当前代码 + `docs/PRODUCT_PRINCIPLES.md` + `frontend/DESIGN.md` + `docs/ISLAND_V3_SPEC.md`。
+> 第一阶段最终审计：[`PHASE_I_FINAL_AUDIT.md`](PHASE_I_FINAL_AUDIT.md) · 日常使用模板：[`PHASE_I_DAILY_USE_LOG.md`](../PHASE_I_DAILY_USE_LOG.md)。
 > 用户规划原文：`C:\Users\86159\Downloads\mini-plane-next-cycle-plan.md`（仓库外，仅作输入）。
 > 本轮最高标准：**轻量化 / 流畅性 / 日常便捷性**；每项改动都要说明改善哪一项、是否损害另外两项。
 
@@ -10,7 +11,7 @@
 - 工作区有用户未跟踪的 Anatomy research 文件（`.md/.pdf/.zip/目录`），**本轮不覆盖、不删除、不提交**。
 - 生产：Next 16.4.3 · React 19 · Django 5.2 · V3 Anatomy · Island V3 单窗。
 - 桌面产物：`dist/MiniPlane/MiniPlane.exe` 已用 V3 前端重建；正常关窗与 `--force` 均验证整棵进程树退出。
-- 近期门禁：后端 406/406；前端 typecheck/lint/175 单测/build；E2E 40/40；ruff 全目录通过。
+- 近期门禁：后端 406/406；前端 typecheck/lint/175 单测/build；E2E 43/43（setup + 42 业务）；ruff 全目录通过。
 - 安全：Next critical 已清零；source-map-js 已覆盖 1.2.2；剩 1 条 zod high（前端表单、未使用受限集合；zod 4 升级会破坏 `z.coerce.number()` 类型推导，已记录为下一轮债）。
 
 ## 1. 文档差异与状态

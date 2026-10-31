@@ -88,3 +88,17 @@ Phase 8 已再次重建：`scripts/package.py` → `dist/mini-plane-1.0.0-local-
 并用 `MINIPLANE_NO_WINDOW=1 MiniPlane.exe` 完成 SQLite 栈自检
 （`[selftest] stack ready …` + `services stopped`）。
 纪律不变：**改前端后必须 `python scripts/package.py` + `desktop/build.py --portable`**。
+
+## TD-13 · zod <4.6.6 生产依赖 high（2026-10-29）
+
+- 审计：`GHSA-mrhx-c7xc-m3w5`（oversized constrained collections 内存耗尽）；
+  实际使用在 5 个前端表单（登录/工作区/成员/项目/注册），没有 array/record 的 max 约束。
+- 迁移尝试：zod 4.6.6 + `@hookform/resolvers` 5 会破坏成员表单
+  `z.coerce.number().int()` 的类型推导（`typecheck` 失败），已回退。
+- 处置：第一阶段保留 zod 3，记录影响范围；下一轮做 zod 4 + resolvers 5 的独立迁移与回归，
+  不为了审计全绿强行升级。
+
+## TD-14 · Phase I 14 天日常使用验收（时间门禁）
+
+- 当前不能由开发/测试替代；模板见 [`docs/PHASE_I_DAILY_USE_LOG.md`](../PHASE_I_DAILY_USE_LOG.md)。
+- 14 天结束后按「必须修复 / 值得优化 / 暂缓处理」分类，再正式关闭 Phase I。

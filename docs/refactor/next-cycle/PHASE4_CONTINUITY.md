@@ -12,8 +12,8 @@
 - **修复**：`components/ui/Drawer.tsx` 打开时记录触发元素，关闭时
   `focus({ preventScroll: true })` 归还；同时补 `ariaLabel`，
   任务抽屉的可访问名从 `undefined` 变为「AVXD4 任务详情」。
-- **证据**：`anatomy-v3.spec.ts` 新增断言，6/6 通过；关闭抽屉后焦点文本
-  包含原任务标题。
+- **证据**：`anatomy-v3.spec.ts` 新增焦点陷阱与关闭恢复断言，9/9 通过；
+  关闭抽屉后焦点文本包含原任务标题。
 
 ### 1.2 Growth ↔ Structure 切换丢失滚动位置（已修）
 
@@ -60,4 +60,4 @@ frontend/components/anatomy/AnatomyPlate.tsx
 frontend/tests/e2e/anatomy-v3.spec.ts
 ```
 
-测试：typecheck / lint / 175 单测；Anatomy E2E 6/6；16 Stage 滚动脚本通过（临时项目已删除）。
+测试：typecheck / lint / 175 单测；Anatomy E2E 9/9；12 Stage 滚动 E2E 与 16 Stage 手工脚本通过。

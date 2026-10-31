@@ -37,7 +37,7 @@
 |---|---|
 | typecheck / lint | 通过 |
 | 前端单测 | 175 / 175 |
-| Anatomy E2E | 6 / 6（选中、双视图、URL、抽屉、记录、NEW/UPD、安全文本） |
+| Anatomy E2E | 9 / 9（选中、双视图、URL、抽屉焦点、空态、滚动恢复、错误态、记录、NEW/UPD、安全文本） |
 | 120 Task | 主图/索引/详情均 120；Growth `+106`、Structure `+108` 可见；无 console error |
 | 快速反向切换 | 最终 URL 为 growth，选中 Stage 保持「工作台与协作」 |
 | 结构标签 | 正常 5 Stage 下名称可读；精确进度/计数在索引与详情 |

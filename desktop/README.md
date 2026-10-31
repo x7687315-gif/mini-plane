@@ -72,6 +72,9 @@ backend\.venv\Scripts\python.exe desktop\verify_quit.py
 
 :: 模拟任务管理器强杀（验证 Job Object 兜底）
 backend\.venv\Scripts\python.exe desktop\verify_quit.py --force
+
+:: 最终 exe 的 Island 快速反向展开/收起（会备份并恢复 desktop-config.json）
+backend\.venv\Scripts\python.exe desktop\verify_island_rapid.py
 ```
 
 检查范围不是只看端口：脚本记录启动时的所有后代 PID（含

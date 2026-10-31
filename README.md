@@ -11,7 +11,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white">
   <img alt="后端测试" src="https://img.shields.io/badge/backend_tests-406-brightgreen">
   <img alt="前端测试" src="https://img.shields.io/badge/frontend_tests-175-brightgreen">
-  <img alt="浏览器 E2E" src="https://img.shields.io/badge/E2E-39_%2B_setup_40-brightgreen">
+  <img alt="浏览器 E2E" src="https://img.shields.io/badge/E2E-42_%2B_setup_43-brightgreen">
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@
 
 <p align="center">
   <b>Python 3.12</b> · <b>Django 5.2 LTS</b> · <b>Next.js 16</b> · <b>React 19</b> · <b>TypeScript</b> · <b>Tailwind v4</b> · <b>Channels/WebSocket</b> · <b>pywebview</b><br>
-  <b>后端 406</b> 用例 · <b>前端 175</b> 单测 · <b>39</b> 个浏览器 E2E（+setup 40）· <b>CI 三 job</b>
+  <b>后端 406</b> 用例 · <b>前端 175</b> 单测 · <b>42</b> 个浏览器 E2E（+setup 43）· <b>CI 三 job</b>
 </p>
 
 ---
@@ -548,14 +548,14 @@ mini-plane/
 | 后端 | **406** | `cd backend && .venv\Scripts\python.exe manage.py test --noinput --settings=config.settings.test` |
 | 前端单测 | **175** | `cd frontend && pnpm test`（`node --test`，零依赖） |
 | 桌面单测 | **20** | `backend/.venv/Scripts/python.exe desktop/tests/test_island_config.py`（另跑 `test_island_window_manager.py`） |
-| 浏览器 E2E | **39**（+setup 40） | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
+| 浏览器 E2E | **42**（+setup 43） | `scripts\dev.cmd e2e`（Playwright + 真实 Chrome） |
 | 生产依赖审计 | **Next 16.4.3 已修 critical/high**；剩 1 条 zod high（已评估，见 devlog） | `pnpm audit --prod --registry=https://registry.npmjs.org` |
 
 CI（`.github/workflows/ci.yml`，三个 job 全绿才可合并）：
 
 - **backend**：`ruff check` / `ruff format --check`（覆盖 `backend/`、`desktop/`、`scripts/`）→ desktop 状态机单测 → `makemigrations --check` → `spectacular --validate --fail-on-warn` → 与 `docs/api/openapi.yaml` 快照 diff → 全量测试 → Redis 缓存后端实测
 - **frontend**：`pnpm install --frozen-lockfile` → `lint` → `typecheck` → `test` → `build` → 断言 standalone 产物存在
-- **e2e**：起 Postgres + 真实后端 + Next dev，安装 Chromium，跑完整 39 条业务 Playwright + setup（共 40，不 mock 后端）
+- **e2e**：起 Postgres + 真实后端 + Next dev，安装 Chromium，跑完整 42 条业务 Playwright + setup（共 43，不 mock 后端）
 
 E2E 覆盖：昵称登录/注册、首页、工程台筛选与 URL 往返、任务抽屉/评论、批量操作与部分失败重试、真实 WebSocket 更新、Agent→Island 实时闭环、Island 两态、Anatomy V3 双视图、实时 4404 撤权、个人/协作导航。
 
@@ -657,7 +657,8 @@ v1.0.0 Personal ⇄ Collaboration         ✅ Sprint 17（已发版）
 |---------|--------|
 | **产品原则**（唯一事实源） | [`docs/PRODUCT_PRINCIPLES.md`](docs/PRODUCT_PRINCIPLES.md) · 领域模型 [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md) |
 | **个人优先重构**（Phase 0–9 已完成） | [`docs/refactor/`](docs/refactor/) · Phase 6–9 报告 [`PHASE6_REPORT.md`](docs/refactor/PHASE6_REPORT.md) … [`PHASE9_REPORT.md`](docs/refactor/PHASE9_REPORT.md) · 决策记录 [`docs/decisions/`](docs/decisions/) |
-| **下一周期执行入口**（轻量化 / 流畅性 / 日常便捷性） | [`docs/refactor/NEXT_CYCLE_PLAN.md`](docs/refactor/NEXT_CYCLE_PLAN.md) · [Phase 5 交付](docs/refactor/next-cycle/PHASE5_DELIVERY.md) |
+| **下一周期执行入口**（轻量化 / 流畅性 / 日常便捷性） | [`docs/refactor/NEXT_CYCLE_PLAN.md`](docs/refactor/NEXT_CYCLE_PLAN.md) · [Phase I 最终审计](docs/refactor/PHASE_I_FINAL_AUDIT.md) · [Phase 5 交付](docs/refactor/next-cycle/PHASE5_DELIVERY.md) |
+| **Phase I 日常使用日志** | [`docs/PHASE_I_DAILY_USE_LOG.md`](docs/PHASE_I_DAILY_USE_LOG.md)（14 天真实使用，待执行） |
 | **项目解剖图 V3**（生产：生长/结构双视图 · 全量 Task · 固定三栏 · 120 Task 回归） | [`docs/refactor/ui-design/anatomy/v3/README.md`](docs/refactor/ui-design/anatomy/v3/README.md) · [Phase 3 报告](docs/refactor/ui-design/anatomy/v3/PHASE3_REPORT.md) |
 | **项目解剖图 V2**（历史：Phase 0–5 的 React SVG 对象 / 空间交互 / 演进痕迹） | [`docs/refactor/ui-design/anatomy/v2/README.md`](docs/refactor/ui-design/anatomy/v2/README.md) |
 | 原始计划 / 设计输入（只作溯源，非事实源） | [`docs/refactor/inputs/`](docs/refactor/inputs/) |

@@ -93,11 +93,114 @@ test.describe("Anatomy V3 · 双视图与安全文本", () => {
       await expect(page).toHaveURL(/issue=/);
       await expect(page.getByRole("dialog", { name: /任务详情/ })).toBeVisible({ timeout: 15_000 });
 
+      // Tab / Shift+Tab 都留在对话框内（焦点陷阱）。
+      await page.keyboard.press("Shift+Tab");
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            Boolean(document.activeElement?.closest('[role="dialog"]')),
+          ),
+        )
+        .toBe(true);
+      await page.keyboard.press("Tab");
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            Boolean(document.activeElement?.closest('[role="dialog"]')),
+          ),
+        )
+        .toBe(true);
+
       // 关闭抽屉后，焦点回到触发它的任务行，而不是落到 BODY。
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog")).toHaveCount(0);
       const restoredFocus = await page.evaluate(() => document.activeElement?.textContent ?? "");
       expect(restoredFocus).toContain(task2.title);
+    } finally {
+      await api.write("DELETE", `/api/v1/projects/${project.id}/`);
+      await api.dispose();
+    }
+  });
+
+  test("空项目：图纸和详情给出空态，不报错", async ({ page }) => {
+    test.setTimeout(60_000);
+    const api = await apiClient();
+    const project = await createProject(api, "empty");
+    try {
+      await page.goto(`/projects/${project.id}?view=plate`, {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText("这张图纸还没有结构。").first()).toBeVisible();
+      await expect(page.getByText("还没有阶段。", { exact: true })).toBeVisible();
+      await expect(page.locator("svg b")).toHaveCount(0);
+    } finally {
+      await api.write("DELETE", `/api/v1/projects/${project.id}/`);
+      await api.dispose();
+    }
+  });
+
+  test("任务请求失败：显示 partial 错误，不伪装完整", async ({ page }) => {
+    test.setTimeout(60_000);
+    const api = await apiClient();
+    const project = await createProject(api, "error");
+    try {
+      await page.route(/\/api\/v1\/projects\/[^/]+\/tasks\//, (route) =>
+        route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "forced failure" }),
+        }),
+      );
+      await page.goto(`/projects/${project.id}?view=plate`, {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(/完整任务加载失败/)).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/图纸暂不完整/)).toBeVisible();
+    } finally {
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+      await api.write("DELETE", `/api/v1/projects/${project.id}/`);
+      await api.dispose();
+    }
+  });
+
+  test("Growth 滚动位置在切换 Structure 后恢复", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const api = await apiClient();
+    const project = await createProject(api, "scroll");
+    try {
+      for (let i = 1; i <= 12; i += 1) {
+        const stage = await createStage(api, project.id, `滚动阶段 ${String(i).padStart(2, "0")}`);
+        await createTask(api, project.id, stage.id, `滚动任务 ${i}`);
+      }
+      await page.goto(`/projects/${project.id}?view=plate`, {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(page.getByRole("group", { name: /项目解剖图/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      const canvas = page.locator(".anatomy-canvas");
+      await expect
+        .poll(() => canvas.evaluate((el) => el.scrollHeight - el.clientHeight))
+        .toBeGreaterThan(0);
+      const before = await canvas.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+        return el.scrollTop;
+      });
+      await page.getByRole("button", { name: "结构 / Structure" }).click();
+      await page.waitForTimeout(300);
+      await page.getByRole("button", { name: "生长 / Growth" }).click();
+      await expect
+        .poll(() => canvas.evaluate((el) => el.scrollTop))
+        .toBeGreaterThan(0);
+      const after = await canvas.evaluate((el) => el.scrollTop);
+      expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
     } finally {
       await api.write("DELETE", `/api/v1/projects/${project.id}/`);
       await api.dispose();
