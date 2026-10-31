@@ -14,7 +14,6 @@ import { defaultStageId } from "./model";
 import {
   boundsOf,
   boxFaces,
-  clamp,
   estimateTextWidth,
   ISO_COS,
   ISO_SIN,
@@ -676,10 +675,3 @@ export function anatomyCounts(viewModel: AnatomyViewModel) {
     loose: viewModel.looseTasks.length,
   };
 }
-
-/** 给 SVG 渲染层使用的安全 clamp（不改变模型值）。 */
-export function labelProgress(stage: AnatomyStage): number {
-  return clamp(stage.recordedProgress, 0, 100);
-}
-
-export const ANATOMY_CANVAS_WIDTH = GROWTH_W;

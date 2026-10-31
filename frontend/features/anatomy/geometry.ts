@@ -112,7 +112,3 @@ export function truncateToWidth(text: string, maxWidth: number, fontSize: number
   }
   return `${out}${ellipsis}`;
 }
-
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
