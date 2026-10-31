@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { XIcon } from "@/components/icons";
 import clsx from "clsx";
@@ -39,6 +44,9 @@ export interface DrawerProps {
   ariaLabel?: string;
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Drawer({
   open,
   onClose,
@@ -76,6 +84,33 @@ export function Drawer({
     };
   }, [open]);
 
+  /** 保持 Tab/Shift+Tab 在对话框内部；焦点恢复由上面的 effect 负责。 */
+  const onPanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const node = ref.current;
+    if (!node) return;
+    const items = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+      (el) => el.getClientRects().length > 0,
+    );
+    if (items.length === 0) {
+      event.preventDefault();
+      node.focus();
+      return;
+    }
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+    const active = document.activeElement;
+    if (event.shiftKey) {
+      if (active === first || active === node) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   if (typeof document === "undefined") return null;
   if (!open) return null;
 
@@ -95,6 +130,7 @@ export function Drawer({
       <div
         ref={ref}
         tabIndex={-1}
+        onKeyDown={onPanelKeyDown}
         className={clsx(
           "relative ml-auto h-full bg-[color:var(--color-paper)] border-l border-[color:var(--color-rule)]",
           "flex flex-col shadow-[-24px_0_60px_-30px_rgba(27,26,23,0.28)]",

@@ -154,7 +154,10 @@ API：`toggle_island` / `expand_island` / `collapse_island` / `pin_island` /
 
 ## §9 非目标与下一周期
 
-- **不做**：圆角/阴影/字体的最终视觉（下一周期「Blueprint Dock 细节」：
-  项目卡 0px 细线分隔、JetBrains Mono 仪表数据层、微标签体系、信息三层优先级）；
+- **Blueprint Dock 原型（2026-10-29）**：独立视觉稿已完成
+  [`docs/refactor/ui-design/island/v4/prototype.html`](../refactor/ui-design/island/v4/prototype.html)，
+  包含收起/展开/长内容/空/加载态；**生产 UI 尚未替换**，等待视觉方向确认。
+- **不做**：未经确认就把圆角/阴影/字体原型直接生产化（方向：项目分隔 0px 细线、
+  JetBrains Mono 仪表数据层、微标签体系、信息三层优先级）；
 - **不做**：overview WebSocket 覆盖全部项目的 Phase 4 方案（沿用 V2 阶段 4 现状）；
 - **不做**：自动收起（失焦自动折叠）——未在需求内，不加。

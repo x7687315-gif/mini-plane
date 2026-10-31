@@ -27,11 +27,12 @@
 | 门禁 | 结果 |
 |---|---|
 | 前端 typecheck / lint / 单测 / build | 通过 / 通过 / 175/175 / 通过 |
-| 全量 Playwright E2E | **40/40**（setup 另计） |
+| 全量 Playwright E2E | **43/43**（setup + 42 业务） |
 | 后端测试 / Django check | **406/406** / 0 issues |
 | ruff check / format | 全目录通过 / 161 files unchanged |
-| 桌面正常关窗 | 13 后代（7 WebView2）→ 0；端口 0；PASS |
+| 桌面正常关窗（连续启动两次） | 10/13 后代 → 0；端口 0；两次均 PASS |
 | 桌面 `--force` 强杀 | 13 后代 → 0；端口 0；PASS |
+| Island 最终 exe 快速反向 | 506×382 → 360×44 → 520×420；PASS（`verify_island_rapid.py`） |
 | 120 Task Anatomy | 主图/索引/详情 120；Growth `+106`、Structure `+108`；无 console error |
 | 16 Stage 滚动 | 修复前 816→0→0；修复后 816→0→816 |
 | 快速交叉操作 | Structure→Stage 03 / Stage 02→Structure：最终 URL 与详情一致 |
@@ -58,7 +59,17 @@ README 标签页当成主窗口；现改为 launcher 的精确标题 `Mini Plane
 - [Island 长内容](phase2/prototype-long.png) · [空态](phase2/prototype-empty.png) · [加载态](phase2/prototype-loading.png)
 - 基线目录：[`baseline/`](baseline/)
 
-## 6. 已知问题与下一轮建议
+## 6. Phase I 最终收尾补验（2026-10-31）
+
+- **Anatomy**：滚动恢复新增 E2E（12 Stage）；空项目 E2E；任务接口 500 的 partial 错误 E2E。
+- **Drawer**：新增 Tab/Shift+Tab 焦点陷阱，E2E 与焦点恢复一起通过。
+- **Island**：最终 exe 用 `desktop/verify_island_rapid.py` 实测快速反向；
+  506×382 → 360×44 → 520×420，最终状态正确。
+- **桌面**：最终 exe 连续启动/关闭两次均无残留；`--force` 强杀无残留、端口释放。
+- 审计/清单：[`PHASE_I_FINAL_AUDIT.md`](../PHASE_I_FINAL_AUDIT.md)；
+  14 天日常使用模板：[`PHASE_I_DAILY_USE_LOG.md`](../../PHASE_I_DAILY_USE_LOG.md)（待真实使用）。
+
+## 7. 已知问题与下一轮建议
 
 1. **Island 视觉方向确认**（优先级最高）：确认 4px 外框、0px 分隔、单层阴影、收起态不塞 NOW 后，再进入生产实现。
 2. **移动端 A 的窄屏布局**：依据 Phase 3 先做 Structure 纵向阅读 + 详情下移；不默认开网络暴露。
