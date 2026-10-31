@@ -52,8 +52,14 @@ jobs:
           set -euo pipefail
           package_dir="$(find dist -maxdepth 1 -type d -name 'mini-plane-*-local' | sort | tail -n 1)"
           version="$(basename "$package_dir")"
+          notes_file="docs/releases/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes_file" ]; then
+            notes_args=(--notes-file "$notes_file")
+          else
+            notes_args=(--generate-notes)
+          fi
           gh release create "$GITHUB_REF_NAME" \
             "dist/${version}.zip" \
-            --title "Mini Plane ${GITHUB_REF_NAME} — Phase I 稳定版" \
-            --notes-file docs/releases/v1.0.1.md \
+            --title "Mini Plane ${GITHUB_REF_NAME}" \
+            "${notes_args[@]}" \
             --verify-tag
